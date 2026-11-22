@@ -1013,7 +1013,14 @@ Puntos que conviene no pasar por alto:
 - **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía, como muestra el borrador; la validación 2 confirmó que funciona.
 - **Credenciales S3.** El borrador no lleva claves. `S3FileIO` las toma de las variables de entorno `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`, que deben declararse tanto en `flink-jobmanager` como en `flink-taskmanager`. Así las credenciales viven en `.env` y no en el YAML del pipeline.
 - **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0`, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. La guía usa Iceberg 1.10.1; este laboratorio toma el último parche de esa línea, 1.10.2, y añade `iceberg-aws-bundle` 1.10.2 para `S3FileIO`. Hadoop se mantiene en la 3.3.6 que indica la guía aunque exista la 3.5.0, porque forma parte del conjunto probado con el conector. El conector PostgreSQL ya incluye su driver JDBC.
-- **Reinicio.** Al reiniciar, el pipeline retoma desde su último checkpoint. Si se pierden los checkpoints, vuelve a tomar el snapshot inicial, lo cual es seguro porque la escritura es un upsert por PK.
+- **Reinicio.** Si cae el TaskManager, el job se recupera solo desde su último checkpoint. Si se reinicia el JobManager, el job se pierde: el clúster standalone no tiene alta disponibilidad y arranca sin jobs. Hay que reenviar el pipeline con `--from-savepoint` apuntando al último checkpoint retenido; así retoma sin repetir el snapshot y entrega lo que cambió mientras estuvo parado. El slot de replicación permanece en PostgreSQL entre tanto.
+- **Checkpoints retenidos y compartidos.** Para que ese reenvío sea posible, los checkpoints se guardan en `flink/data/`, montado en la misma ruta en el JobManager y en el TaskManager, con `execution.checkpointing.dir: file:///opt/flink/state/checkpoints` y `execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION`. Flink corre como usuario `flink`: el directorio debe pertenecerle antes de arrancar.
+- **`flink-cdc-submit` idempotente de verdad.** El job one-shot sigue esta regla cada vez que se ejecuta:
+  1. Consulta la API REST de Flink. Si ya hay un job en ejecución con el nombre del pipeline, termina sin hacer nada.
+  2. Si no lo hay y existe un checkpoint retenido en `flink/data/`, reenvía con `--from-savepoint` hacia el más reciente.
+  3. Solo si no hay ni job ni checkpoint hace un envío nuevo, con snapshot inicial.
+
+  Sin esta regla, repetir `docker compose up` es dañino. Un segundo envío no falla: Flink lo acepta y arranca otro job que repite el snapshot completo sobre las mismas tablas. Bronze sigue cuadrando en filas, pero todas vuelven a `+I` con el `cdc_op_ts` del nuevo snapshot, se pierde la marca `+U` y la fecha real de cada cambio, y se acumula un delete de igualdad por cada fila reescrita.
 
 ## 15. 🪣 RustFS
 
@@ -2253,6 +2260,7 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | 7 | 2026-11-22 | ✅ Superada, con tres ajustes al diseño |
 | 8 | 2026-11-22 | ✅ Superada |
 | 9 | 2026-11-22 | ✅ Superada |
+| Volumen | 2026-11-22 | ✅ Superada, con dos requisitos nuevos para `flink-cdc-submit` |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -2431,6 +2439,42 @@ La validación 9 queda completa: Superset se comprobó en la validación 7 y Air
 Decisión que quedaba abierta y se cierra: Python 3.12 se instala en la imagen de Spark con `uv`. Los detalles de las dos imágenes están en la sección 18.
 
 Lo que estas pruebas no cubren: los jobs reales `bronze_to_silver.py` y `silver_to_gold.py`, la programación periódica del DAG, los reintentos, el `MERGE` de Silver y la arquitectura `arm64`. El DAG se disparó por línea de comandos; no se usó la interfaz web de Airflow.
+
+#### Validación de volumen: las 20 tablas y el dataset completo
+
+Las nueve validaciones usaron tres tablas y unas decenas de filas. Esta repite el camino PostgreSQL 19 → Flink CDC → Bronze con el esquema completo de la sección 12 y el dataset de `raw_data/`, y cubre lo que aquellas dejaron fuera: volumen, checkpoint de 30 s, checkpoints persistidos y reinicio del JobManager.
+
+Entorno: el de las validaciones 2 a 4, con el pipeline de la sección 14 sin cambios, checkpoint cada 30 s, checkpoints en un volumen compartido por JobManager y TaskManager, y los límites de memoria de la sección 39 (PostgreSQL 1 GB, JobManager 1 GB, TaskManager 2 GB, RustFS 1 GB, catálogo 0.5 GB). El dataset se cargó con `COPY`, solo como forma de poblar la base para la prueba. Los conteos de Bronze se leyeron con DuckDB.
+
+| Qué se comprobó | Resultado |
+|---|---|
+| DDL de las 20 tablas, con sus claves, `CHECK`, cascadas y `REPLICA IDENTITY FULL` | Se aplica sin errores; las 20 tablas entran en la publicación |
+| Carga de los 20 CSV | 438,925 filas en 6 s, sin violar ninguna restricción |
+| Snapshot inicial de las 20 tablas | Completo en unos 70 s; el conector crea las 20 tablas Bronze |
+| Bronze frente a PostgreSQL tras el snapshot | Las 20 tablas coinciden fila por fila en número: 438,925 |
+| 2,000 UPDATE, 300 DELETE con cascada y 150 reinserciones, en streaming | Bronze coincide con PostgreSQL en las 20 tablas (431,884 filas vivas) y conserva 7,041 tombstones |
+| Marcas de operación | 1,700 películas en `+U`, 150 en `-D` y las reinsertadas en `+I`, como corresponde |
+| Memoria bajo carga | TaskManager 1.1 de 2 GB, JobManager 0.58 de 1 GB, PostgreSQL 0.25 de 1 GB, catálogo 0.2 de 0.5 GB, RustFS 0.09 de 1 GB |
+| Checkpoints de 30 s | Todos completados, en menos de 1 s cada uno; ninguno fallido |
+| Retención de WAL | El slot confirma con un retraso de unos tres checkpoints; llegó a retener 31 MB y bajó a menos de 1 MB |
+| Reinicio de JobManager y TaskManager | El job se pierde: el clúster arranca sin jobs. El slot queda inactivo en PostgreSQL |
+| Reenvío con `--from-savepoint` al checkpoint retenido | Retoma sin repetir el snapshot: solo cambiaron en Bronze las 196 filas afectadas por los cambios hechos durante la parada, y los conteos vuelven a coincidir |
+| Segundo envío con el job ya en ejecución | **Dañino:** Flink lo acepta y un segundo job repite el snapshot completo. Las filas cuadran, pero todas vuelven a `+I` con un `cdc_op_ts` nuevo |
+| Lectura de Bronze sin compactar | 1.4 s tras el snapshot, 13 s tras los cambios en streaming y 192 s tras el snapshot duplicado, para contar las 20 tablas |
+
+Consecuencias para el diseño, ya incorporadas en la sección 14:
+
+- **El job no sobrevive a un reinicio del JobManager.** El diseño decía que el pipeline retomaba solo desde su último checkpoint; eso vale para una caída del TaskManager, no para el JobManager.
+- **`flink-cdc-submit` necesita lógica**, no solo un envío: detectar un job ya en ejecución y, si no lo hay, reanudar desde el checkpoint retenido.
+- **Los checkpoints deben retenerse** y vivir en un directorio compartido por JobManager y TaskManager, propiedad del usuario `flink`.
+
+Otras observaciones:
+
+- El presupuesto de memoria de la sección 39 es holgado para Flink y PostgreSQL con este volumen.
+- La degradación de lectura confirma con cifras lo que ya indicaba la validación 5: sin compactación, el coste de leer Bronze crece con cada cambio.
+- El DDL usado es un borrador escrito a partir de la sección 12; todavía no está en `postgresql/init/`.
+
+Lo que esta prueba no cubre: el simulador Java (los datos se cargaron con `COPY` y con SQL), la compactación a este volumen, Silver y Gold, y la pérdida de los checkpoints.
 
 ## 47. 📝 Registro de cambios de la revisión
 

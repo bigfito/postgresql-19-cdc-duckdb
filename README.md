@@ -26,7 +26,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
 | Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0) |
-| Dataset de entrada: 20 CSV en `raw_data/`, uno por tabla | ⏳ Pendiente de generar |
+| Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Generado: 6,899 películas sintéticas, 24.5 MB, con su script generador y su [README](raw_data/README.md) |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
 ## 3. 🗺️ Arquitectura
@@ -101,7 +101,7 @@ postgresql-19-cdc-duckdb/
         `-- compose-startup-order.{json,html,svg}
 ```
 
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen, vacíos y con un `.gitkeep` cada uno; `docker-compose.yml`, `.env.example` y el contenido de cada servicio están pendientes. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-propuesta-del-repositorio).
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset; los demás están vacíos, con un `.gitkeep` cada uno. `docker-compose.yml`, `.env.example` y el contenido de cada servicio están pendientes. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-propuesta-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/
@@ -151,7 +151,7 @@ Flujo demostrativo esperado:
 ## 9. 🚀 Hoja de ruta
 
 1. ✅ **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes, todas superadas. PostgreSQL 19.0 funciona con Flink CDC 3.7.0, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
-2. Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
+2. ✅ Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.
 5. RustFS, Iceberg REST Catalog y pipeline Flink CDC → Bronze.
