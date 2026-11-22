@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 4 (2026-11-22):** este documento incorpora las correcciones de la revisión de diseño, una segunda pasada de versiones y el cambio del dataset de entrada a un CSV por tabla (sección 8). Cada componente está en su versión estable más reciente compatible con el resto, y toda imagen base se comprobó en Docker Hub; ver [sección 3](#3--software-stack). El detalle de cada cambio está en la [sección 47](#47--registro-de-cambios-de-la-revisión) y lo que aún debe probarse antes de implementar está en la [sección 46](#46--validaciones-previas-fase-0).
+> 📝 **Revisión 5 (2026-11-22):** el simulador pasa a tener una interfaz de consola enriquecida (sección 9), se añade la sección de cuentas y credenciales (sección 45), y las decisiones, las validaciones y el registro de cambios se trasladan a un documento propio. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -51,40 +51,31 @@ Se privilegiarán `bigint`, `integer`, `numeric(p,s)`, `text`, `boolean`, `date`
 
 Las versiones base recomendadas se fijan para que el laboratorio sea reproducible. Cuando dos componentes mantienen una relación de compatibilidad estricta, esa compatibilidad tiene prioridad sobre usar simplemente “la versión más nueva”.
 
-| Componente | Versión base | Imagen o artefacto | Rol |
-|---|---:|---|---|
-| PostgreSQL | **19.0** | `postgres:19.0` | Base operacional con logical replication; la misma imagen sirve a `metadata-db` |
-| Java | **25** (LTS) | `eclipse-temurin:25.0.5.1_2-jre` | Event Simulator |
-| Apache Maven | **3.10.0** | `maven:3.10.0-eclipse-temurin-25` | Etapa de build del simulador |
-| PostgreSQL JDBC | **42.7.14** | `org.postgresql:postgresql` | Driver del simulador |
-| Apache Commons CSV | **1.14.1** | `org.apache.commons:commons-csv` | Lectura de los CSV en el simulador |
-| Apache Flink | **2.2.1** | `flink:2.2.1-java21` | Runtime de streaming |
-| Apache Flink CDC | **3.7.0** | conectores `postgres` e `iceberg`, versión `3.7.0-2.2` | PostgreSQL CDC → Iceberg |
-| Apache Iceberg en Flink | **1.10.2** | `iceberg-flink-runtime-2.0`, `iceberg-aws-bundle` | Sink Iceberg del pipeline CDC |
-| Apache Spark / PySpark | **4.1.4** | `apache/spark:4.1.4-scala2.13-java21-python3-ubuntu` | Bronze → Silver → Gold |
-| Apache Iceberg en Spark | **1.12.0** | `iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle` | Lectura y escritura de Silver y Gold |
-| Python | **3.12** | variantes `-python3.12` y `-py312` de las imágenes; se instala en la de Spark | Intérprete común de Airflow, Spark y Superset |
-| Apache Airflow | **3.4.0** | `apache/airflow:3.4.0-python3.12` | Orquestación |
-| Proveedor Spark de Airflow | **6.3.4** | `apache-airflow-providers-apache-spark` | `SparkSubmitOperator` |
-| DuckDB | **1.5.6** | paquete Python `duckdb`; `duckdb/duckdb:1.5.6` para la línea de comandos | SQL/query engine embebido |
-| duckdb-engine | **0.17.0** | paquete Python `duckdb-engine` | Dialecto SQLAlchemy para Superset |
-| Apache Superset | **6.1.0** | `apache/superset:6.1.0-py312` | BI y dashboards |
-| RustFS | **1.0.6** | `rustfs/rustfs:1.0.6` | Object storage S3-compatible |
-| Iceberg REST Catalog | **1.10.1** | `apache/iceberg-rest-fixture:1.10.1` | Catálogo compartido |
-| Docker Compose | **v2 o posterior** | — | Runtime del laboratorio |
+| Componente | Versión base | Imagen o artefacto | Rol | Propósito en el laboratorio |
+|---|---:|---|---|---|
+| PostgreSQL | **19.0** | `postgres:19.0` | Base operacional con logical replication; la misma imagen sirve a `metadata-db` | Hacer de sistema transaccional real: es el origen cuyos cambios se capturan desde el WAL |
+| Java | **25** (LTS) | `eclipse-temurin:25.0.5.1_2-jre` | Event Simulator | Mostrar una aplicación que genera transacciones de verdad, en lugar de una carga por lotes |
+| Apache Maven | **3.10.0** | `maven:3.10.0-eclipse-temurin-25` | Etapa de build del simulador | Compilar el simulador dentro de Docker, sin exigir un JDK en la máquina de quien revisa |
+| PostgreSQL JDBC | **42.7.14** | `org.postgresql:postgresql` | Driver del simulador | Conectar el simulador con PostgreSQL y controlar cada transacción |
+| Apache Commons CSV | **1.14.1** | `org.apache.commons:commons-csv` | Lectura de los CSV en el simulador | Leer sin errores celdas con comas, comillas y saltos de línea |
+| Lanterna | **3.1.5** | `com.googlecode.lanterna:lanterna` | Interfaz de consola del simulador | Dar al simulador una pantalla desde la que observar, controlar y dirigir la simulación |
+| DuckDB JDBC | **1.5.6.0** | `org.duckdb:duckdb_jdbc` | Seguimiento aguas abajo desde el simulador | Comprobar desde el simulador si cada cambio ya llegó a Bronze |
+| Apache Flink | **2.2.1** | `flink:2.2.1-java21` | Runtime de streaming | Mantener un job de streaming siempre encendido, con checkpoints y recuperación ante fallos |
+| Apache Flink CDC | **3.7.0** | conectores `postgres` e `iceberg`, versión `3.7.0-2.2` | PostgreSQL CDC → Iceberg | Capturar cada INSERT, UPDATE y DELETE sin escribir código: el pipeline es un archivo YAML |
+| Apache Iceberg en Flink | **1.10.2** | `iceberg-flink-runtime-2.0`, `iceberg-aws-bundle` | Sink Iceberg del pipeline CDC | Escribir Bronze como tabla transaccional, con upsert por clave primaria |
+| Apache Spark / PySpark | **4.1.4** | `apache/spark:4.1.4-scala2.13-java21-python3-ubuntu` | Bronze → Silver → Gold | Transformar por lotes: construir el modelo dimensional con historial y los productos Gold |
+| Apache Iceberg en Spark | **1.12.0** | `iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle` | Lectura y escritura de Silver y Gold | Aportar `MERGE`, snapshots y mantenimiento de tablas sobre object storage |
+| Python | **3.12** | variantes `-python3.12` y `-py312` de las imágenes; se instala en la de Spark | Intérprete común de Airflow, Spark y Superset | Evitar que PySpark falle porque el driver y los ejecutores usan versiones distintas |
+| Apache Airflow | **3.4.0** | `apache/airflow:3.4.0-python3.12` | Orquestación | Encadenar, validar y reintentar los jobs por lotes, y dejar visible cada corrida |
+| Proveedor Spark de Airflow | **6.3.4** | `apache-airflow-providers-apache-spark` | `SparkSubmitOperator` | Lanzar `spark-submit` desde una tarea del DAG |
+| DuckDB | **1.5.6** | paquete Python `duckdb`; `duckdb/duckdb:1.5.6` para la línea de comandos | SQL/query engine embebido | Consultar Gold con SQL sin levantar un motor de consultas aparte |
+| duckdb-engine | **0.17.0** | paquete Python `duckdb-engine` | Dialecto SQLAlchemy para Superset | Hacer que Superset trate a DuckDB como una base de datos más |
+| Apache Superset | **6.1.0** | `apache/superset:6.1.0-py312` | BI y dashboards | Presentar el resultado final: dashboards construidos sobre Gold |
+| RustFS | **1.0.6** | `rustfs/rustfs:1.0.6` | Object storage S3-compatible | Sustituir a un servicio S3 de nube, para que todo corra en la máquina local |
+| Iceberg REST Catalog | **1.10.1** | `apache/iceberg-rest-fixture:1.10.1` | Catálogo compartido | Dar a Flink, Spark y DuckDB un único registro de tablas |
+| Docker Compose | **v2 o posterior** | — | Runtime del laboratorio | Levantar todo el laboratorio con un solo comando reproducible |
 
-> ℹ️ **Criterio: la versión estable más reciente que el resto del stack admite.** Cada componente se revisó el 2026-11-22 contra Docker Hub, Maven Central y PyPI. Están en su última versión estable publicada: PostgreSQL 19.0, Flink CDC 3.7.0, Airflow 3.4.0 y su proveedor Spark 6.3.4, Superset 6.1.0, RustFS 1.0.6, `duckdb-engine` 0.17.0, JDBC 42.7.14, Commons CSV 1.14.1, Maven 3.10.0 e Iceberg 1.12.0 en Spark. Los que quedan por debajo de la última publicada tienen un motivo de compatibilidad comprobado:
->
-> - **Flink 2.2.1 y no 2.3.0.** Flink 2.3.0 ya está en Docker Hub, pero Flink CDC 3.7 solo soporta Flink 1.20 y 2.2: su tabla de compatibilidad lo declara y sus conectores se publican únicamente con los sufijos `-1.20` y `-2.2`. La 2.2.1 es el último parche de la línea 2.2.
-> - **Spark 4.1.4 y no 4.3.0.** Iceberg publica un runtime por cada versión menor de Spark. Iceberg 1.12.0 (la más reciente) cubre Spark 3.5, 4.0 y 4.1; en Maven Central no existe `iceberg-spark-runtime-4.2` ni `-4.3`, así que con 4.3.0 los jobs no podrían leer ni escribir Iceberg. La 4.1.4 es el último parche de la línea 4.1.
-> - **Iceberg 1.10.2 dentro de Flink y no 1.12.0.** Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y, en su perfil para Flink 2.x, usa el artefacto `iceberg-flink-runtime-2.0`. La guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg» lista ese conjunto para Flink 2.2.1: «Iceberg Flink runtime 1.10.1 (2.0)». Se adopta el último parche de esa misma línea, 1.10.2. No se salta a 1.11.0 (cambio de versión menor respecto a lo que compila el conector) ni al runtime 1.12.0 para Flink 2.2 (otro artefacto). Si el parche diera problemas, el respaldo es 1.10.1; ver [sección 46](#46--validaciones-previas-fase-0).
-> - **Dos versiones de Iceberg conviven.** Flink escribe Bronze con 1.10.2 y Spark lee Bronze y escribe Silver y Gold con 1.12.0. Las tablas se crean en formato v2, que ambas versiones y DuckDB leen.
-> - **Iceberg REST Catalog 1.10.1.** Es la etiqueta versionada más reciente de `apache/iceberg-rest-fixture` en Docker Hub; las versiones 1.10.2, 1.11.0 y 1.12.0 de Iceberg no publicaron imagen. Solo `latest` es más nueva, y la política de versiones la excluye.
-> - **DuckDB 1.5.6 y no 2.0.1.** Superset 6.1.0 declara `duckdb<2,>=1.4.2` en su extra `duckdb`, de modo que DuckDB 2.x queda fuera hasta que Superset lo admita. La 1.5.6 es la última versión de la serie 1.x.
-> - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
-> - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
-> - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. La validación 8 reprodujo el fallo con las imágenes por defecto y confirmó la solución. Ver «Despliegue de Airflow» en la sección 18.
-> - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector se comprobó en la validación 1 de la [sección 46](#46--validaciones-previas-fase-0).
+> ℹ️ Cada componente usa la versión estable más reciente que el resto del stack admite. El motivo de cada versión, y de las que se descartaron, está en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
 
 ### 3.1 Política de versiones
 
@@ -120,13 +111,14 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Flink CDC 3.7.0 (distribución y conectores `3.7.0-2.2`) | Imagen de Flink | Descargas de Apache y Maven Central |
 | Iceberg 1.10.2 (`iceberg-flink-runtime-2.0`, `iceberg-aws-bundle`) | Imagen de Flink | Maven Central |
 | Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
-| JDBC 42.7.14 y Commons CSV 1.14.1 | JAR del simulador | Maven Central |
+| JDBC 42.7.14, Commons CSV 1.14.1, Lanterna 3.1.5 y DuckDB JDBC 1.5.6.0 | JAR del simulador | Maven Central |
+| Extensiones `httpfs`, `iceberg` y `avro` de DuckDB | Imagen del simulador | Repositorio de extensiones de DuckDB |
 | PySpark 4.1.4, `pyspark-client` 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
 | Java 21 (`openjdk-21-jre-headless`) | Imagen de Airflow | Repositorio de paquetes de Debian |
 | Python 3.12, instalado con `uv` | Imagen de Spark | PyPI (`uv`) y builds de CPython que descarga `uv` desde GitHub |
 | DuckDB 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y extensiones `httpfs`, `iceberg` y `avro` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
 
-Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajusta permisos) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
+Los jobs one-shot (`volumes-init`, `rustfs-init`, `iceberg-init` y `airflow-init`) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
 
 ## 4. 🗺️ Diagrama de Arquitectura
 
@@ -327,7 +319,7 @@ superset:
 
 > ⚠️ **PostgreSQL 18 o superior:** la imagen oficial cambió el volumen a `/var/lib/postgresql` (los datos quedan en `/var/lib/postgresql/19/docker`). Montar en `/var/lib/postgresql/data`, como en versiones anteriores, impide que el contenedor arranque.
 
-> ⚠️ **Permisos de los bind mounts:** varias imágenes corren con un usuario no root y necesitan que el directorio del host sea escribible por ese UID. RustFS usa `10001:10001` y Airflow `50000:0`. Un job one-shot ajustará la propiedad de los directorios `data/` antes de arrancar esos servicios.
+> ⚠️ **Permisos de los bind mounts:** varias imágenes corren con un usuario no root y necesitan que el directorio del host sea escribible por ese UID. RustFS usa `10001:10001` y Airflow `50000:0`. El job one-shot `volumes-init` ajusta la propiedad de esos directorios antes de arrancar los servicios (sección 45.2).
 
 No se utilizará un directorio raíz genérico `volumes/`.
 
@@ -438,46 +430,122 @@ La exclusión aplica a los CSV de `raw_data/`, PostgreSQL, Bronze, Silver, Gold,
 
 ## 9. ☕ Aplicación Java 25 Event Simulator
 
-La aplicación de consola Java 25 será responsable de simular una aplicación transaccional real.
+El simulador hace de aplicación transaccional: lee el dataset de `raw_data/` y ejecuta transacciones reales sobre PostgreSQL. Tiene una **interfaz de consola enriquecida**, a pantalla completa en la terminal, desde la que se observa, se controla y se dirige la simulación.
 
-### Responsabilidades
+### 9.1 Requisitos funcionales
 
-1. Leer los 20 archivos de `raw_data/` (sección 8). Al arrancar carga en memoria los catálogos, las entidades y las relaciones, indexadas por `movie_id`; el conjunto ocupa unas decenas de MB.
-2. Recorrer `movie.csv` en su orden y dar de alta cada película con sus relaciones.
-3. Ejecutar transacciones JDBC reales sobre PostgreSQL.
-4. Generar `INSERT` progresivos para crear sensación de eventos en tiempo real.
-5. Generar también `UPDATE` y `DELETE` sobre registros existentes.
-6. Respetar claves primarias, claves foráneas y tablas puente.
-7. Mostrar en consola la actividad que está generando.
-8. Permitir comportamiento reproducible mediante una semilla aleatoria.
-9. Leer los CSV con un parser RFC 4180 que respete comillas y saltos de línea dentro de celdas (Apache Commons CSV): `plot` y `overview` los contienen.
-10. Tratar el campo vacío como `NULL`; el dataset no contiene cadenas vacías.
+| Id | Requisito |
+|---|---|
+| RF-01 | Leer los 20 archivos de `raw_data/` (sección 8) y cargarlos en memoria al arrancar: catálogos, entidades y relaciones indexadas por `movie_id`. |
+| RF-02 | Dar de alta las películas en el orden de `movie.csv`, cada una en una sola transacción JDBC con sus catálogos, entidades y relaciones. |
+| RF-03 | Generar también `UPDATE` y `DELETE` sobre películas ya insertadas, y reinsertar películas borradas. |
+| RF-04 | Decidir la siguiente operación con pesos configurables de INSERT, UPDATE y DELETE, y un intervalo entre transacciones. |
+| RF-05 | Ser reproducible: con la misma semilla y sin intervención manual, la secuencia de operaciones es la misma. |
+| RF-06 | **Ver la actividad en vivo:** estado de la simulación, avance sobre las 6,899 películas, contadores por tipo de operación, ritmo de transacciones y las últimas transacciones con su detalle. |
+| RF-07 | **Controlar la simulación en caliente:** iniciar, pausar y reanudar, y cambiar la velocidad y los pesos sin reiniciar. |
+| RF-08 | **Lanzar operaciones a mano:** elegir una película y provocar un INSERT, un UPDATE de un tipo concreto, un DELETE o una reinserción. |
+| RF-09 | **Seguir el cambio aguas abajo:** indicar, para cada transacción reciente, si su cambio ya llegó a Bronze y cuánto tardó. |
+| RF-10 | Funcionar también sin terminal interactiva: si no hay TTY, arranca solo y escribe una línea de log por transacción. |
+| RF-11 | Registrar cada transacción, cada cambio de configuración y cada operación manual en el log, con nivel y marca de tiempo. |
+| RF-12 | Ante un dato inconsistente, revertir la transacción de esa película, registrarla con nivel `ERROR` y continuar. |
 
-El simulador ya no normaliza nada: no deserializa JSON, no resuelve entidades por nombre y no asigna identificadores. Los archivos llegan normalizados y con sus claves.
+### 9.2 Requisitos no funcionales
 
-### Reglas de carga
+- **Sin dependencias en el host.** Corre en su contenedor; la interfaz se usa con `docker compose attach java-simulator`, y se sale de ella sin detener el simulador.
+- **Arranque con un único `docker compose up`.** Por defecto empieza a simular en cuanto el pipeline CDC está en marcha, haya o no alguien mirando la interfaz.
+- **No bloquea por la interfaz.** La simulación y el refresco de pantalla corren en hilos distintos; un terminal lento o cerrado no detiene las transacciones.
+- **El seguimiento aguas abajo es opcional y de solo lectura.** Si Bronze no responde, las transacciones siguen y la columna de seguimiento muestra «sin datos».
+- **Memoria acotada:** 0.5 GB (sección 39). El dataset completo ocupa unas decenas de MB en memoria.
+- **Usuario sin privilegios** en el contenedor y cuenta `elastiflix_app` en PostgreSQL (sección 45).
+- **Terminal mínima:** 100 columnas por 30 filas, con UTF-8. Por debajo de ese tamaño la interfaz lo avisa en lugar de descomponerse.
+
+### 9.3 Interfaz de consola
+
+La pantalla tiene cinco zonas fijas:
+
+```text
+┌ ElastiFlix Event Simulator ───────────────────────────── ▶ EN MARCHA ─ semilla 42 ┐
+│ PostgreSQL: conectado (elastiflix_app)     Bronze: conectado     Intervalo: 250 ms │
+├ Avance ─────────────────────────────────────┬ Operaciones ─────────────────────────┤
+│ Películas insertadas   1,284 / 6,899  18.6% │ INSERT   1,284   peso 70             │
+│ ███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │ UPDATE     391   peso 25             │
+│ Vivas en catalog       1,251                │ DELETE      33   peso  5             │
+│ Ritmo                  3.9 tx/s             │ Errores      0   Manuales  2         │
+├ Últimas transacciones ─────────────────────────────────────────────────────────────┤
+│ Hora      Op      movie_id  Título                    Filas   ms   Bronze          │
+│ 14:02:11  INSERT    313951  The Silent Harbor            61   18   ✓ 31 s          │
+│ 14:02:11  UPDATE     27205  Ashes of Winter (medidas)     1    4   ✓ 29 s          │
+│ 14:02:10  DELETE       550  Northfall                    44    9   … pendiente     │
+│ 14:02:10  INSERT    316393  Paper Lanterns               38   15   … pendiente     │
+├ Detalle ───────────────────────────────────────────────────────────────────────────┤
+│ INSERT 313951: movie 1 · movie_genre 3 · movie_keyword 16 · movie_cast 38 · …      │
+├────────────────────────────────────────────────────────────────────────────────────┤
+│ [Espacio] pausar  [+/-] velocidad  [P] pesos  [M] manual  [↑↓] recorrer  [Q] salir │
+└────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Zona | Contenido |
+|---|---|
+| Cabecera | Estado (`EN MARCHA`, `EN PAUSA`, `TERMINADO`), semilla, conexión a PostgreSQL, conexión a Bronze e intervalo vigente |
+| Avance | Películas insertadas sobre el total, barra de progreso, películas vivas en `catalog` y ritmo de transacciones |
+| Operaciones | Contadores de INSERT, UPDATE y DELETE con su peso vigente, errores y operaciones manuales |
+| Últimas transacciones | Una fila por transacción: hora, operación, `movie_id`, título, filas afectadas, duración y estado en Bronze |
+| Detalle | Desglose por tabla de la transacción seleccionada |
+
+Teclas:
+
+| Tecla | Acción |
+|---|---|
+| `Espacio` | Pausa o reanuda la simulación automática |
+| `+` / `-` | Reduce o aumenta el intervalo entre transacciones |
+| `P` | Abre el diálogo de pesos de INSERT, UPDATE y DELETE |
+| `M` | Abre el diálogo de operación manual |
+| `↑` / `↓` | Recorre la lista de transacciones; la seleccionada se muestra en Detalle |
+| `Q` | Sale de la interfaz. Pregunta si además debe detenerse el simulador |
+
+**Operación manual (`M`).** Se elige la película escribiendo su `movie_id` o parte del título, y después la operación:
+
+- INSERT de la siguiente película pendiente, o de una concreta que aún no esté en `catalog`.
+- UPDATE descriptivo, de medidas o de relaciones sobre una película viva.
+- DELETE de una película viva.
+- Reinserción de una película borrada.
+
+La operación se ejecuta como una transacción normal, aparece en la lista marcada como manual y queda en el log. Funciona también con la simulación en pausa, que es el modo previsto para una demostración: pausar, lanzar un cambio y seguirlo hasta Bronze, Silver y Superset.
+
+**Seguimiento aguas abajo (RF-09).** La columna `Bronze` de cada transacción pasa de «pendiente» a «✓» con el tiempo transcurrido cuando el cambio aparece en `bronze.movie`: la fila con ese `movie_id` y un `cdc_op_ts` igual o posterior al de la transacción, o el tombstone si fue un DELETE. El simulador lo comprueba con DuckDB embebido y el mismo SQL de inicialización que usa Superset (sección 34), consultando por lotes las transacciones pendientes cada pocos segundos. El retraso esperable es del orden del intervalo de checkpoint de Flink, 30 s.
+
+### 9.4 Modo sin interfaz
+
+Sin TTY, por ejemplo al ver `docker compose logs java-simulator`, el simulador no dibuja la pantalla. Arranca según su configuración y escribe una línea por transacción con los mismos datos de la lista. Es el modo que usa el arranque normal del laboratorio; la interfaz se abre después con `docker compose attach`.
+
+### 9.5 Reglas de carga
 
 - **Alta perezosa de catálogos y entidades.** Ninguna tabla se precarga. Una fila de `movie_status`, `content_rating`, `original_language`, `enrichment_field`, `genre`, `keyword`, `person`, `production_company`, `production_country`, `spoken_language` o `collection` se inserta la primera vez que una película la necesita, dentro de la transacción de esa película. El simulador recuerda qué claves ya insertó.
 - **Identificadores del archivo.** Toda fila se inserta con la clave que trae el CSV, también en las cinco tablas de clave sustituta (sección 8.4).
 - **Datos inconsistentes.** Si una película falla por una clave duplicada o una referencia inexistente, el simulador revierte su transacción, lo registra con nivel `ERROR` y continúa con la siguiente. No intenta corregir el dato.
 - **Tipos de UPDATE.** El simulador alterna tres clases, para ejercitar los tres caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`) y de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`.
 - **DELETE.** Siempre sobre `movie`; las relaciones caen por `ON DELETE CASCADE`.
-- **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando UPDATE y DELETE, y puede volver a insertar una película borrada con los datos de los archivos. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, termina al agotar `movie.csv`.
+- **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando UPDATE y DELETE, y puede volver a insertar una película borrada con los datos de los archivos. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, pasa a `TERMINADO` al agotar `movie.csv`, pero sigue aceptando operaciones manuales.
+- **Reproducibilidad.** La semilla gobierna la secuencia automática. Una operación manual o un cambio de pesos la altera a partir de ese punto; ambos quedan en el log para poder reconstruir lo ocurrido.
 
-### Configuración propuesta
+### 9.6 Configuración
 
-```text
-SIMULATOR_DELAY_MS
-SIMULATOR_INSERT_WEIGHT
-SIMULATOR_UPDATE_WEIGHT
-SIMULATOR_DELETE_WEIGHT
-SIMULATOR_RANDOM_SEED
-SIMULATOR_CONTINUOUS
-```
+Valores iniciales, por variables de entorno. Los cuatro primeros se pueden cambiar después desde la interfaz.
 
-Los pesos serán configurables y no forman parte de una restricción del modelo.
+| Variable | Significado |
+|---|---|
+| `SIMULATOR_DELAY_MS` | Intervalo entre transacciones |
+| `SIMULATOR_INSERT_WEIGHT` | Peso de INSERT |
+| `SIMULATOR_UPDATE_WEIGHT` | Peso de UPDATE |
+| `SIMULATOR_DELETE_WEIGHT` | Peso de DELETE |
+| `SIMULATOR_RANDOM_SEED` | Semilla de la secuencia automática |
+| `SIMULATOR_CONTINUOUS` | Seguir generando cambios al agotar `movie.csv` |
+| `SIMULATOR_AUTOSTART` | Empezar a simular al arrancar (`true` por defecto) o esperar en pausa |
+| `SIMULATOR_TRACK_BRONZE` | Activar el seguimiento aguas abajo (`true` por defecto) |
 
-### Semántica transaccional
+Los pesos no forman parte de ninguna restricción del modelo.
+
+### 9.7 Semántica transaccional
 
 Una película afecta a varias tablas. Su alta se ejecuta en una sola transacción:
 
@@ -499,6 +567,21 @@ COMMIT
 ```
 
 Flink verá cambios físicos de múltiples tablas originados por las transacciones normales de PostgreSQL.
+
+### 9.8 Tecnología y despliegue
+
+| Pieza | Elección | Motivo |
+|---|---|---|
+| Interfaz de consola | Lanterna 3.1.5 | Librería Java pura para interfaces de texto a pantalla completa, sin código nativo |
+| Seguimiento aguas abajo | DuckDB JDBC 1.5.6.0, con las extensiones `httpfs`, `iceberg` y `avro` instaladas en el build | Misma versión y mismo SQL de inicialización que Superset; evita añadir un cliente de Iceberg propio |
+| Lectura de CSV | Apache Commons CSV 1.14.1 | Respeta comillas y saltos de línea dentro de celdas |
+| Acceso a PostgreSQL | JDBC 42.7.14 | Transacciones explícitas |
+
+En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: true` para que la interfaz pueda abrirse con `docker compose attach java-simulator`. Se sale de la interfaz sin detener el contenedor con la secuencia de desconexión de Docker (`Ctrl-P`, `Ctrl-Q`) o con `Q`.
+
+El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
+
+> ⚠️ **Por validar antes de implementar.** Dos puntos de esta sección no se han probado: que una interfaz Lanterna funcione dentro del contenedor a través de `docker compose attach`, también desde una terminal de Windows; y que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figuran como validaciones 10 y 11 en el documento de decisiones y validaciones.
 
 ## 10. 🐘 PostgreSQL 19
 
@@ -540,7 +623,7 @@ Las tablas capturadas tendrán primary key y se configurarán con `REPLICA IDENT
 ### Imagen y riesgo de versión
 
 - Imagen `postgres:19.0`, con el volumen montado en `/var/lib/postgresql` (ver regla de persistencia, sección 7).
-- PostgreSQL 19.0 se publicó el 2026-11-19. Flink CDC 3.7.0 es anterior e incluye Debezium 1.9.8, que no declara soporte para versiones tan nuevas. El protocolo `pgoutput` es estable entre versiones mayores, y la validación 1 de la sección 46 lo confirmó el 2026-11-22: el conector toma el snapshot, lee el WAL y se recupera de una caída contra PostgreSQL 19.0. PostgreSQL 18 deja de ser necesario como respaldo.
+- PostgreSQL 19.0 se publicó el 2026-11-19. Flink CDC 3.7.0 es anterior e incluye Debezium 1.9.8, que no declara soporte para versiones tan nuevas. El protocolo `pgoutput` es estable entre versiones mayores, y la validación 1 del documento de decisiones y validaciones lo confirmó el 2026-11-22: el conector toma el snapshot, lee el WAL y se recupera de una caída contra PostgreSQL 19.0. PostgreSQL 18 deja de ser necesario como respaldo.
 
 ## 11. 🔗 Contrato de tipos interoperables
 
@@ -952,7 +1035,7 @@ El pipeline se define en un único YAML (`flink/jobs/postgres-to-bronze.yaml`) y
 | Saber qué operación fue | campo de metadatos `__data_event_type__` en `transform` |
 | No perder los DELETE | `converter-after-transform: SOFT_DELETE`, que convierte el borrado en una inserción marcada `-D` |
 
-El pipeline parte de la guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg», que cubre snapshot inicial, INSERT, UPDATE y DELETE con PostgreSQL, `pgoutput` y `REPLICA IDENTITY FULL`. Respecto a esa guía, este laboratorio cambia dos cosas: el catálogo (REST sobre RustFS en lugar de Hadoop sobre disco local) y el bloque `transform`. Ambas pasaron las validaciones 2 y 3 de la sección 46 con el borrador de abajo, sin modificarlo.
+El pipeline parte de la guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg», que cubre snapshot inicial, INSERT, UPDATE y DELETE con PostgreSQL, `pgoutput` y `REPLICA IDENTITY FULL`. Respecto a esa guía, este laboratorio cambia dos cosas: el catálogo (REST sobre RustFS en lugar de Hadoop sobre disco local) y el bloque `transform`. Ambas pasaron las validaciones 2 y 3 del documento de decisiones y validaciones con el borrador de abajo, sin modificarlo.
 
 Borrador:
 
@@ -1018,9 +1101,10 @@ Puntos que conviene no pasar por alto:
 - **`flink-cdc-submit` idempotente de verdad.** El job one-shot sigue esta regla cada vez que se ejecuta:
   1. Consulta la API REST de Flink. Si ya hay un job en ejecución con el nombre del pipeline, termina sin hacer nada.
   2. Si no lo hay y existe un checkpoint retenido en `flink/data/`, reenvía con `--from-savepoint` hacia el más reciente.
-  3. Solo si no hay ni job ni checkpoint hace un envío nuevo, con snapshot inicial.
+  3. Solo si no hay ni job ni checkpoint hace un envío nuevo, con snapshot inicial. Si en ese momento Bronze ya tiene tablas, se trata de una pérdida de estado y aplica el punto siguiente.
 
   Sin esta regla, repetir `docker compose up` es dañino. Un segundo envío no falla: Flink lo acepta y arranca otro job que repite el snapshot completo sobre las mismas tablas. Bronze sigue cuadrando en filas, pero todas vuelven a `+I` con el `cdc_op_ts` del nuevo snapshot, se pierde la marca `+U` y la fecha real de cada cambio, y se acumula un delete de igualdad por cada fila reescrita.
+- **Perder los checkpoints no es inocuo.** Un envío nuevo repite el snapshot, pero el snapshot solo ve lo que existe: una fila borrada en PostgreSQL mientras no había job no vuelve a leerse y queda en Bronze como viva, sin tombstone. En la prueba del documento de decisiones y validaciones, 3 películas borradas durante la parada y 89 filas de sus relaciones siguieron contando como vivas. Por eso los checkpoints se persisten y, si aun así se pierden, hace falta reconciliar. La forma de reconciliar es la decisión abierta D-2 del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
 
 ## 15. 🪣 RustFS
 
@@ -1124,7 +1208,7 @@ cdc_op_type  string   operación del último evento: +I (insert), +U (update), -
 cdc_op_ts    bigint   instante del cambio en PostgreSQL, en milisegundos; en filas del snapshot inicial, instante de lectura
 ```
 
-Los tres valores se confirmaron en la validación 3 de la sección 46. Las filas del snapshot inicial llegan como `+I`.
+Los tres valores se confirmaron en la validación 3 del documento de decisiones y validaciones. Las filas del snapshot inicial llegan como `+I`.
 
 Reglas:
 
@@ -1166,10 +1250,10 @@ Airflow no gobernará cada evento CDC.
 
 - Imagen propia basada en `apache/airflow:3.4.0-python3.12`, con Java 21, PySpark 4.1.4 y `apache-airflow-providers-apache-spark` 6.3.4. La versión de PySpark del cliente debe coincidir con la del clúster Spark.
 - El proveedor 6.3.4 depende de `pyspark-client>=4.0.0` sin tope superior, así que por sí solo instalaría la 4.3.0. Se fijan `pyspark==4.1.4` y `pyspark-client==4.1.4` en el mismo `pip install`.
-- **Misma versión menor de Python en Airflow y en Spark.** `SparkSubmitOperator` lanza `spark-submit` en modo cliente contra el clúster standalone, que no admite modo clúster para aplicaciones Python. El driver corre entonces dentro del contenedor de Airflow y los ejecutores dentro de `spark-worker`; si sus versiones menores de Python difieren, PySpark aborta el job. La imagen base de Spark trae Python 3.10 (Ubuntu 22.04) y Airflow no publica imagen con 3.10, por lo que `pyspark/Dockerfile` instala Python 3.12 y fija `PYSPARK_PYTHON` a ese intérprete. La validación 8 de la sección 46 reprodujo el fallo y comprobó la solución.
+- **Misma versión menor de Python en Airflow y en Spark.** `SparkSubmitOperator` lanza `spark-submit` en modo cliente contra el clúster standalone, que no admite modo clúster para aplicaciones Python. El driver corre entonces dentro del contenedor de Airflow y los ejecutores dentro de `spark-worker`; si sus versiones menores de Python difieren, PySpark aborta el job. La imagen base de Spark trae Python 3.10 (Ubuntu 22.04) y Airflow no publica imagen con 3.10, por lo que `pyspark/Dockerfile` instala Python 3.12 y fija `PYSPARK_PYTHON` a ese intérprete. La validación 8 del documento de decisiones y validaciones reprodujo el fallo y comprobó la solución.
 - **Cómo se instala Python 3.12 en la imagen de Spark.** Con `uv`: `pip3 install uv`, `uv python install 3.12` con `UV_PYTHON_INSTALL_DIR=/opt/python` y un enlace `/usr/local/bin/python3.12`. No toca el Python 3.10 del sistema ni añade repositorios de paquetes. La imagen declara `PYSPARK_PYTHON=python3.12`, y la de Airflow también: el driver comunica a los ejecutores el nombre del intérprete y cada lado lo resuelve en su `PATH`.
 - **Solo fallan los jobs que ejecutan Python en los ejecutores.** Un job que use únicamente la API de DataFrame corre aunque las versiones no coincidan; una UDF de Python o una operación sobre RDD aborta con `PYTHON_VERSION_MISMATCH`. No conviene apoyarse en esa diferencia: basta una UDF para romper un job que antes funcionaba.
-- **Lo que necesita la imagen de Airflow para ser driver.** Java 21 (`openjdk-21-jre-headless`, con `JAVA_HOME`), los JAR `iceberg-spark-runtime-4.1_2.13` e `iceberg-aws-bundle` 1.12.0 dentro del directorio `jars` del paquete `pyspark`, y `SPARK_CONF_DIR` apuntando a la misma configuración de catálogo que usa Spark (`pyspark/conf/`, sección 46). El comando `spark-submit` lo aporta el propio paquete `pyspark`.
+- **Lo que necesita la imagen de Airflow para ser driver.** Java 21 (`openjdk-21-jre-headless`, con `JAVA_HOME`), los JAR `iceberg-spark-runtime-4.1_2.13` e `iceberg-aws-bundle` 1.12.0 dentro del directorio `jars` del paquete `pyspark`, y `SPARK_CONF_DIR` apuntando a la misma configuración de catálogo que usa Spark (`pyspark/conf/`, documento de decisiones y validaciones). El comando `spark-submit` lo aporta el propio paquete `pyspark`.
 - **Los jobs se montan también en Airflow.** En modo cliente `spark-submit` lee el archivo de la aplicación en la máquina que lo lanza, así que `pyspark/jobs/` y `pyspark/conf/` se montan en los contenedores de Airflow además de en los de Spark.
 - **El driver debe ser alcanzable desde los ejecutores.** Cada tarea fija `spark.driver.host` al nombre del servicio que ejecuta las tareas (`airflow-scheduler`, con `LocalExecutor`) y `spark.driver.bindAddress=0.0.0.0`.
 - **Conexión de Spark.** `AIRFLOW_CONN_SPARK_DEFAULT=spark://spark-master:7077?deploy-mode=client`.
@@ -1207,6 +1291,8 @@ Propiedades que el job debe cumplir:
 - **Tolerante a lecturas no atómicas.** Flink publica cada tabla Bronze por separado, así que el job puede ver una película cuyas relaciones aún no llegaron. En ese caso usa `SK = 0` y lo corrige en la corrida siguiente.
 
 No hay «eventos tardíos» que ordenar: Bronze entrega el último estado por clave, no una secuencia de eventos.
+
+Restricción comprobada en el documento de decisiones y validaciones: el origen de un `MERGE INTO` no puede ser un DataFrame en caché. Con Spark 4.1.4 e Iceberg 1.12.0 falla en la planificación con un error interno («No plan for TableReference»). Funciona con una vista temporal sin materializar o con una tabla Iceberg de trabajo.
 
 ## 20. 🥈 Modelo dimensional SILVER
 
@@ -1300,7 +1386,7 @@ Para que el resultado no dependa de la hora en que corre el job, `effective_from
 2. `updated_at` de la fila, o `created_at` si no existe `updated_at`;
 3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores.
 
-> ⚠️ **Regla por revisar.** Este orden se escribió suponiendo que `cdc_op_ts` vale `0` en las filas del snapshot inicial, de modo que esas filas cayeran en `updated_at`. La validación 1 mostró que no es así: el conector PostgreSQL de Flink CDC 3.7.0 pone ahí el instante en que leyó la fila. Con la regla tal como está, una fila que ya existía cuando arrancó el pipeline recibe como `effective_from` la hora del snapshot y no la de su último cambio. En el laboratorio solo afecta a lo que exista antes de enviar el pipeline (los catálogos sembrados por el DDL), porque las películas se insertan después. Si se quiere la fecha real, la alternativa es invertir los dos primeros puntos para las filas que no son tombstones: `updated_at` cuando la tabla lo tiene y `cdc_op_ts` solo para los DELETE y para las tablas sin `updated_at`.
+> ⚠️ **Regla por revisar.** Este orden suponía que `cdc_op_ts` vale `0` en las filas del snapshot inicial, y no es así. La alternativa y su estado son la decisión abierta D-1 del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
 
 La versión que se cierra recibe como `effective_to` el `effective_from` de la que la reemplaza.
 
@@ -1855,7 +1941,7 @@ DuckDB es una librería embebida: no escucha en un puerto ni acepta conexiones d
 
 ### Inicialización de cada conexión
 
-DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS, adjuntar el catálogo y crear las vistas de consumo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. Es el que pasó las validaciones 6 y 7 de la sección 46:
+DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS, adjuntar el catálogo y crear las vistas de consumo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. Es el que pasó las validaciones 6 y 7 del documento de decisiones y validaciones:
 
 ```sql
 SET extension_directory = '/opt/duckdb_extensions';
@@ -1980,7 +2066,7 @@ Quedan para cuando haga falta demostrar operación del lakehouse:
 
 Estas tareas no deben oscurecer el flujo principal.
 
-Procedimientos de Iceberg que usa `iceberg_maintenance`, comprobados en la validación 5 de la sección 46:
+Procedimientos de Iceberg que usa `iceberg_maintenance`, comprobados en la validación 5 del documento de decisiones y validaciones:
 
 ```sql
 CALL lake.system.rewrite_data_files(
@@ -2024,6 +2110,7 @@ superset
 Jobs one-shot (terminan con código 0 y no se reinician):
 
 ```text
+volumes-init       asigna a cada directorio de datos el usuario de su servicio
 rustfs-init        crea el bucket warehouse
 iceberg-init       crea los namespaces bronze, silver y gold
 flink-cdc-submit   envía el pipeline PostgreSQL -> Bronze
@@ -2037,7 +2124,9 @@ Opcional, bajo el perfil `tools`:
 duckdb             línea de comandos para explorar Gold
 ```
 
-Todos se declaran en el mismo `docker-compose.yml`. Las credenciales del laboratorio se leen de `.env`; el repositorio versiona `.env.example`.
+Todos se declaran en el mismo `docker-compose.yml`. Las credenciales del laboratorio se leen de `.env`; el repositorio versiona `.env.example`. El inventario de cuentas y variables está en la sección 45.
+
+`java-simulator` declara `tty: true` y `stdin_open: true`, para poder abrir su interfaz con `docker compose attach java-simulator`.
 
 ### Aislamiento frente a otros proyectos del host
 
@@ -2136,34 +2225,11 @@ Una demostración completa deberá poder mostrar:
 14. DuckDB consulta Gold.
 15. Superset refleja los resultados en dashboards.
 
-## 43. Decisiones expresamente descartadas
-
-No se utilizará:
-
-- BigQuery para este laboratorio local;
-- carga exclusivamente batch de los CSV hacia PostgreSQL;
-- DuckDB como sustituto del Iceberg REST Catalog;
-- almacenamiento directo de Iceberg en carpetas manipuladas independientemente por cada motor;
-- vectores o embeddings;
-- JSON/arrays como sustitutos de la normalización operacional;
-- Airflow como controlador evento-a-evento de Flink CDC;
-- Superset accediendo directamente a Bronze o PostgreSQL para los dashboards finales;
-- DELETE lógico como sustituto general del DELETE físico en el simulador operacional;
-- `money` para montos;
-- tipos PostgreSQL especializados que dificulten la interoperabilidad del CDC;
-- DuckDB como servicio de red al que Superset se conecta;
-- Spark 4.2 o 4.3 mientras Iceberg no publique un runtime para esas versiones;
-- el Iceberg REST Catalog integrado de RustFS mientras siga en *preview*;
-- SCD Type 2 en dimensiones cuyo único atributo es su propia clave o nombre;
-- `movie_sk` como ancla de los bridges;
-- la base operacional como almacén de metadatos de Airflow o Superset;
-- pasos manuales de preparación fuera de Docker Compose.
-
-## 44. 🚀 Trabajo siguiente
+## 43. 🚀 Trabajo siguiente
 
 Con esta arquitectura y modelos definidos, la implementación puede avanzar en este orden:
 
-0. ~~Ejecutar las validaciones previas de la sección 46~~ (hecho: las nueve pasaron).
+0. ~~Ejecutar las validaciones previas del documento de decisiones y validaciones~~ (hecho: las nueve pasaron).
 1. ~~Fijar versiones compatibles~~ (hecho en la sección 3; se confirma con el paso 0).
 2. Generar los 20 CSV de `raw_data/` descritos en la sección 8.
 3. Implementar DDL PostgreSQL completo con las restricciones de la sección 12, y comprobarlo cargando los CSV con `COPY`.
@@ -2182,7 +2248,7 @@ Con esta arquitectura y modelos definidos, la implementación puede avanzar en e
 16. Construir dashboards y KPIs finales.
 17. Ejecutar una prueba end-to-end con INSERT, UPDATE y DELETE.
 
-## 45. ✅ Criterio de éxito
+## 44. ✅ Criterio de éxito
 
 El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/copiar el proyecto, levantarlo con Docker Compose y observar un cambio real generado por Java recorrer de extremo a extremo:
 
@@ -2202,372 +2268,104 @@ CSV
 
 El diseño debe ser comprensible desde la estructura de directorios y mantener una separación clara de responsabilidades entre ingestión, CDC, almacenamiento, catálogo, transformación, orquestación, serving y visualización.
 
-## 46. 🧪 Validaciones previas (Fase 0)
+## 45. 🔐 Cuentas y credenciales
 
-Antes de implementar el laboratorio completo conviene probar, con el mínimo de piezas, las uniones entre componentes que no están garantizadas por documentación. Cada una es una prueba de pocas horas.
+El laboratorio usa tres clases de cuentas: los usuarios del sistema con los que corre cada contenedor, las cuentas técnicas con las que los servicios se autentican entre sí y las cuentas con las que una persona entra a las herramientas. Ninguna es una cuenta real: todas son credenciales de laboratorio, definidas en `.env`.
 
-| # | Qué se valida | Piezas mínimas | Si falla |
-|---:|---|---|---|
-| 1 | Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0 con `pgoutput` (snapshot inicial, INSERT, UPDATE, DELETE) | PostgreSQL, Flink, sink de consola | Usar PostgreSQL 18 |
-| 2 | El sink Iceberg de Flink CDC escribe a través de un catálogo REST sobre RustFS, con el runtime Iceberg 1.10.2 | + RustFS, `iceberg-rest` | Volver a Iceberg 1.10.1, la versión de la guía; probar `catalog.properties.type: rest`; como último recurso, otro catálogo REST |
-| 3 | `SOFT_DELETE` más `__data_event_type__` y `op_ts` producen tombstones con la fila completa, y qué valores toma `cdc_op_type` | las de la prueba 2 | Rediseñar la detección de DELETE en Silver |
-| 4 | El catálogo conserva las tablas tras reiniciar el contenedor `iceberg-rest` | las de la prueba 2 | Cambiar el backend del catálogo |
-| 5 | Spark 4.1.4 con Iceberg 1.12.0 lee las tablas Bronze escritas por Flink con Iceberg 1.10.2, incluidos los deletes de igualdad, y puede compactarlas | + Spark | Alinear la versión de Iceberg de Spark con la de Flink |
-| 6 | DuckDB 1.5.6 adjunta el catálogo REST y lee una tabla Gold escrita por Spark | + DuckDB | Ajustar el formato de escritura de Gold |
-| 7 | Superset 6.1.0 ejecuta el SQL de inicialización en cada conexión DuckDB, consulta Gold con varios workers y el coste de repetir la inicialización por consulta es aceptable | + Superset | Usar un archivo DuckDB de solo lectura generado por un job |
-| 8 | Un job PySpark lanzado desde la imagen de Airflow (Python 3.12, modo cliente) corre en los ejecutores de la imagen de Spark con Python 3.12 instalado en el build | Spark, imagen de Airflow | Cambiar la forma de instalar Python en la imagen de Spark; como último recurso, lanzar `spark-submit` dentro del contenedor de Spark |
-| 9 | Airflow 3.4.0 y Superset 6.1.0 migran y operan sus metadatos sobre PostgreSQL 19.0 | `metadata-db`, `airflow-init`, `superset-init` | Usar PostgreSQL 18 solo en `metadata-db` |
+### 45.1 Qué necesita la máquina anfitriona
 
-Estado de verificación de las versiones al 2026-11-22:
+- Un usuario que pueda ejecutar Docker: miembro del grupo `docker` en Linux, o sesión iniciada con Docker Desktop en Windows y macOS. No hacen falta privilegios de administrador para levantar el laboratorio.
+- Ninguna cuenta en servicios de nube. Las imágenes se descargan de Docker Hub de forma anónima; iniciar sesión con `docker login` solo ayuda si se alcanza el límite de descargas anónimas.
+- Ninguna cuenta de GitHub para ejecutar; solo para clonar si el repositorio fuera privado.
 
-| Afirmación | Cómo se verificó |
-|---|---|
-| Existen, para `linux/amd64` y `linux/arm64`, las diez imágenes de la [sección 3.2](#32-imágenes-en-docker-hub) | `docker manifest inspect` y API de etiquetas de Docker Hub |
-| No hay versión estable más nueva de PostgreSQL (19.0), Airflow (3.4.0), Superset (6.1.0; la 7.0.0 está en `rc3`) ni RustFS (1.0.6). `apache/iceberg-rest-fixture` no tiene etiqueta versionada posterior a 1.10.1 | API de etiquetas de Docker Hub |
-| Existen Flink 2.3.0 y Spark 4.3.0 en Docker Hub, y no se adoptan | API de etiquetas de Docker Hub |
-| Flink CDC 3.7 soporta solo Flink 1.20 y 2.2 | Tabla de compatibilidad de Flink CDC (Context7); sufijos `-1.20` y `-2.2` de los artefactos en Maven Central |
-| Existen los conectores Flink CDC `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.2, `iceberg-spark-runtime-4.1_2.13` 1.12.0 e `iceberg-aws-bundle` en ambas versiones. 3.7.0 es la última versión de Flink CDC y 1.12.0 la última de Iceberg | `maven-metadata.xml` en Maven Central |
-| No existe `iceberg-spark-runtime-4.2_2.13` ni `-4.3_2.13`; `iceberg-flink-runtime-2.0` llega hasta 1.11.0 | Listado de `org/apache/iceberg` en Maven Central |
-| DuckDB 1.5.6 es la última 1.x (la última publicada es 2.0.1); `duckdb-engine` 0.17.0, el proveedor Spark de Airflow 6.3.4, JDBC 42.7.14 y Commons CSV 1.14.1 son las últimas versiones | PyPI y Maven Central |
-| Superset 6.1.0 declara `duckdb<2,>=1.4.2` y `duckdb-engine>=0.17.0` en su extra `duckdb` | Metadatos de `apache-superset` 6.1.0 en PyPI |
-| El proveedor Spark 6.3.4 depende de `pyspark-client>=4.0.0`; PySpark 4.1.4 declara soporte para Python 3.10 a 3.14 | Metadatos en PyPI |
-| `apache/airflow:3.4.0` trae Python 3.13, `apache/superset:6.1.0` Python 3.10 y la imagen de Spark 4.1.4 se basa en Ubuntu 22.04; las variantes `-python3.12` y `-py312` traen Python 3.12 | Configuración de cada imagen (`docker buildx imagetools inspect`) |
-| Las extensiones `httpfs` e `iceberg` de DuckDB 1.5.6 están publicadas para `linux_amd64` | Repositorio de extensiones de DuckDB |
-| Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y usa `iceberg-flink-runtime-2.0` en su perfil Flink 2.x; incluye Debezium 1.9.8 | `pom.xml` del tag `release-3.7.0` |
-| Iceberg soporta Spark 3.5, 4.0 y 4.1, y Flink 2.2 desde 1.12.0 | Tabla de soporte multi-motor de Iceberg |
-| Opciones `metadata.list`, `SOFT_DELETE`, `route`, `table-id.include-database` y tipos de catálogo del sink | Documentación de Flink CDC 3.7.0 |
-| Forma del pipeline PostgreSQL → Iceberg, dependencias para Flink 2.2.1 y creación automática de namespace y tablas | Guía oficial de Flink CDC (Context7; está en la rama principal, no en la documentación publicada de 3.7.0) |
-| Sintaxis de `ATTACH ... (TYPE iceberg, ENDPOINT, AUTHORIZATION_TYPE 'none')` y del secreto S3 en DuckDB | Documentación de DuckDB (Context7) |
-| Variables `CATALOG_*` del catálogo REST de referencia y uso de RustFS como object store | Quickstart de Spark de Iceberg (Context7) |
-| Airflow corre como UID 50000 con GID 0 | Documentación de Airflow (Context7) |
-| Superset abre conexiones analíticas con `NullPool` y expone `DB_CONNECTION_MUTATOR` | Código fuente de Superset (Context7) |
-| La imagen `postgres` 18+ usa el volumen `/var/lib/postgresql` | README de la imagen oficial |
-| RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
-| La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
+### 45.2 Usuarios del sistema dentro de los contenedores
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve pruebas se han ejecutado y superado. Abajo están los resultados y lo que cada una dejó sin cubrir.
+Ningún servicio de larga duración corre como `root`. Comprobado sobre las imágenes de la sección 3.2:
 
-### Resultados
-
-| # | Fecha | Resultado |
-|---:|---|---|
-| 1 | 2026-11-22 | ✅ Superada |
-| 2 | 2026-11-22 | ✅ Superada, con Iceberg 1.10.2 |
-| 3 | 2026-11-22 | ✅ Superada |
-| 4 | 2026-11-22 | ✅ Superada |
-| 5 | 2026-11-22 | ✅ Superada |
-| 6 | 2026-11-22 | ✅ Superada |
-| 7 | 2026-11-22 | ✅ Superada, con tres ajustes al diseño |
-| 8 | 2026-11-22 | ✅ Superada |
-| 9 | 2026-11-22 | ✅ Superada |
-| Volumen | 2026-11-22 | ✅ Superada, con dos requisitos nuevos para `flink-cdc-submit` |
-
-#### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
-
-Entorno: `postgres:19.0` con `wal_level=logical`, y `flink:2.2.1-java21` con la distribución de Flink CDC `3.7.0-2.2`, el conector `postgres` y el sink `values`, que imprime cada evento. El bloque `source` fue el de la sección 14, sin cambios. Se usaron tres tablas del esquema `catalog` (`movie`, `genre`, `movie_genre`) que cubren todos los tipos de la sección 11, una clave `IDENTITY`, una clave compuesta y un `ON DELETE CASCADE`.
-
-| Qué se comprobó | Resultado |
-|---|---|
-| Envío del pipeline | Aceptado; el job queda en `RUNNING` y completa checkpoints |
-| Rol `elastiflix_cdc` con `REPLICATION` y `SELECT`, sin superusuario | Suficiente |
-| Publicación creada por el DDL y `autocreate.mode: disabled` | El conector la reutiliza y crea él mismo el slot `elastiflix_cdc` con `pgoutput` |
-| `tables: elastiflix.catalog.\.*` con `table-id.include-database: false` | Captura las tres tablas; el identificador que emite es `catalog.<tabla>` |
-| Snapshot inicial | 10 de 10 filas previas, con sus claves primarias |
-| Tipos | `bigint`→`BIGINT`, `integer`→`INT`, `text`→`STRING`, `date`→`DATE`, `boolean`→`BOOLEAN`, `numeric(p,s)`→`DECIMAL(p,s)` con la misma precisión y escala, `timestamp(6) with time zone`→`TIMESTAMP_LTZ(6)`; los `NULL` llegan como nulos |
-| INSERT | Una transacción sobre tres tablas produce un evento por fila, todos con el mismo `op_ts` |
-| UPDATE | Trae la fila anterior y la nueva completas |
-| Columna larga (12 800 caracteres, almacenada en TOAST) no modificada por el UPDATE | Llega completa en la fila anterior y en la nueva, gracias a `REPLICA IDENTITY FULL` |
-| DELETE con cascada | Un evento por la película y uno por cada relación, cada uno con la fila completa; primero llega el de la película y después los de sus relaciones |
-| Reinserción de una clave borrada | Llega como INSERT normal |
-| Caída del TaskManager con escrituras durante la caída | El slot se conserva inactivo en PostgreSQL; al volver, el job se restaura del último checkpoint y entrega los cuatro cambios pendientes |
-| Pérdidas y duplicados | Ninguno: 24 eventos de datos, todos distintos, y los conteos por tabla coinciden con las filas finales de PostgreSQL |
-| Avance del slot | `confirmed_flush_lsn` avanza tras los checkpoints; WAL retenido al final: 896 bytes |
-
-Observaciones que afectan al diseño:
-
-- **`op_ts` no vale `0` en el snapshot.** Las filas del snapshot traen el instante en que el conector las leyó. Se corrigieron las secciones 14 y 17, y la regla de `effective_from` de la sección 21 queda marcada para revisión.
-- **Ruido esperado en los logs.** Durante el snapshot PostgreSQL registra `replication slot "elastiflix_cdc_0" does not exist`, una vez por tabla. Todo indica que el conector intenta borrar un slot auxiliar de la fase de snapshot que no llegó a crear; no se investigó más. No afecta al resultado y no debe tratarse como fallo en los healthchecks.
-
-Lo que esta prueba no cubre: las 20 tablas reales, el volumen del dataset completo y el reinicio del JobManager, porque los checkpoints se guardaron en memoria. El sink Iceberg y las columnas `cdc_op_type` y `cdc_op_ts` corresponden a las validaciones 2 y 3.
-
-#### Validaciones 2, 3 y 4: sink Iceberg, tombstones y persistencia del catálogo
-
-Entorno: el de la validación 1 más `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1` y, en la imagen de Flink, el conector `iceberg` `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.2, `iceberg-aws-bundle` 1.10.2, Hadoop client 3.3.6 y Commons Logging 1.2. El pipeline fue el borrador completo de la sección 14, sin cambios. Los datos se leyeron con `duckdb/duckdb:1.5.6` usando el SQL de la sección 34.
-
-| # | Qué se comprobó | Resultado |
-|---:|---|---|
-| 2 | Catálogo REST por `catalog-impl`, con `S3FileIO` sobre RustFS | El pipeline arranca a la primera y completa checkpoints sin errores |
-| 2 | Runtime Iceberg 1.10.2 con el conector compilado contra 1.10.1 | Funciona; no hizo falta volver a 1.10.1 |
-| 2 | Creación automática de namespace y tablas | El conector crea `bronze` y sus tres tablas; en `bronze.movie` se comprobó que queda sin particionar, en formato v2 y con la clave primaria como campo identificador |
-| 2 | Bucket creado por `rustfs-init` con `curl --aws-sigv4` | Correcto |
-| 2 | Tipos en Iceberg | `DECIMAL` con su precisión y escala, `DATE`, `TIMESTAMP WITH TIME ZONE`; `cdc_op_type` es texto y `cdc_op_ts` es `BIGINT` |
-| 2 | Columna de 12 800 caracteres | Llega completa |
-| 3 | Valores de `cdc_op_type` | `+I` para el snapshot y los INSERT, `+U` para los UPDATE, `-D` para los DELETE |
-| 3 | Tombstone | La fila borrada permanece con `-D`, todos sus valores y el `cdc_op_ts` del borrado; lo mismo cada relación borrada por la cascada |
-| 3 | Una fila por clave primaria | Sí: cada UPDATE o DELETE sustituye a la fila anterior |
-| 3 | Reinserción de una clave borrada | Sustituye al tombstone por una fila `+I`; las relaciones borradas siguen como `-D` |
-| 3 | UPDATE y DELETE de la misma fila dentro de un checkpoint | Queda `-D` con los valores del UPDATE; el `+U` intermedio no se ve, como anticipa la sección 17 |
-| 3 | INSERT y DELETE de una clave nueva dentro de un checkpoint | Queda un tombstone de una fila que Bronze nunca mostró viva |
-| 4 | Reinicio del contenedor `iceberg-rest` | Tablas y snapshots intactos |
-| 4 | Recreación del contenedor con `CATALOG_URI` apuntando a `/catalog` | Tablas y snapshots intactos; SQLite funciona sobre el bind mount en NTFS |
-| 4 | Flink tras recrear el catálogo | Sigue publicando snapshots sin reiniciar el job |
-
-Observaciones que afectan al diseño:
-
-- **Las credenciales S3 no estaban en el borrador.** Se resuelven con las variables `AWS_*` en los dos contenedores de Flink (sección 14).
-- **El catálogo no es en memoria por defecto**, sino un archivo en `/tmp` del contenedor; la conclusión sobre la persistencia no cambia (sección 16).
-- **Bronze acumula deletes desde el primer cambio.** Tras cuatro commits, `bronze.movie` tenía 5 filas (dos de ellas tombstones) repartidas en 4 archivos de datos con 11 registros, más 4 archivos de deletes de igualdad y 1 de deletes posicionales. Confirma que la compactación de la sección 38 hace falta desde el inicio.
-- **Silver debe aceptar tombstones sin fila previa.** Una clave insertada y borrada entre dos corridas llega solo como `-D`; `bronze_to_silver.py` no debe suponer que antes hubo una versión vigente.
-- **DuckDB ya lee Bronze.** El SQL de la sección 34 adjuntó el catálogo y leyó tablas con deletes de igualdad sin ajustes. Adelanta parte de la validación 6, que sigue pendiente porque se refiere a tablas Gold escritas por Spark.
-
-Lo que estas pruebas no cubren: las 20 tablas, el volumen real, el intervalo de checkpoint de 30 s previsto (se usó 10 s), los checkpoints persistidos en `flink/data/` y la lectura desde Spark, que es la validación 5.
-
-#### Validaciones 5 y 6: Spark sobre Bronze y DuckDB sobre Gold
-
-Entorno: el de las validaciones 2 a 4, con Flink escribiendo Bronze, más un clúster Spark standalone (`apache/spark:4.1.4-scala2.13-java21-python3-ubuntu`, un master y un worker) con `iceberg-spark-runtime-4.1_2.13` 1.12.0 e `iceberg-aws-bundle` 1.12.0 en `/opt/spark/jars`. Los jobs PySpark se lanzaron con `spark-submit` en modo cliente contra el master.
-
-Configuración del catálogo en Spark, la misma para leer Bronze y escribir Gold:
-
-```properties
-spark.sql.extensions                        org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
-spark.sql.catalog.lake                      org.apache.iceberg.spark.SparkCatalog
-spark.sql.catalog.lake.type                 rest
-spark.sql.catalog.lake.uri                  http://iceberg-rest:8181
-spark.sql.catalog.lake.warehouse            s3://warehouse/
-spark.sql.catalog.lake.io-impl              org.apache.iceberg.aws.s3.S3FileIO
-spark.sql.catalog.lake.s3.endpoint          http://rustfs:9000
-spark.sql.catalog.lake.s3.path-style-access true
-spark.sql.session.timeZone                  UTC
-```
-
-Las credenciales S3 llegan, igual que en Flink, por las variables `AWS_*` del master, del worker y del contenedor que lanza el job.
-
-| # | Qué se comprobó | Resultado |
-|---:|---|---|
-| 5 | Spark 4.1.4 con Iceberg 1.12.0 lee tablas escritas por Flink con Iceberg 1.10.2 | Lee las tres tablas; las filas vivas y los tombstones coinciden con PostgreSQL |
-| 5 | Deletes de igualdad | Se aplican: con 8 registros en archivos de datos, `bronze.movie` devuelve sus 4 filas |
-| 5 | Esquema visto por Spark | Tipos correctos, `NOT NULL` conservado y `timestamp` con zona UTC |
-| 5 | Compactación con `rewrite_data_files`, `rewrite_position_delete_files` y `expire_snapshots` | Termina bien en las tres tablas; `movie_genre` y `genre` quedan en 1 archivo de datos y 0 de deletes |
-| 5 | Compactación con Flink escribiendo un UPDATE cada 2 s | Sin conflictos de commit; el job de Flink sigue en `RUNNING`, sin reinicios ni checkpoints fallidos |
-| 5 | Contenido tras compactar | Idéntico: misma huella en `movie_genre` y `genre`, y `movie` coincide con PostgreSQL tras los 30 UPDATE concurrentes |
-| 5 | Lectura con DuckDB después de la compactación | Mismo resultado que Spark |
-| 6 | Spark crea el namespace `gold` y una tabla con `CREATE OR REPLACE TABLE ... USING iceberg`, formato v2 | Correcto |
-| 6 | DuckDB 1.5.6 lee la tabla Gold escrita por Spark | Mismas filas y tipos: `DECIMAL(19,2)`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `BIGINT`, texto |
-| 6 | Agregaciones en DuckDB sobre Gold | Correctas |
-| 6 | Segunda corrida de recarga completa tras un DELETE y un UPDATE en origen | DuckDB ve el contenido nuevo: la película borrada desaparece y la medida cambia |
-
-Observaciones que afectan al diseño:
-
-- **Bronze se ensucia muy rápido.** Recién compactada, `bronze.movie` acumuló en un minuto 9 archivos de datos, 8 de deletes de igualdad y 8 de deletes posicionales para 4 filas, por los 30 UPDATE de la prueba. Con el checkpoint de 30 s previsto serán menos commits, pero la tarea `iceberg_maintenance` debe correr en cada ejecución del DAG, no de forma ocasional.
-- **Gold conserva un snapshot por recarga.** `CREATE OR REPLACE TABLE` no borra el historial; tras dos corridas la tabla tenía 2 snapshots. La expiración de snapshots de la sección 38 aplica también a Gold.
-- **El SQL de DuckDB de la sección 34 no necesita cambios.** Funcionó igual contra tablas de Flink, tablas compactadas y tablas de Spark.
-
-Lo que estas pruebas no cubren: los jobs corrieron con el Python 3.10 de la imagen de Spark tanto en el driver como en los ejecutores, así que no dicen nada del desajuste con Airflow, que es la validación 8. Tampoco cubren el `MERGE` de Silver, tablas particionadas, lectores concurrentes durante una recarga de Gold ni el volumen real.
-
-#### Validación 7: Superset sobre DuckDB, y la mitad de la 9
-
-Entorno: `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, la imagen de Spark de la validación 5 para escribir dos tablas Gold (6,899 y 120 filas), `postgres:19.0` como `metadata-db` y una imagen propia sobre `apache/superset:6.1.0-py312` con `psycopg2-binary`, `duckdb` 1.5.6 y `duckdb-engine` 0.17.0. Superset corrió con cuatro workers de Gunicorn. **La red del Compose se declaró interna, sin salida a Internet**, para que cualquier descarga en runtime fallara a la vista. Las consultas se lanzaron por la API REST de Superset, que es el camino de SQL Lab y de los gráficos.
-
-| Qué se comprobó | Resultado |
-|---|---|
-| `superset db upgrade`, creación del administrador y `superset init` sobre PostgreSQL 19.0 | Correcto: 344 migraciones aplicadas, sin errores |
-| Registro de la base con `superset set-database-uri` y la URI `duckdb:///:memory:` | Correcto; Superset la reconoce como `duckdb` |
-| El hook ejecuta el SQL de inicialización en cada conexión | Sí: una inicialización por consulta, lo que confirma el `NullPool` |
-| Extensiones precargadas, sin red | **Falló con el diseño original:** `iceberg` intenta descargar `avro`. Con `avro` instalada en el build, correcto |
-| Extensiones fuera de `/app/superset_home`, con un volumen montado en esa ruta | Correcto con `extension_directory` |
-| SQL Lab sobre `lake.gold.<tabla>`: conteos, agregaciones, tipos y un join entre dos tablas Gold | Correcto |
-| DML desde SQL Lab | Rechazado por Superset (`DML_NOT_ALLOWED_ERROR`) |
-| Dataset físico sobre una tabla Iceberg adjunta | **No sirve:** Superset detecta una sola columna sin tipo y el gráfico falla |
-| Dataset físico sobre una vista de `memory.main` | Correcto: las 12 columnas con su tipo, y la consulta de gráfico funciona |
-| Dataset virtual con SQL sobre `lake.gold` | Funciona, pero las columnas `DECIMAL` quedan sin tipo |
-| Varios workers | Las consultas se reparten entre los cuatro; cada uno inicializa su propio DuckDB |
-| Fiabilidad | 729 de 730 consultas correctas. La fallida fue un error interno de Superset (`'NoneType' object has no attribute 'push'`) que no se reprodujo en cinco rondas más |
-| Metadatos de Superset en PostgreSQL 19 tras las pruebas | 759 consultas y 3 datasets registrados, sin errores |
-
-Coste de repetir la inicialización en cada consulta:
-
-| Medida | Sin vistas | 2 vistas | 7 vistas |
-|---|---:|---:|---:|
-| Inicialización, mediana en secuencia | 42 ms | 60 ms | 79 ms |
-| Inicialización, mediana con 8 consultas simultáneas | 102 ms | 115 ms | 162 ms |
-| Consulta completa por la API, mediana en secuencia | 137 ms | 158 ms | 170 ms |
-| Consulta completa por la API, P95 con 8 simultáneas | 399 ms | 414 ms | 440 ms |
-| Consultas por segundo con 8 simultáneas | 24.6 | 22.9 | 21.0 |
-
-La misma consulta sobre una conexión ya inicializada tarda 7 ms: la inicialización pesa más que la consulta, pero el total es aceptable.
-
-Observaciones que afectan al diseño, ya incorporadas en las secciones 34 y 35:
-
-- **Hay que instalar `avro`** además de `httpfs` e `iceberg`. Es el fallo más serio que encontró esta prueba: con Internet pasa inadvertido, porque DuckDB la descarga sola, y sin Internet rompe todas las consultas.
-- **Los datasets van sobre vistas**, no sobre las tablas Iceberg. Lo que el diseño daba como opcional pasa a ser necesario.
-- **La imagen de Superset necesita `psycopg2-binary`**: la base de la serie 6.1 no trae ningún driver.
-- Los datasets se crean con esquema `main`. Con `memory.main` el gráfico funciona, pero una tarea interna de Superset que detecta formatos de fecha falla al citar ese nombre como si fuera un solo identificador.
-
-Lo que esta prueba no cubre: la interfaz web en un navegador, la importación de dashboards, la caché de resultados de Superset y el volumen real de Gold. La opción `READ_ONLY` al adjuntar el catálogo no se probó. La parte de Airflow de la validación 9 se comprobó después, junto con la 8.
-
-#### Validaciones 8 y 9: Python de Airflow y Spark, y metadatos sobre PostgreSQL 19
-
-Entorno: `postgres:19.0` como `metadata-db`, `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, un clúster Spark standalone y los tres servicios de Airflow 3 (`api-server`, `scheduler`, `dag-processor`) con `LocalExecutor`. La imagen de Airflow parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` 4.1.4, `pyspark-client` 4.1.4, el proveedor Spark 6.3.4 y los JAR de Iceberg 1.12.0. La de Spark es la de la validación 5 más Python 3.12 instalado con `uv`. La red del Compose fue interna, sin salida a Internet.
-
-Se usaron dos jobs: uno solo con la API de DataFrame y otro con una UDF de Python, una operación sobre RDD y una escritura en Iceberg.
-
-Primero, el fallo que motivó el cambio de diseño, con los ejecutores todavía en el Python 3.10 de la imagen base:
-
-| Caso | Driver | Ejecutores | Resultado |
+| Servicio | Usuario | UID:GID | Directorio del host que debe poder escribir |
 |---|---|---|---|
-| Job solo con DataFrame | 3.12 | 3.10 | Termina bien: no ejecuta Python en los ejecutores |
-| Job con UDF de Python | 3.12 | 3.10 | **Falla:** `PYTHON_VERSION_MISMATCH`, «Python in worker has different version: 3.10 than that in driver: 3.12» |
-| Job con UDF, pidiendo `python3.12` | 3.12 | 3.10, sin `python3.12` | **Falla:** `Cannot run program "python3.12"` |
+| `postgresql`, `metadata-db` | `postgres` | 999:999 | `postgresql/data`, `metadata-db/data` |
+| `flink-jobmanager`, `flink-taskmanager` | `flink` | 9999:9999 | `flink/data` |
+| `spark-master`, `spark-worker` | `spark` | 185:185 | Ninguno |
+| `airflow-*` | `airflow` | 50000:0 | `airflow/logs` |
+| `superset` | `superset` | 1000:1000 | `superset/data` |
+| `rustfs` | `rustfs` | 10001:10001 | `rustfs/data` |
+| `iceberg-rest` | `iceberg` | 1000:1000 | `iceberg/data` |
+| `java-simulator` | `simulator` | 10002:10002 | Ninguno; lee `raw_data/` en solo lectura |
 
-Después, con Python 3.12 en los dos lados y el DAG lanzado por el scheduler:
+- La imagen de PostgreSQL arranca como `root`, ajusta ella misma la propiedad de su directorio de datos y baja a `postgres`. No necesita preparación.
+- El resto no puede cambiar la propiedad de su directorio. En Linux, un directorio recién clonado pertenece al usuario del host y el servicio falla al escribir. En Docker Desktop sobre Windows los directorios montados aparecen escribibles para todos y el problema no se manifiesta.
+- **Job `volumes-init`.** Un job one-shot que corre como `root`, antes que los servicios con estado, y asigna a cada directorio de la tabla el UID:GID de su servicio. Reutiliza una imagen ya presente en el laboratorio. Es el job de permisos que las secciones 3.2 y 7 mencionaban sin nombrar.
+- `java-simulator` es la única imagen propia sin usuario heredado: su Dockerfile crea el usuario `simulator`.
 
-| Qué se comprobó | Resultado |
-|---|---|
-| Python 3.12 instalado con `uv` en la imagen de Spark | Correcto: 3.12.16, el mismo parche que trae la imagen de Airflow |
-| `pyspark` y `pyspark-client` en la misma versión | Correcto: ambos 4.1.4; el paquete importado reporta 4.1.4 |
-| Airflow detecta el DAG | Sí, sin errores de importación |
-| DAG con dos `SparkSubmitOperator` encadenados, disparado a mano | `success` al primer intento, 29 s en total |
-| Modo cliente contra el clúster standalone | El driver corre en `airflow-scheduler` y los ejecutores se conectan de vuelta a él |
-| UDF de Python y operación sobre RDD en los ejecutores | Corren con Python 3.12.16 |
-| Escritura y lectura de una tabla Iceberg desde el job lanzado por Airflow | Correcto, con los JAR de Iceberg en la imagen de Airflow |
-| `airflow db migrate` sobre PostgreSQL 19.0 | Correcto: 73 tablas creadas, sin errores |
-| `api-server`, `scheduler` y `dag-processor` sobre PostgreSQL 19.0 | Arrancan y operan; ningún error ni traza en sus logs durante la prueba |
-| Sin salida a Internet | Nada intentó descargar en runtime |
+### 45.3 Cuentas técnicas entre servicios
 
-La validación 9 queda completa: Superset se comprobó en la validación 7 y Airflow aquí.
+Cada servicio usa una cuenta propia con el mínimo privilegio que necesita.
 
-Decisión que quedaba abierta y se cierra: Python 3.12 se instala en la imagen de Spark con `uv`. Los detalles de las dos imágenes están en la sección 18.
-
-Lo que estas pruebas no cubren: los jobs reales `bronze_to_silver.py` y `silver_to_gold.py`, la programación periódica del DAG, los reintentos, el `MERGE` de Silver y la arquitectura `arm64`. El DAG se disparó por línea de comandos; no se usó la interfaz web de Airflow.
-
-#### Validación de volumen: las 20 tablas y el dataset completo
-
-Las nueve validaciones usaron tres tablas y unas decenas de filas. Esta repite el camino PostgreSQL 19 → Flink CDC → Bronze con el esquema completo de la sección 12 y el dataset de `raw_data/`, y cubre lo que aquellas dejaron fuera: volumen, checkpoint de 30 s, checkpoints persistidos y reinicio del JobManager.
-
-Entorno: el de las validaciones 2 a 4, con el pipeline de la sección 14 sin cambios, checkpoint cada 30 s, checkpoints en un volumen compartido por JobManager y TaskManager, y los límites de memoria de la sección 39 (PostgreSQL 1 GB, JobManager 1 GB, TaskManager 2 GB, RustFS 1 GB, catálogo 0.5 GB). El dataset se cargó con `COPY`, solo como forma de poblar la base para la prueba. Los conteos de Bronze se leyeron con DuckDB.
-
-| Qué se comprobó | Resultado |
-|---|---|
-| DDL de las 20 tablas, con sus claves, `CHECK`, cascadas y `REPLICA IDENTITY FULL` | Se aplica sin errores; las 20 tablas entran en la publicación |
-| Carga de los 20 CSV | 438,925 filas en 6 s, sin violar ninguna restricción |
-| Snapshot inicial de las 20 tablas | Completo en unos 70 s; el conector crea las 20 tablas Bronze |
-| Bronze frente a PostgreSQL tras el snapshot | Las 20 tablas coinciden fila por fila en número: 438,925 |
-| 2,000 UPDATE, 300 DELETE con cascada y 150 reinserciones, en streaming | Bronze coincide con PostgreSQL en las 20 tablas (431,884 filas vivas) y conserva 7,041 tombstones |
-| Marcas de operación | 1,700 películas en `+U`, 150 en `-D` y las reinsertadas en `+I`, como corresponde |
-| Memoria bajo carga | TaskManager 1.1 de 2 GB, JobManager 0.58 de 1 GB, PostgreSQL 0.25 de 1 GB, catálogo 0.2 de 0.5 GB, RustFS 0.09 de 1 GB |
-| Checkpoints de 30 s | Todos completados, en menos de 1 s cada uno; ninguno fallido |
-| Retención de WAL | El slot confirma con un retraso de unos tres checkpoints; llegó a retener 31 MB y bajó a menos de 1 MB |
-| Reinicio de JobManager y TaskManager | El job se pierde: el clúster arranca sin jobs. El slot queda inactivo en PostgreSQL |
-| Reenvío con `--from-savepoint` al checkpoint retenido | Retoma sin repetir el snapshot: solo cambiaron en Bronze las 196 filas afectadas por los cambios hechos durante la parada, y los conteos vuelven a coincidir |
-| Segundo envío con el job ya en ejecución | **Dañino:** Flink lo acepta y un segundo job repite el snapshot completo. Las filas cuadran, pero todas vuelven a `+I` con un `cdc_op_ts` nuevo |
-| Lectura de Bronze sin compactar | 1.4 s tras el snapshot, 13 s tras los cambios en streaming y 192 s tras el snapshot duplicado, para contar las 20 tablas |
-
-Consecuencias para el diseño, ya incorporadas en la sección 14:
-
-- **El job no sobrevive a un reinicio del JobManager.** El diseño decía que el pipeline retomaba solo desde su último checkpoint; eso vale para una caída del TaskManager, no para el JobManager.
-- **`flink-cdc-submit` necesita lógica**, no solo un envío: detectar un job ya en ejecución y, si no lo hay, reanudar desde el checkpoint retenido.
-- **Los checkpoints deben retenerse** y vivir en un directorio compartido por JobManager y TaskManager, propiedad del usuario `flink`.
-
-Otras observaciones:
-
-- El presupuesto de memoria de la sección 39 es holgado para Flink y PostgreSQL con este volumen.
-- La degradación de lectura confirma con cifras lo que ya indicaba la validación 5: sin compactación, el coste de leer Bronze crece con cada cambio.
-- El DDL usado es un borrador escrito a partir de la sección 12; todavía no está en `postgresql/init/`.
-
-Lo que esta prueba no cubre: el simulador Java (los datos se cargaron con `COPY` y con SQL), la compactación a este volumen, Silver y Gold, y la pérdida de los checkpoints.
-
-## 47. 📝 Registro de cambios de la revisión
-
-### Revisión 4, 2026-11-22
-
-El dataset de entrada pasa de un único `raw_data/elastiflix.csv`, con una fila por película y JSON dentro de las celdas, a **un CSV por tabla**.
-
-| Tema | Antes | Ahora | Sección |
+| Cuenta | Dónde existe | Quién la usa | Privilegios |
 |---|---|---|---|
-| Dataset | Un CSV derivado del índice original, sin especificar | 20 CSV, uno por tabla, con datos sintéticos que reproducen el perfil del índice original | 8 |
-| Contenido de `raw_data/` | `elastiflix.csv` | Los 20 CSV, el script que los genera y su README | 7, 8.1 |
-| Simulador | Lee una fila por película, deserializa JSON y resuelve entidades por nombre | Lee archivos ya normalizados; inserta cada fila con la clave del archivo; alta perezosa de catálogos y entidades | 9 |
-| Nombres repetidos y conflictos de keyword | Los arbitraba el simulador | Llegan resueltos en el dataset | 8.6, 9, 12 |
-| Claves de `genre`, `person`, `production_company`, `production_country`, `spoken_language` | `GENERATED ALWAYS AS IDENTITY` | `bigint` asignado por el dataset, consecutivo desde 1 | 8.4, 12 |
-| `NOT NULL` de `movie` | Sujetos a perfilar el CSV | Confirmados por el perfilado del índice original | 12.2 |
-| Diagramas de arquitectura y de linaje | Nodo `elastiflix.csv` | Nodo `raw_data/*.csv` | 4, 6 |
+| `postgres` | PostgreSQL operacional | Scripts de `postgresql/init/` | Superusuario. No la usa ningún servicio en ejecución |
+| `elastiflix_app` | PostgreSQL operacional | Event Simulator | `SELECT`, `INSERT`, `UPDATE` y `DELETE` sobre el esquema `catalog` |
+| `elastiflix_cdc` | PostgreSQL operacional | Flink CDC | `REPLICATION` y `SELECT` sobre `catalog`. Sin superusuario: comprobado en la validación 1 |
+| `postgres` | `metadata-db` | Scripts de `metadata-db/init/` | Superusuario |
+| `airflow` | `metadata-db` | Servicios de Airflow | Dueña de la base `airflow`, sin acceso a la base `superset` |
+| `superset` | `metadata-db` | Superset | Dueña de la base `superset`, sin acceso a la base `airflow` |
+| Clave de acceso de RustFS | RustFS | `rustfs-init`, `iceberg-rest`, Flink, Spark, DuckDB | Lectura y escritura sobre el bucket `warehouse` |
 
-### Revisión 3, 2026-11-22
+- **Una sola clave de RustFS.** Todos los clientes comparten la misma clave de acceso, que llega a cada contenedor en las variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Lo deseable sería una clave de solo lectura para DuckDB, que nunca escribe; no se ha comprobado que RustFS 1.0.6 permita crear claves con permisos distintos.
+- **Sin autenticación:** el Iceberg REST Catalog, el master de Spark y el clúster de Flink no piden credenciales. Solo son alcanzables dentro de la red del Compose o, sus interfaces web, desde `127.0.0.1`.
+- **Secretos internos**, que no son cuentas pero viven junto a ellas: la `SECRET_KEY` de Superset, y en Airflow el secreto JWT que comparten sus servicios, la clave de la API y la clave Fernet.
 
-Segunda pasada de versiones con dos criterios: usar la versión estable más reciente que el resto del stack admita, y que toda imagen base exista en Docker Hub.
+### 45.4 Cuentas de acceso para personas
 
-| Antes | Ahora | Motivo |
-|---|---|---|
-| Iceberg 1.10.1 en Flink | 1.10.2 | Último parche de la línea contra la que compila Flink CDC 3.7.0 |
-| `eclipse-temurin:25-jre` | `eclipse-temurin:25.0.5.1_2-jre` | Etiqueta exacta en lugar de una móvil |
-| `apache/airflow:3.4.0` (Python 3.13) | `apache/airflow:3.4.0-python3.12` | Misma versión menor de Python que los ejecutores de Spark |
-| `apache/superset:6.1.0` (Python 3.10) | `apache/superset:6.1.0-py312` | Python 3.10 ya no tiene soporte |
-| Imagen de Spark con el Python 3.10 de su base | Python 3.12 instalado en `pyspark/Dockerfile` | PySpark exige la misma versión menor en driver y ejecutores |
-| Contenedor `duckdb` sin imagen base definida | `duckdb/duckdb:1.5.6` | Imagen oficial en Docker Hub |
-| `metadata-db` sin imagen definida | `postgres:19.0` | Misma imagen que la base operacional |
-| — | Maven 3.10.0 (`maven:3.10.0-eclipse-temurin-25`), Commons CSV 1.14.1, `pyspark-client` 4.1.4 | Dependencias de build y runtime sin fijar |
-| «DuckDB 1.5.6: se conserva la línea acordada» | DuckDB 1.5.6 porque Superset 6.1.0 exige `duckdb<2` | Se sustituye la preferencia por la restricción comprobada |
+Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 
-Se revisaron y **no cambian**, por ser ya la última versión estable o la última compatible: PostgreSQL 19.0, Java 25, Flink 2.2.1, Flink CDC 3.7.0, Spark 4.1.4, Iceberg 1.12.0 en Spark, Airflow 3.4.0, proveedor Spark 6.3.4, DuckDB 1.5.6, `duckdb-engine` 0.17.0, Superset 6.1.0, RustFS 1.0.6, Iceberg REST Catalog 1.10.1 y JDBC 42.7.14. El motivo de cada una está en la sección 3.
+| Herramienta | Dirección | Cuenta | Cómo se crea |
+|---|---|---|---|
+| Superset | `http://127.0.0.1:8088` | Administrador | `superset-init`, con `superset fab create-admin`. Comprobado en la validación 7 |
+| Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`. El mecanismo está por validar; ver abajo |
+| Consola de RustFS | `http://127.0.0.1:9001` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Por validar |
+| PostgreSQL operacional | `127.0.0.1:5432` | `postgres` para administrar; `elastiflix_app` para consultar como la aplicación | `postgresql/init/` |
+| Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
+| Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |
 
-Otros cambios de esta revisión:
+> ⚠️ **Por validar: el administrador de Airflow.** Airflow 3 trae por defecto un gestor de autenticación simple, que define los usuarios en la configuración y genera sus contraseñas, y no ofrece `airflow users create`. Ese comando pertenece al gestor basado en Flask AppBuilder, que es un proveedor aparte. La validación 8 corrió con el gestor por defecto y sin iniciar sesión en la interfaz. Falta decidir cuál de los dos usa el laboratorio y comprobar el inicio de sesión; figura como validación 12.
 
-- Política de versiones ampliada: última estable compatible, sin candidatas, y toda imagen base en Docker Hub para `amd64` y `arm64` (sección 3.1). Tabla de imágenes por servicio (sección 3.2).
-- Nombre de proyecto de Compose explícito, sin `container_name` y con puertos del host configurables, para convivir con otros proyectos Docker de la misma máquina (sección 39).
-- `.gitattributes` con finales de línea LF (sección 7).
-- Dos validaciones nuevas en la Fase 0: Python de Airflow y Spark, y PostgreSQL 19 como base de metadatos (sección 46).
+### 45.5 Dónde se definen
 
-### Revisión 2, 2026-11-22
+Todas las credenciales salen de `.env`, que no se versiona. El repositorio incluye `.env.example` con valores de laboratorio, suficientes para levantar el entorno tal cual.
 
-Cambios respecto a la versión inicial del documento.
-
-#### Versiones
-
-| Antes | Ahora | Motivo |
-|---|---|---|
-| Spark / PySpark 4.3.0 | 4.1.4 | Iceberg no publica runtime para Spark 4.2 ni 4.3 |
-| Iceberg 1.11.0 (Spark) | 1.12.0 | Versión vigente con runtime para Spark 4.1 |
-| «Iceberg runtime para Flink 1.10.1» | 1.10.1, artefacto `iceberg-flink-runtime-2.0` | Se precisa el artefacto que usa Flink CDC 3.7.0 |
-| DuckDB 1.5.x | 1.5.6 | Versión exacta; 2.0.1 existe y no se adopta |
-| RustFS 1.0.x | 1.0.6 | Versión exacta |
-| Iceberg REST «compatible» | `apache/iceberg-rest-fixture:1.10.1` | Faltaba definir implementación |
-| — | JDBC 42.7.14, `duckdb-engine` 0.17.0, proveedor Spark 6.3.4 | Dependencias de runtime sin fijar |
-
-#### Diseño
-
-| Tema | Cambio | Sección |
-|---|---|---|
-| Bronze | Añade `cdc_op_type` y `cdc_op_ts`; los DELETE quedan como tombstones. Se documenta que solo se conserva el último estado por clave | 14, 17 |
-| Silver | SCD2 solo en `dim_movie`, `dim_collection` y `dim_keyword`; el resto Tipo 1 | 20, 21, 24, 25 |
-| Silver | SCD2 por comparación de estado; se retira «eventos tardíos» | 19, 21 |
-| Silver | Bridges y `fact_movie_enrichment` anclados a `movie_id` en lugar de `movie_sk` | 28, 29 |
-| Silver | Regla de `effective_from`, generación de surrogate keys y reparación de `SK = 0` | 21, 30 |
-| Silver | Datos de referencia en `pyspark/reference/` para atributos sin fuente | 24 |
-| Silver | Grain de `fact_movie_snapshot` precisado; casos de relaciones y reinserción | 27, 31 |
-| Gold | Recarga completa en cada corrida | 32 |
-| DuckDB | Embebido en Superset; el contenedor `duckdb` pasa a ser herramienta opcional | 34, 35 |
-| Catálogo | Implementación concreta y persistencia en `iceberg/data/` | 16 |
-| Flink CDC | Forma del pipeline, checkpointing obligatorio, semántica at-least-once | 14 |
-| PostgreSQL | Roles, publicación, `max_slot_wal_keep_size`; `REPLICA IDENTITY FULL` pasa a ser requisito | 10 |
-| Compose | Cinco jobs one-shot, `metadata-db`, servicios de Airflow 3, presupuesto de memoria | 39, 40 |
-| Airflow | Tareas de validación definidas y tarea `iceberg_maintenance` | 18, 38 |
-
-#### Modelo relacional
-
-| Antes | Ahora |
+| Variable | Para qué |
 |---|---|
-| `vote_count > 0` | `vote_count >= 0` |
-| Índice único parcial en `poster_path` | Eliminado; se conserva el de `imdb_id` |
-| `source_position` en `movie_collection` | Eliminado |
-| `source_position` sin `NOT NULL` y con `UNIQUE` solo en dos tablas | `NOT NULL` y `UNIQUE(movie_id, source_position)` en las cinco tablas de relación ordenadas |
-| Discrepancias de `keyword` «serán registradas» | Se escriben en el log del simulador |
-| `NOT NULL` fijos en `movie` | `original_title`, `plot`, `release_date` y `popularity` quedan sujetos al perfilado del CSV |
-| `created_at` / `updated_at` sin nulabilidad | `NOT NULL` con valor por defecto |
+| `POSTGRES_PASSWORD` | Superusuario del PostgreSQL operacional |
+| `ELASTIFLIX_APP_PASSWORD` | Cuenta `elastiflix_app` |
+| `ELASTIFLIX_CDC_PASSWORD` | Cuenta `elastiflix_cdc` |
+| `METADATA_DB_PASSWORD` | Superusuario de `metadata-db` |
+| `AIRFLOW_DB_PASSWORD` | Cuenta `airflow` en `metadata-db` |
+| `SUPERSET_DB_PASSWORD` | Cuenta `superset` en `metadata-db` |
+| `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY` | Clave de RustFS; se exponen a los clientes como `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` |
+| `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Administrador de Airflow |
+| `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD` | Administrador de Superset |
+| `AIRFLOW_JWT_SECRET`, `AIRFLOW_API_SECRET_KEY`, `AIRFLOW_FERNET_KEY` | Secretos internos de Airflow |
+| `SUPERSET_SECRET_KEY` | Secreto interno de Superset |
 
-#### Documento
+Reglas:
 
-- Subsecciones del modelo relacional renumeradas de 9.x a 12.x, y las del modelo Silver de 17.x a 20.x.
-- Directorio raíz corregido a `postgresql-19-cdc-duckdb/`; se refleja la ubicación real de este documento en `lab-design/`.
-- `.env` deja de versionarse; se versiona `.env.example` y se añade `.gitignore`.
-- Montaje de PostgreSQL corregido a `/var/lib/postgresql`.
-- Los diagramas Mermaid y ASCII se sustituyen por diagramas generados con Archify en `lab-design/diagrams/`.
+- Ninguna contraseña se escribe en el `docker-compose.yml`, en un Dockerfile, en el YAML del pipeline ni en el SQL de DuckDB. Todos leen de variables de entorno.
+- Los valores de `.env.example` son de laboratorio y están pensados para una máquina local con los puertos ligados a `127.0.0.1`. Quien exponga el laboratorio fuera de su máquina debe cambiarlos.
+- Las contraseñas de `elastiflix_app` y `elastiflix_cdc` las aplica el script de inicialización de PostgreSQL leyendo las variables; no se versionan dentro del SQL.
+
+## 46. 📚 Decisiones y validaciones
+
+Las decisiones tomadas durante el diseño, las que siguen abiertas, las descartadas, las validaciones ejecutadas con sus resultados y el registro de cambios de cada revisión viven en un documento propio: **[DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md)**.
+
+Este documento describe el diseño vigente. Aquel explica por qué es así y qué se probó para sostenerlo.
+
+| Qué | Estado |
+|---|---|
+| Validaciones previas de la Fase 0 | 9 de 9 superadas |
+| Validación de volumen con las 20 tablas y el dataset completo | Superada |
+| `MERGE` SCD2 de Silver y mantenimiento a volumen | Superadas |
+| Pérdida de checkpoints | Falla; pendiente de la decisión D-2 |
+| Validaciones nuevas de esta revisión (10, 11 y 12) | Pendientes |
+| Decisiones abiertas | 7 |

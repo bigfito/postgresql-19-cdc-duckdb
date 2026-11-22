@@ -20,12 +20,12 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 | Elemento | Estado |
 |---|---|
-| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 4 |
+| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 5 |
 | Diagramas de arquitectura, linaje, ERD, DAG y arranque ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Generados |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0) |
+| Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Generado: 6,899 películas sintéticas, 24.5 MB, con su script generador y su [README](raw_data/README.md) |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
@@ -50,21 +50,21 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 4. 🧰 Software Stack
 
-| Componente | Versión | Rol |
-|---|---:|---|
-| PostgreSQL | **19.0** | Base operacional y logical replication |
-| Java | **25** | Event Simulator |
-| Apache Flink | **2.2.1** | Runtime de streaming |
-| Apache Flink CDC | **3.7.0** | PostgreSQL CDC → Iceberg |
-| Apache Iceberg | **1.10.2** en Flink · **1.12.0** en Spark | Formato de tablas del lakehouse |
-| Apache Spark / PySpark | **4.1.4** | Bronze → Silver → Gold |
-| Python | **3.12** | Intérprete común de Airflow, Spark y Superset |
-| Apache Airflow | **3.4.0** | Orquestación de los jobs PySpark |
-| DuckDB | **1.5.6** | SQL/query engine embebido |
-| Apache Superset | **6.1.0** | BI y dashboards |
-| RustFS | **1.0.6** | Object storage S3-compatible |
-| Iceberg REST Catalog | **1.10.1** | Catálogo compartido |
-| Docker Compose | **v2 o posterior** | Runtime del laboratorio |
+| Componente | Versión | Rol | Propósito en el laboratorio |
+|---|---:|---|---|
+| PostgreSQL | **19.0** | Base operacional y logical replication | Hacer de sistema transaccional real: es el origen cuyos cambios se capturan desde el WAL |
+| Java | **25** | Event Simulator | Mostrar una aplicación que genera transacciones de verdad, en lugar de una carga por lotes |
+| Apache Flink | **2.2.1** | Runtime de streaming | Mantener un job de streaming siempre encendido, con checkpoints y recuperación ante fallos |
+| Apache Flink CDC | **3.7.0** | PostgreSQL CDC → Iceberg | Capturar cada INSERT, UPDATE y DELETE sin escribir código: el pipeline es un archivo YAML |
+| Apache Iceberg | **1.10.2** en Flink · **1.12.0** en Spark | Formato de tablas del lakehouse | Guardar las tres capas como tablas transaccionales, con upsert, `MERGE` y snapshots |
+| Apache Spark / PySpark | **4.1.4** | Bronze → Silver → Gold | Transformar por lotes: construir el modelo dimensional con historial y los productos Gold |
+| Python | **3.12** | Intérprete común de Airflow, Spark y Superset | Evitar que PySpark falle porque el driver y los ejecutores usan versiones distintas |
+| Apache Airflow | **3.4.0** | Orquestación de los jobs PySpark | Encadenar, validar y reintentar los jobs por lotes, y dejar visible cada corrida |
+| DuckDB | **1.5.6** | SQL/query engine embebido | Consultar Gold con SQL sin levantar un motor de consultas aparte |
+| Apache Superset | **6.1.0** | BI y dashboards | Presentar el resultado final: dashboards construidos sobre Gold |
+| RustFS | **1.0.6** | Object storage S3-compatible | Sustituir a un servicio S3 de nube, para que todo corra en la máquina local |
+| Iceberg REST Catalog | **1.10.1** | Catálogo compartido | Dar a Flink, Spark y DuckDB un único registro de tablas |
+| Docker Compose | **v2 o posterior** | Runtime del laboratorio | Levantar todo el laboratorio con un solo comando reproducible |
 
 > ℹ️ Cada componente usa la versión estable más reciente que el resto del stack admite, y toda imagen base está publicada en Docker Hub. Cuatro quedan por debajo de la última publicada por compatibilidad: Flink 2.2.1 (Flink CDC 3.7 no soporta Flink 2.3), Spark 4.1.4 (Iceberg no publica runtime para Spark 4.2 ni 4.3), Iceberg 1.10.2 en Flink (línea contra la que se compila Flink CDC 3.7.0) y DuckDB 1.5.6 (Superset 6.1.0 exige `duckdb<2`). El razonamiento completo y la tabla de imágenes están en la [sección 3 del diseño](lab-design/LAB-DESIGN.md#3--software-stack).
 
@@ -93,6 +93,7 @@ postgresql-19-cdc-duckdb/
 |-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
+    |-- DECISIONS-AND-VALIDATIONS.md
     `-- diagrams/
         |-- lab-architecture.{json,html,svg}
         |-- medallion-dataflow.{json,html,svg}
@@ -150,7 +151,7 @@ Flujo demostrativo esperado:
 
 ## 9. 🚀 Hoja de ruta
 
-1. ✅ **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes, todas superadas. PostgreSQL 19.0 funciona con Flink CDC 3.7.0, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
+1. ✅ **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes, todas superadas. PostgreSQL 19.0 funciona con Flink CDC 3.7.0, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones).
 2. ✅ Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.
@@ -165,6 +166,7 @@ Flujo demostrativo esperado:
 | Documento | Contenido |
 |---|---|
 | [`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md) | Diseño completo: requisitos, stack, modelos de datos, pipeline, despliegue y registro de cambios |
+| [`lab-design/DECISIONS-AND-VALIDATIONS.md`](lab-design/DECISIONS-AND-VALIDATIONS.md) | Decisiones vigentes, abiertas y descartadas; validaciones con sus resultados; registro de cambios |
 | [Arquitectura](lab-design/diagrams/lab-architecture.svg) | Componentes y camino del dato |
 | [Linaje por capa](lab-design/diagrams/medallion-dataflow.svg) | Qué pasa de una capa a la siguiente |
 | [Modelo operacional](lab-design/diagrams/operational-erd.svg) | ERD de las 20 tablas del esquema `catalog` |
