@@ -1,0 +1,384 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ElastiFlix CDC Lakehouse Lab: arquitectura end-to-end",
+    "locale": "es",
+    "output": "lab-architecture.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "entries": {
+        "external": {
+          "label": "Fuente de datos"
+        },
+        "backend": {
+          "label": "Cómputo y orquestación"
+        },
+        "database": {
+          "label": "Almacenamiento de datos"
+        },
+        "messagebus": {
+          "label": "Streaming CDC"
+        },
+        "cloud": {
+          "label": "Infraestructura compartida"
+        },
+        "frontend": {
+          "label": "Consumo BI"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "csv",
+      "type": "external",
+      "label": "elastiflix.csv",
+      "sublabel": "6,899 películas",
+      "pos": [
+        250,
+        40
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "simulator",
+      "type": "backend",
+      "label": "Event Simulator",
+      "sublabel": "Java 25 · JDBC",
+      "pos": [
+        250,
+        178
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 19",
+      "sublabel": "elastiflix.catalog",
+      "pos": [
+        250,
+        316
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "flinkcdc",
+      "type": "messagebus",
+      "label": "Flink CDC 3.7",
+      "sublabel": "Flink 2.2.1 · pgoutput",
+      "pos": [
+        250,
+        454
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "bronze",
+      "type": "database",
+      "label": "Iceberg Bronze",
+      "sublabel": "réplica + tombstones",
+      "pos": [
+        250,
+        592
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "job1",
+      "type": "backend",
+      "label": "bronze_to_silver.py",
+      "sublabel": "PySpark 4.1.4",
+      "pos": [
+        250,
+        730
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "silver",
+      "type": "database",
+      "label": "Iceberg Silver",
+      "sublabel": "estrella + SCD2",
+      "pos": [
+        250,
+        868
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "job2",
+      "type": "backend",
+      "label": "silver_to_gold.py",
+      "sublabel": "PySpark 4.1.4",
+      "pos": [
+        250,
+        1006
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "gold",
+      "type": "database",
+      "label": "Iceberg Gold",
+      "sublabel": "productos analíticos",
+      "pos": [
+        250,
+        1144
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "airflow",
+      "type": "backend",
+      "label": "Airflow 3.4",
+      "sublabel": "DAG medallion",
+      "pos": [
+        30,
+        868
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "catalog",
+      "type": "cloud",
+      "label": "Iceberg REST Catalog",
+      "sublabel": "bronze · silver · gold",
+      "pos": [
+        560,
+        868
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "rustfs",
+      "type": "cloud",
+      "label": "RustFS 1.0.6",
+      "sublabel": "s3://warehouse",
+      "pos": [
+        820,
+        868
+      ],
+      "size": [
+        130,
+        64
+      ]
+    },
+    {
+      "id": "duckdb",
+      "type": "backend",
+      "label": "DuckDB 1.5.6",
+      "sublabel": "embebido · solo lectura",
+      "pos": [
+        250,
+        1302
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "superset",
+      "type": "frontend",
+      "label": "Superset 6.1",
+      "sublabel": "dashboards",
+      "pos": [
+        560,
+        1302
+      ],
+      "size": [
+        170,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Contenedor Superset",
+      "wraps": [
+        "duckdb",
+        "superset"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "csv-read",
+      "from": "csv",
+      "to": "simulator",
+      "label": "lee filas"
+    },
+    {
+      "id": "dml",
+      "from": "simulator",
+      "to": "postgres",
+      "label": "INSERT / UPDATE / DELETE",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wal",
+      "from": "postgres",
+      "to": "flinkcdc",
+      "label": "WAL lógico",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bronze-write",
+      "from": "flinkcdc",
+      "to": "bronze",
+      "label": "upsert por PK",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bronze-read",
+      "from": "bronze",
+      "to": "job1",
+      "label": "lee estado"
+    },
+    {
+      "id": "silver-write",
+      "from": "job1",
+      "to": "silver",
+      "label": "MERGE SCD2"
+    },
+    {
+      "id": "silver-read",
+      "from": "silver",
+      "to": "job2",
+      "label": "lee vigentes"
+    },
+    {
+      "id": "gold-write",
+      "from": "job2",
+      "to": "gold",
+      "label": "overwrite"
+    },
+    {
+      "id": "gold-read",
+      "from": "gold",
+      "to": "duckdb",
+      "label": "lee Iceberg",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sql",
+      "from": "duckdb",
+      "to": "superset",
+      "label": "SQL",
+      "variant": "emphasis"
+    },
+    {
+      "id": "submit-1",
+      "from": "airflow",
+      "to": "job1",
+      "label": "spark-submit",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "submit-2",
+      "from": "airflow",
+      "to": "job2",
+      "label": "spark-submit",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "bronze-catalog",
+      "from": "bronze",
+      "to": "catalog",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "silver-catalog",
+      "from": "silver",
+      "to": "catalog",
+      "label": "tablas registradas",
+      "variant": "dashed"
+    },
+    {
+      "id": "gold-catalog",
+      "from": "gold",
+      "to": "catalog",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom"
+    },
+    {
+      "id": "catalog-store",
+      "from": "catalog",
+      "to": "rustfs",
+      "label": "archivos"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Ingesta continua",
+      "items": [
+        "El simulador ejecuta transacciones JDBC reales",
+        "Flink CDC confirma en Iceberg en cada checkpoint",
+        "Los DELETE llegan a Bronze como tombstones (cdc_op_type = -D)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Procesamiento por lotes",
+      "items": [
+        "Airflow solo orquesta los dos jobs PySpark",
+        "Silver: SCD2 por comparación de estado",
+        "Gold: recarga completa en cada corrida"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Plano compartido",
+      "items": [
+        "Flink, Spark y DuckDB resuelven las tres capas en el catálogo REST",
+        "Los archivos Parquet y la metadata viven en RustFS",
+        "DuckDB corre dentro de Superset (duckdb-engine)"
+      ]
+    }
+  ]
+}

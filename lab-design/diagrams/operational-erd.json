@@ -1,0 +1,780 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "ElastiFlix: modelo operacional PostgreSQL (esquema catalog)",
+    "locale": "es",
+    "output": "operational-erd.html",
+    "quality_profile": "standard",
+    "feedback_links": false
+  },
+  "layout": {
+    "mode": "grid"
+  },
+  "entities": [
+    {
+      "id": "original_language",
+      "label": "original_language",
+      "tag": "Catálogos de película",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "language_code",
+          "type": "text",
+          "key": "pk"
+        },
+        {
+          "name": "description",
+          "type": "text NULL"
+        }
+      ]
+    },
+    {
+      "id": "movie_status",
+      "label": "movie_status",
+      "tag": "Catálogos de película",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "status_code",
+          "type": "text",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "content_rating",
+      "label": "content_rating",
+      "tag": "Catálogos de película",
+      "row": 2,
+      "col": 0,
+      "attributes": [
+        {
+          "name": "rating_code",
+          "type": "text",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "movie",
+      "label": "movie",
+      "tag": "Núcleo",
+      "row": 0,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "imdb_id",
+          "type": "text NULL",
+          "key": "uk"
+        },
+        {
+          "name": "title",
+          "type": "text"
+        },
+        {
+          "name": "original_title",
+          "type": "text"
+        },
+        {
+          "name": "original_language_code",
+          "type": "text",
+          "key": "fk",
+          "references": "original_language.language_code"
+        },
+        {
+          "name": "overview",
+          "type": "text NULL"
+        },
+        {
+          "name": "plot",
+          "type": "text"
+        },
+        {
+          "name": "tagline",
+          "type": "text NULL"
+        },
+        {
+          "name": "status_code",
+          "type": "text",
+          "key": "fk",
+          "references": "movie_status.status_code"
+        },
+        {
+          "name": "rating_code",
+          "type": "text NULL",
+          "key": "fk",
+          "references": "content_rating.rating_code"
+        },
+        {
+          "name": "release_date",
+          "type": "date"
+        },
+        {
+          "name": "runtime_minutes",
+          "type": "integer NULL"
+        },
+        {
+          "name": "budget_usd",
+          "type": "numeric(18,2) NULL"
+        },
+        {
+          "name": "revenue_usd",
+          "type": "numeric(18,2) NULL"
+        },
+        {
+          "name": "popularity",
+          "type": "numeric(10,3)"
+        },
+        {
+          "name": "user_score",
+          "type": "numeric(3,1) NULL"
+        },
+        {
+          "name": "vote_average",
+          "type": "numeric(5,3) NULL"
+        },
+        {
+          "name": "vote_count",
+          "type": "integer NULL"
+        },
+        {
+          "name": "adult",
+          "type": "boolean"
+        },
+        {
+          "name": "video",
+          "type": "boolean"
+        },
+        {
+          "name": "homepage",
+          "type": "text NULL"
+        },
+        {
+          "name": "poster_path",
+          "type": "text NULL"
+        },
+        {
+          "name": "backdrop_path",
+          "type": "text NULL"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "movie_collection",
+      "label": "movie_collection",
+      "tag": "Núcleo",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "collection_id",
+          "type": "bigint",
+          "key": "fk",
+          "references": "collection.collection_id"
+        },
+        {
+          "name": "observed_poster_path",
+          "type": "text NULL"
+        },
+        {
+          "name": "observed_backdrop_path",
+          "type": "text NULL"
+        }
+      ]
+    },
+    {
+      "id": "collection",
+      "label": "collection",
+      "tag": "Núcleo",
+      "row": 2,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "collection_id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "movie_enrichment",
+      "label": "movie_enrichment",
+      "tag": "Procedencia",
+      "row": 3,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "field_name",
+          "type": "text",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "enrichment_field.field_name"
+        },
+        {
+          "name": "code",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "id": "enrichment_field",
+      "label": "enrichment_field",
+      "tag": "Procedencia",
+      "row": 4,
+      "col": 1,
+      "attributes": [
+        {
+          "name": "field_name",
+          "type": "text",
+          "key": "pk"
+        }
+      ]
+    },
+    {
+      "id": "movie_genre",
+      "label": "movie_genre",
+      "tag": "Relaciones N:M",
+      "row": 0,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "genre_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "genre.genre_id"
+        },
+        {
+          "name": "source_position",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "movie_keyword",
+      "label": "movie_keyword",
+      "tag": "Relaciones N:M",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "keyword_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "keyword.keyword_id"
+        },
+        {
+          "name": "source_position",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "movie_cast",
+      "label": "movie_cast",
+      "tag": "Relaciones N:M",
+      "row": 2,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "person_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "person.person_id"
+        },
+        {
+          "name": "billing_order",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "movie_production_company",
+      "label": "movie_production_company",
+      "tag": "Relaciones N:M",
+      "row": 3,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "company_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "production_company.company_id"
+        },
+        {
+          "name": "source_position",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "movie_production_country",
+      "label": "movie_production_country",
+      "tag": "Relaciones N:M",
+      "row": 4,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "country_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "production_country.country_id"
+        },
+        {
+          "name": "source_position",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "movie_spoken_language",
+      "label": "movie_spoken_language",
+      "tag": "Relaciones N:M",
+      "row": 5,
+      "col": 2,
+      "attributes": [
+        {
+          "name": "movie_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "movie.movie_id"
+        },
+        {
+          "name": "spoken_language_id",
+          "type": "bigint",
+          "key": [
+            "pk",
+            "fk"
+          ],
+          "references": "spoken_language.spoken_language_id"
+        },
+        {
+          "name": "source_position",
+          "type": "integer",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "genre",
+      "label": "genre",
+      "tag": "Entidades compartidas",
+      "row": 0,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "genre_id",
+          "type": "bigint identity",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "keyword",
+      "label": "keyword",
+      "tag": "Entidades compartidas",
+      "row": 1,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "keyword_id",
+          "type": "bigint",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "person",
+      "label": "person",
+      "tag": "Entidades compartidas",
+      "row": 2,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "person_id",
+          "type": "bigint identity",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "key": "uk"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz"
+        }
+      ]
+    },
+    {
+      "id": "production_company",
+      "label": "production_company",
+      "tag": "Entidades compartidas",
+      "row": 3,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "company_id",
+          "type": "bigint identity",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "production_country",
+      "label": "production_country",
+      "tag": "Entidades compartidas",
+      "row": 4,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "country_id",
+          "type": "bigint identity",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "key": "uk"
+        }
+      ]
+    },
+    {
+      "id": "spoken_language",
+      "label": "spoken_language",
+      "tag": "Entidades compartidas",
+      "row": 5,
+      "col": 3,
+      "attributes": [
+        {
+          "name": "spoken_language_id",
+          "type": "bigint identity",
+          "key": "pk"
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "key": "uk"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "movie__original_language",
+      "from": "movie",
+      "to": "original_language",
+      "fromCardinality": "many",
+      "toCardinality": "one"
+    },
+    {
+      "id": "movie__movie_status",
+      "from": "movie",
+      "to": "movie_status",
+      "fromCardinality": "many",
+      "toCardinality": "one"
+    },
+    {
+      "id": "movie__content_rating",
+      "from": "movie",
+      "to": "content_rating",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "toOptional": true
+    },
+    {
+      "id": "movie_collection__movie",
+      "from": "movie_collection",
+      "to": "movie",
+      "fromCardinality": "one",
+      "fromOptional": true,
+      "toCardinality": "one"
+    },
+    {
+      "id": "movie_collection__collection",
+      "from": "movie_collection",
+      "to": "collection",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_genre__movie",
+      "from": "movie_genre",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_genre__genre",
+      "from": "movie_genre",
+      "to": "genre",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_keyword__movie",
+      "from": "movie_keyword",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_keyword__keyword",
+      "from": "movie_keyword",
+      "to": "keyword",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_cast__movie",
+      "from": "movie_cast",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_cast__person",
+      "from": "movie_cast",
+      "to": "person",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_production_company__movie",
+      "from": "movie_production_company",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_production_company__production_company",
+      "from": "movie_production_company",
+      "to": "production_company",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_production_country__movie",
+      "from": "movie_production_country",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_production_country__production_country",
+      "from": "movie_production_country",
+      "to": "production_country",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_spoken_language__movie",
+      "from": "movie_spoken_language",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_spoken_language__spoken_language",
+      "from": "movie_spoken_language",
+      "to": "spoken_language",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_enrichment__movie",
+      "from": "movie_enrichment",
+      "to": "movie",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    },
+    {
+      "id": "movie_enrichment__enrichment_field",
+      "from": "movie_enrichment",
+      "to": "enrichment_field",
+      "fromCardinality": "many",
+      "toCardinality": "one",
+      "fromOptional": true
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Claves",
+      "items": [
+        "movie_id, collection_id y keyword_id son IDs de TMDB",
+        "Los IDs identity los genera PostgreSQL; el nombre es UNIQUE",
+        "La posición de cada relación es UNIQUE junto con movie_id"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "DELETE",
+      "items": [
+        "Borrar movie elimina sus 8 relaciones (ON DELETE CASCADE)",
+        "Las entidades compartidas y los catálogos no se borran",
+        "Todas las tablas usan REPLICA IDENTITY FULL"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Tipos",
+      "items": [
+        "Solo tipos interoperables con Flink CDC, Iceberg, Spark y DuckDB",
+        "Sin json, enum, arrays, money ni vectores",
+        "NULL significa ausencia; nunca cero sintético"
+      ]
+    }
+  ]
+}
