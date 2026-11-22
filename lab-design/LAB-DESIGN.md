@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 2 (2026-11-22):** este documento incorpora las correcciones de la revisión de diseño. Las versiones del stack se verificaron contra Docker Hub, Maven Central, PyPI y la documentación de cada proyecto. El detalle de cada cambio está en la [sección 47](#47--registro-de-cambios-de-la-revisión) y lo que aún debe probarse antes de implementar está en la [sección 46](#46--validaciones-previas-fase-0).
+> 📝 **Revisión 3 (2026-11-22):** este documento incorpora las correcciones de la revisión de diseño y una segunda pasada de versiones. Cada componente está en su versión estable más reciente compatible con el resto, y toda imagen base se comprobó en Docker Hub; ver [sección 3](#3--software-stack). El detalle de cada cambio está en la [sección 47](#47--registro-de-cambios-de-la-revisión) y lo que aún debe probarse antes de implementar está en la [sección 46](#46--validaciones-previas-fase-0).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -34,7 +34,7 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
 ### 2.2 Requisitos técnicos
 
-- 🐳 Docker Engine con Docker Compose v2.
+- 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2; el repositorio puede vivir en una unidad NTFS (los bind mounts y el cambio de propietario de los directorios `data/` se comprobaron ahí).
 - CPU x86_64/amd64 o ARM64 con imágenes compatibles para todos los componentes seleccionados.
 - Recomendación para una ejecución cómoda del laboratorio: **8 CPU, 16 GB RAM y al menos 30 GB libres**. Con 16 GB el margen es estrecho (Flink, Spark, Airflow 3, Superset y dos PostgreSQL a la vez), por lo que cada servicio declarará límites de memoria en el Compose; ver [sección 39](#39--docker-compose).
 - Puertos locales disponibles para las interfaces que decidamos publicar, por ejemplo PostgreSQL, Flink UI, Airflow UI, RustFS, Iceberg REST y Superset. Se publicarán ligados a `127.0.0.1`, no a todas las interfaces.
@@ -53,38 +53,78 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 
 | Componente | Versión base | Imagen o artefacto | Rol |
 |---|---:|---|---|
-| PostgreSQL | **19.0** | `postgres:19.0` | Base operacional y logical replication |
-| Java | **25** | `eclipse-temurin:25-jre` | Event Simulator |
+| PostgreSQL | **19.0** | `postgres:19.0` | Base operacional con logical replication; la misma imagen sirve a `metadata-db` |
+| Java | **25** (LTS) | `eclipse-temurin:25.0.5.1_2-jre` | Event Simulator |
+| Apache Maven | **3.10.0** | `maven:3.10.0-eclipse-temurin-25` | Etapa de build del simulador |
 | PostgreSQL JDBC | **42.7.14** | `org.postgresql:postgresql` | Driver del simulador |
+| Apache Commons CSV | **1.14.1** | `org.apache.commons:commons-csv` | Lectura del CSV en el simulador |
 | Apache Flink | **2.2.1** | `flink:2.2.1-java21` | Runtime de streaming |
 | Apache Flink CDC | **3.7.0** | conectores `postgres` e `iceberg`, versión `3.7.0-2.2` | PostgreSQL CDC → Iceberg |
-| Apache Iceberg en Flink | **1.10.1** | `iceberg-flink-runtime-2.0`, `iceberg-aws-bundle` | Sink Iceberg del pipeline CDC |
+| Apache Iceberg en Flink | **1.10.2** | `iceberg-flink-runtime-2.0`, `iceberg-aws-bundle` | Sink Iceberg del pipeline CDC |
 | Apache Spark / PySpark | **4.1.4** | `apache/spark:4.1.4-scala2.13-java21-python3-ubuntu` | Bronze → Silver → Gold |
 | Apache Iceberg en Spark | **1.12.0** | `iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle` | Lectura y escritura de Silver y Gold |
-| Apache Airflow | **3.4.0** | `apache/airflow:3.4.0` | Orquestación |
+| Python | **3.12** | variantes `-python3.12` y `-py312` de las imágenes; se instala en la de Spark | Intérprete común de Airflow, Spark y Superset |
+| Apache Airflow | **3.4.0** | `apache/airflow:3.4.0-python3.12` | Orquestación |
 | Proveedor Spark de Airflow | **6.3.4** | `apache-airflow-providers-apache-spark` | `SparkSubmitOperator` |
-| DuckDB | **1.5.6** | paquete Python `duckdb` | SQL/query engine embebido |
+| DuckDB | **1.5.6** | paquete Python `duckdb`; `duckdb/duckdb:1.5.6` para la línea de comandos | SQL/query engine embebido |
 | duckdb-engine | **0.17.0** | paquete Python `duckdb-engine` | Dialecto SQLAlchemy para Superset |
-| Apache Superset | **6.1.0** | `apache/superset:6.1.0` | BI y dashboards |
+| Apache Superset | **6.1.0** | `apache/superset:6.1.0-py312` | BI y dashboards |
 | RustFS | **1.0.6** | `rustfs/rustfs:1.0.6` | Object storage S3-compatible |
 | Iceberg REST Catalog | **1.10.1** | `apache/iceberg-rest-fixture:1.10.1` | Catálogo compartido |
-| Docker Compose | **v2** | — | Runtime del laboratorio |
+| Docker Compose | **v2 o posterior** | — | Runtime del laboratorio |
 
-> ℹ️ **Por qué estas versiones y no las más nuevas.** Verificado el 2026-11-22:
+> ℹ️ **Criterio: la versión estable más reciente que el resto del stack admite.** Cada componente se revisó el 2026-11-22 contra Docker Hub, Maven Central y PyPI. Están en su última versión estable publicada: PostgreSQL 19.0, Flink CDC 3.7.0, Airflow 3.4.0 y su proveedor Spark 6.3.4, Superset 6.1.0, RustFS 1.0.6, `duckdb-engine` 0.17.0, JDBC 42.7.14, Commons CSV 1.14.1, Maven 3.10.0 e Iceberg 1.12.0 en Spark. Los que quedan por debajo de la última publicada tienen un motivo de compatibilidad comprobado:
 >
-> - **Spark 4.1.4 y no 4.3.0.** Iceberg publica un runtime por cada versión menor de Spark. Iceberg 1.12.0 (la más reciente) cubre Spark 3.5, 4.0 y 4.1; no existe runtime para Spark 4.2 ni 4.3, así que con 4.3.0 los jobs no podrían leer ni escribir Iceberg.
-> - **Iceberg 1.10.1 dentro de Flink.** Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y, en su perfil para Flink 2.x, usa el artefacto `iceberg-flink-runtime-2.0`. La guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg» lista exactamente ese conjunto para Flink 2.2.1: «Iceberg Flink runtime 1.10.1 (2.0)». No se sustituye por el runtime 1.12.0 para Flink 2.2.
-> - **Dos versiones de Iceberg conviven.** Flink escribe Bronze con 1.10.1 y Spark lee Bronze y escribe Silver y Gold con 1.12.0. Las tablas se crean en formato v2, que ambas versiones y DuckDB leen.
-> - **DuckDB 1.5.6 y no 2.0.1.** Se conserva la línea 1.5 acordada. DuckDB 2.0 ya está publicado; adoptarlo es una actualización a probar end-to-end, no un cambio de parche.
+> - **Flink 2.2.1 y no 2.3.0.** Flink 2.3.0 ya está en Docker Hub, pero Flink CDC 3.7 solo soporta Flink 1.20 y 2.2: su tabla de compatibilidad lo declara y sus conectores se publican únicamente con los sufijos `-1.20` y `-2.2`. La 2.2.1 es el último parche de la línea 2.2.
+> - **Spark 4.1.4 y no 4.3.0.** Iceberg publica un runtime por cada versión menor de Spark. Iceberg 1.12.0 (la más reciente) cubre Spark 3.5, 4.0 y 4.1; en Maven Central no existe `iceberg-spark-runtime-4.2` ni `-4.3`, así que con 4.3.0 los jobs no podrían leer ni escribir Iceberg. La 4.1.4 es el último parche de la línea 4.1.
+> - **Iceberg 1.10.2 dentro de Flink y no 1.12.0.** Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y, en su perfil para Flink 2.x, usa el artefacto `iceberg-flink-runtime-2.0`. La guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg» lista ese conjunto para Flink 2.2.1: «Iceberg Flink runtime 1.10.1 (2.0)». Se adopta el último parche de esa misma línea, 1.10.2. No se salta a 1.11.0 (cambio de versión menor respecto a lo que compila el conector) ni al runtime 1.12.0 para Flink 2.2 (otro artefacto). Si el parche diera problemas, el respaldo es 1.10.1; ver [sección 46](#46--validaciones-previas-fase-0).
+> - **Dos versiones de Iceberg conviven.** Flink escribe Bronze con 1.10.2 y Spark lee Bronze y escribe Silver y Gold con 1.12.0. Las tablas se crean en formato v2, que ambas versiones y DuckDB leen.
+> - **Iceberg REST Catalog 1.10.1.** Es la etiqueta versionada más reciente de `apache/iceberg-rest-fixture` en Docker Hub; las versiones 1.10.2, 1.11.0 y 1.12.0 de Iceberg no publicaron imagen. Solo `latest` es más nueva, y la política de versiones la excluye.
+> - **DuckDB 1.5.6 y no 2.0.1.** Superset 6.1.0 declara `duckdb<2,>=1.4.2` en su extra `duckdb`, de modo que DuckDB 2.x queda fuera hasta que Superset lo admita. La 1.5.6 es la última versión de la serie 1.x.
+> - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
+> - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
+> - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. Ver «Despliegue de Airflow» en la sección 18.
 > - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector es la primera validación de la [sección 46](#46--validaciones-previas-fase-0).
 
 ### 3.1 Política de versiones
 
-- 🔒 Las imágenes Docker deberán quedar **pinneadas** a una versión exacta, evitando `latest` y rangos como `1.0.x`.
+- 🔒 Las imágenes Docker deberán quedar **pinneadas** a una versión exacta, evitando `latest`, etiquetas móviles como `25-jre` y rangos como `1.0.x`.
+- 🆕 Se usa la versión estable más reciente de cada componente que sea compatible con el resto. No se adoptan candidatas (`rc`), `preview` ni `dev`.
+- 🐳 Toda imagen base debe existir en Docker Hub con esa etiqueta exacta y para `linux/amd64` y `linux/arm64`. No se usan otros registros.
 - 🧪 Las actualizaciones deberán probarse end-to-end antes de modificar el stack base.
-- 🔗 Las versiones de Flink, Flink CDC e Iceberg runtime deberán tratarse como un conjunto compatible. Lo mismo aplica al par Spark / `iceberg-spark-runtime`.
+- 🔗 Las versiones de Flink, Flink CDC e Iceberg runtime deberán tratarse como un conjunto compatible. Lo mismo aplica al par Spark / `iceberg-spark-runtime` y a la versión de Python de Airflow y Spark.
 - 📌 Las dependencias Maven/Python deberán fijarse explícitamente cuando sean parte del runtime.
 - 📥 Los JAR de Flink y Spark se descargan durante el build de cada imagen; no se versionan en el repositorio.
+
+### 3.2 Imágenes en Docker Hub
+
+Todas las imágenes base del laboratorio están publicadas en Docker Hub para `linux/amd64` y `linux/arm64`. Comprobado el 2026-11-22 con `docker manifest inspect` y la API de etiquetas de Docker Hub.
+
+| Servicio del Compose | Imagen base | Última actualización de la etiqueta |
+|---|---|---|
+| `postgresql`, `metadata-db` | `postgres:19.0` | 2026-11-20 |
+| `java-simulator` (build) | `maven:3.10.0-eclipse-temurin-25` | 2026-11-21 |
+| `java-simulator` (runtime) | `eclipse-temurin:25.0.5.1_2-jre` | 2026-11-20 |
+| `flink-jobmanager`, `flink-taskmanager`, `flink-cdc-submit` | `flink:2.2.1-java21` | 2026-11-20 |
+| `spark-master`, `spark-worker` | `apache/spark:4.1.4-scala2.13-java21-python3-ubuntu` | 2026-10-28 |
+| `airflow-*` | `apache/airflow:3.4.0-python3.12` | 2026-11-06 |
+| `superset`, `superset-init` | `apache/superset:6.1.0-py312` | 2026-09-21 |
+| `rustfs` | `rustfs/rustfs:1.0.6` | 2026-11-15 |
+| `iceberg-rest` | `apache/iceberg-rest-fixture:1.10.1` | 2025-12-22 |
+| `duckdb` (perfil `tools`) | `duckdb/duckdb:1.5.6` | 2026-09-29 |
+
+Los componentes que son librerías no tienen imagen propia: se instalan durante el build de la imagen que los aloja.
+
+| Componente | Dónde se instala | Origen |
+|---|---|---|
+| Flink CDC 3.7.0 (distribución y conectores `3.7.0-2.2`) | Imagen de Flink | Descargas de Apache y Maven Central |
+| Iceberg 1.10.2 (`iceberg-flink-runtime-2.0`, `iceberg-aws-bundle`) | Imagen de Flink | Maven Central |
+| Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
+| JDBC 42.7.14 y Commons CSV 1.14.1 | JAR del simulador | Maven Central |
+| PySpark 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
+| DuckDB 1.5.6, `duckdb-engine` 0.17.0 y extensiones `httpfs` e `iceberg` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
+
+Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajusta permisos) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
 
 ## 4. 🗺️ Diagrama de Arquitectura
 
@@ -167,6 +207,7 @@ postgresql-19-cdc-duckdb/
 |
 |-- docker-compose.yml
 |-- .env.example
+|-- .gitattributes
 |-- .gitignore
 |-- README.md
 |
@@ -232,6 +273,7 @@ postgresql-19-cdc-duckdb/
 Notas sobre la estructura:
 
 - `.env.example` se versiona; `.env` es local y queda en `.gitignore`, igual que todos los directorios `data/` y `logs/`.
+- `.gitattributes` fuerza finales de línea LF en todo archivo de texto. Los scripts, SQL, YAML y jobs de este repositorio se ejecutan dentro de contenedores Linux, y un clon en Windows con `core.autocrlf=true` los dejaría con CRLF, que rompe la ejecución. El dataset `*.csv` queda excluido de cualquier conversión.
 - `lab-design/diagrams/` guarda, por cada diagrama, la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Se regeneran con Archify: `archify finalize <tipo> <fuente>.json <salida>.html` y `export-svg.mjs <salida>.html <salida>.svg auto`.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset.
@@ -882,7 +924,7 @@ Puntos que conviene no pasar por alto:
 - **At-least-once.** El sink no ofrece exactly-once: reintenta y se apoya en la clave primaria para escribir de forma idempotente. Por eso todas las tablas capturadas tienen PK.
 - **Una sola base.** El conector PostgreSQL captura tablas de una única base de datos; `elastiflix` cumple.
 - **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía y es una de las validaciones de la sección 46.
-- **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0` 1.10.1, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. Este laboratorio añade `iceberg-aws-bundle` 1.10.1 para `S3FileIO`. El conector PostgreSQL ya incluye su driver JDBC.
+- **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0`, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. La guía usa Iceberg 1.10.1; este laboratorio toma el último parche de esa línea, 1.10.2, y añade `iceberg-aws-bundle` 1.10.2 para `S3FileIO`. Hadoop se mantiene en la 3.3.6 que indica la guía aunque exista la 3.5.0, porque forma parte del conjunto probado con el conector. El conector PostgreSQL ya incluye su driver JDBC.
 - **Reinicio.** Al reiniciar, el pipeline retoma desde su último checkpoint. Si se pierden los checkpoints, vuelve a tomar el snapshot inicial, lo cual es seguro porque la escritura es un upsert por PK.
 
 ## 15. 🪣 RustFS
@@ -1026,7 +1068,9 @@ Airflow no gobernará cada evento CDC.
 
 ### Despliegue de Airflow
 
-- Imagen propia basada en `apache/airflow:3.4.0`, con Java, PySpark 4.1.4 y `apache-airflow-providers-apache-spark` 6.3.4. La versión de PySpark del cliente debe coincidir con la del clúster Spark.
+- Imagen propia basada en `apache/airflow:3.4.0-python3.12`, con Java 21, PySpark 4.1.4 y `apache-airflow-providers-apache-spark` 6.3.4. La versión de PySpark del cliente debe coincidir con la del clúster Spark.
+- El proveedor 6.3.4 depende de `pyspark-client>=4.0.0` sin tope superior, así que por sí solo instalaría la 4.3.0. Se fijan `pyspark==4.1.4` y `pyspark-client==4.1.4` en el mismo `pip install`.
+- **Misma versión menor de Python en Airflow y en Spark.** `SparkSubmitOperator` lanza `spark-submit` en modo cliente contra el clúster standalone, que no admite modo clúster para aplicaciones Python. El driver corre entonces dentro del contenedor de Airflow y los ejecutores dentro de `spark-worker`; si sus versiones menores de Python difieren, PySpark aborta el job. La imagen base de Spark trae Python 3.10 (Ubuntu 22.04) y Airflow no publica imagen con 3.10, por lo que `pyspark/Dockerfile` instala Python 3.12 y fija `PYSPARK_PYTHON` a ese intérprete. Se comprueba en la sección 46.
 - `LocalExecutor`. Servicios de Airflow 3: `airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor`, más el job one-shot `airflow-init` (migra la base y crea el usuario administrador).
 - Metadatos en `metadata-db` (base `airflow`).
 - Programación: el DAG se dispara a mano durante la demostración y, opcionalmente, cada 10 minutos. `max_active_runs = 1` para que dos corridas no escriban Silver a la vez.
@@ -1702,7 +1746,7 @@ DuckDB es una librería embebida: no escucha en un puerto ni acepta conexiones d
 | Lugar | Para qué |
 |---|---|
 | Dentro del contenedor de Superset | Es el camino real de los dashboards, vía `duckdb-engine` |
-| Contenedor `duckdb` (perfil `tools` del Compose) | Línea de comandos para explorar Gold a mano; no forma parte del flujo |
+| Contenedor `duckdb` (perfil `tools` del Compose), basado en `duckdb/duckdb:1.5.6` | Línea de comandos para explorar Gold a mano; no forma parte del flujo |
 
 ### Inicialización de cada conexión
 
@@ -1752,7 +1796,8 @@ Gold será la fuente de verdad para las visualizaciones.
 
 ### Configuración
 
-- Imagen propia basada en `apache/superset:6.1.0`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y las extensiones de DuckDB preinstaladas.
+- Imagen propia basada en `apache/superset:6.1.0-py312`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y las extensiones de DuckDB preinstaladas. Se usa la variante `-py312` porque la etiqueta `6.1.0` a secas trae Python 3.10, ya sin soporte.
+- Superset 6.1.0 limita DuckDB a `duckdb<2,>=1.4.2`. Subir a DuckDB 2.x requiere antes una versión de Superset que lo admita.
 - La base de datos se registra con la URI SQLAlchemy `duckdb:///:memory:`.
 - Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB. Sin ese hook, las conexiones nuevas no verían el catálogo. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`.
 - **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`) por defecto, de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. Con pocas tablas Gold debería ser aceptable; se mide en la sección 46 y, si no lo es, la alternativa es un archivo DuckDB de solo lectura generado por un job.
@@ -1863,6 +1908,28 @@ duckdb             línea de comandos para explorar Gold
 ```
 
 Todos se declaran en el mismo `docker-compose.yml`. Las credenciales del laboratorio se leen de `.env`; el repositorio versiona `.env.example`.
+
+### Aislamiento frente a otros proyectos del host
+
+Quien revise el laboratorio puede tener otros entornos Docker en la misma máquina, incluso otro laboratorio de ElastiFlix. Para que no se pisen:
+
+- **Nombre de proyecto explícito.** El archivo empieza con `name: elastiflix-cdc-lakehouse`. Sin él, Compose deriva el nombre del directorio donde se clonó el repositorio, y dos clones o un directorio renombrado producirían proyectos distintos sobre los mismos datos.
+- **Sin `container_name`.** Los contenedores toman el nombre que genera Compose (`elastiflix-cdc-lakehouse-postgresql-1`). Un nombre fijo como `elastiflix-postgres` choca con cualquier otro proyecto que use el mismo.
+- **Red propia.** Los servicios se hablan por la red por defecto del proyecto y por nombre de servicio (`postgresql`, `rustfs`, `iceberg-rest`); no se usan redes externas ni `network_mode: host`.
+- **Puertos del host configurables.** Cada puerto publicado se declara como `127.0.0.1:${VAR:-valor}:puerto`, con la variable en `.env.example`. Si el `5432` u otro ya está ocupado, se cambia en `.env` sin tocar el Compose. Las conexiones entre servicios no dependen de esos puertos.
+
+| Variable | Valor por defecto | Servicio |
+|---|---:|---|
+| `POSTGRES_HOST_PORT` | 5432 | PostgreSQL operacional |
+| `FLINK_UI_HOST_PORT` | 8081 | Flink UI |
+| `SPARK_UI_HOST_PORT` | 8082 | Spark master UI |
+| `AIRFLOW_HOST_PORT` | 8080 | Airflow UI y API |
+| `SUPERSET_HOST_PORT` | 8088 | Superset |
+| `RUSTFS_API_HOST_PORT` | 9000 | RustFS, API S3 |
+| `RUSTFS_CONSOLE_HOST_PORT` | 9001 | RustFS, consola |
+| `ICEBERG_REST_HOST_PORT` | 8181 | Iceberg REST Catalog |
+
+`metadata-db` no publica puerto: solo lo usan Airflow y Superset dentro de la red del proyecto. La UI del master de Spark escucha en el 8080 dentro de su contenedor, igual que Airflow; por eso se publica en el 8082 del host.
 
 ### Presupuesto de memoria
 
@@ -2012,20 +2079,30 @@ Antes de implementar el laboratorio completo conviene probar, con el mínimo de 
 | # | Qué se valida | Piezas mínimas | Si falla |
 |---:|---|---|---|
 | 1 | Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0 con `pgoutput` (snapshot inicial, INSERT, UPDATE, DELETE) | PostgreSQL, Flink, sink de consola | Usar PostgreSQL 18 |
-| 2 | El sink Iceberg de Flink CDC escribe a través de un catálogo REST sobre RustFS | + RustFS, `iceberg-rest` | Probar `catalog.properties.type: rest`; como último recurso, otro catálogo REST |
+| 2 | El sink Iceberg de Flink CDC escribe a través de un catálogo REST sobre RustFS, con el runtime Iceberg 1.10.2 | + RustFS, `iceberg-rest` | Volver a Iceberg 1.10.1, la versión de la guía; probar `catalog.properties.type: rest`; como último recurso, otro catálogo REST |
 | 3 | `SOFT_DELETE` más `__data_event_type__` y `op_ts` producen tombstones con la fila completa, y qué valores toma `cdc_op_type` | las de la prueba 2 | Rediseñar la detección de DELETE en Silver |
 | 4 | El catálogo conserva las tablas tras reiniciar el contenedor `iceberg-rest` | las de la prueba 2 | Cambiar el backend del catálogo |
-| 5 | Spark 4.1.4 con Iceberg 1.12.0 lee las tablas Bronze escritas por Flink con Iceberg 1.10.1, incluidos los deletes de igualdad, y puede compactarlas | + Spark | Alinear la versión de Iceberg de Spark con la de Flink |
+| 5 | Spark 4.1.4 con Iceberg 1.12.0 lee las tablas Bronze escritas por Flink con Iceberg 1.10.2, incluidos los deletes de igualdad, y puede compactarlas | + Spark | Alinear la versión de Iceberg de Spark con la de Flink |
 | 6 | DuckDB 1.5.6 adjunta el catálogo REST y lee una tabla Gold escrita por Spark | + DuckDB | Ajustar el formato de escritura de Gold |
 | 7 | Superset 6.1.0 ejecuta el SQL de inicialización en cada conexión DuckDB, consulta Gold con varios workers y el coste de repetir la inicialización por consulta es aceptable | + Superset | Usar un archivo DuckDB de solo lectura generado por un job |
+| 8 | Un job PySpark lanzado desde la imagen de Airflow (Python 3.12, modo cliente) corre en los ejecutores de la imagen de Spark con Python 3.12 instalado en el build | Spark, imagen de Airflow | Cambiar la forma de instalar Python en la imagen de Spark; como último recurso, lanzar `spark-submit` dentro del contenedor de Spark |
+| 9 | Airflow 3.4.0 y Superset 6.1.0 migran y operan sus metadatos sobre PostgreSQL 19.0 | `metadata-db`, `airflow-init`, `superset-init` | Usar PostgreSQL 18 solo en `metadata-db` |
 
 Estado de verificación de las versiones al 2026-11-22:
 
 | Afirmación | Cómo se verificó |
 |---|---|
-| Existen las imágenes `postgres:19.0`, `flink:2.2.1-java21`, `apache/spark:4.1.4`, `apache/airflow:3.4.0`, `apache/superset:6.1.0`, `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1` | Consulta a Docker Hub |
-| Existen los conectores Flink CDC `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.1, `iceberg-spark-runtime-4.1_2.13` 1.12.0 e `iceberg-aws-bundle` en ambas versiones | Consulta a Maven Central |
-| DuckDB 1.5.6, `duckdb-engine` 0.17.0 y el proveedor Spark de Airflow 6.3.4 son las versiones publicadas | Consulta a PyPI |
+| Existen, para `linux/amd64` y `linux/arm64`, las diez imágenes de la [sección 3.2](#32-imágenes-en-docker-hub) | `docker manifest inspect` y API de etiquetas de Docker Hub |
+| No hay versión estable más nueva de PostgreSQL (19.0), Airflow (3.4.0), Superset (6.1.0; la 7.0.0 está en `rc3`) ni RustFS (1.0.6). `apache/iceberg-rest-fixture` no tiene etiqueta versionada posterior a 1.10.1 | API de etiquetas de Docker Hub |
+| Existen Flink 2.3.0 y Spark 4.3.0 en Docker Hub, y no se adoptan | API de etiquetas de Docker Hub |
+| Flink CDC 3.7 soporta solo Flink 1.20 y 2.2 | Tabla de compatibilidad de Flink CDC (Context7); sufijos `-1.20` y `-2.2` de los artefactos en Maven Central |
+| Existen los conectores Flink CDC `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.2, `iceberg-spark-runtime-4.1_2.13` 1.12.0 e `iceberg-aws-bundle` en ambas versiones. 3.7.0 es la última versión de Flink CDC y 1.12.0 la última de Iceberg | `maven-metadata.xml` en Maven Central |
+| No existe `iceberg-spark-runtime-4.2_2.13` ni `-4.3_2.13`; `iceberg-flink-runtime-2.0` llega hasta 1.11.0 | Listado de `org/apache/iceberg` en Maven Central |
+| DuckDB 1.5.6 es la última 1.x (la última publicada es 2.0.1); `duckdb-engine` 0.17.0, el proveedor Spark de Airflow 6.3.4, JDBC 42.7.14 y Commons CSV 1.14.1 son las últimas versiones | PyPI y Maven Central |
+| Superset 6.1.0 declara `duckdb<2,>=1.4.2` y `duckdb-engine>=0.17.0` en su extra `duckdb` | Metadatos de `apache-superset` 6.1.0 en PyPI |
+| El proveedor Spark 6.3.4 depende de `pyspark-client>=4.0.0`; PySpark 4.1.4 declara soporte para Python 3.10 a 3.14 | Metadatos en PyPI |
+| `apache/airflow:3.4.0` trae Python 3.13, `apache/superset:6.1.0` Python 3.10 y la imagen de Spark 4.1.4 se basa en Ubuntu 22.04; las variantes `-python3.12` y `-py312` traen Python 3.12 | Configuración de cada imagen (`docker buildx imagetools inspect`) |
+| Las extensiones `httpfs` e `iceberg` de DuckDB 1.5.6 están publicadas para `linux_amd64` | Repositorio de extensiones de DuckDB |
 | Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y usa `iceberg-flink-runtime-2.0` en su perfil Flink 2.x; incluye Debezium 1.9.8 | `pom.xml` del tag `release-3.7.0` |
 | Iceberg soporta Spark 3.5, 4.0 y 4.1, y Flink 2.2 desde 1.12.0 | Tabla de soporte multi-motor de Iceberg |
 | Opciones `metadata.list`, `SOFT_DELETE`, `route`, `table-id.include-database` y tipos de catálogo del sink | Documentación de Flink CDC 3.7.0 |
@@ -2038,13 +2115,40 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | El catálogo REST de referencia usa SQLite en memoria por defecto | Código fuente de Iceberg 1.10.1 |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Ninguna de las siete pruebas se ha ejecutado todavía.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Ninguna de las nueve pruebas se ha ejecutado todavía.
 
 ## 47. 📝 Registro de cambios de la revisión
 
-Revisión 2, 2026-11-22. Cambios respecto a la versión inicial del documento.
+### Revisión 3, 2026-11-22
 
-### Versiones
+Segunda pasada de versiones con dos criterios: usar la versión estable más reciente que el resto del stack admita, y que toda imagen base exista en Docker Hub.
+
+| Antes | Ahora | Motivo |
+|---|---|---|
+| Iceberg 1.10.1 en Flink | 1.10.2 | Último parche de la línea contra la que compila Flink CDC 3.7.0 |
+| `eclipse-temurin:25-jre` | `eclipse-temurin:25.0.5.1_2-jre` | Etiqueta exacta en lugar de una móvil |
+| `apache/airflow:3.4.0` (Python 3.13) | `apache/airflow:3.4.0-python3.12` | Misma versión menor de Python que los ejecutores de Spark |
+| `apache/superset:6.1.0` (Python 3.10) | `apache/superset:6.1.0-py312` | Python 3.10 ya no tiene soporte |
+| Imagen de Spark con el Python 3.10 de su base | Python 3.12 instalado en `pyspark/Dockerfile` | PySpark exige la misma versión menor en driver y ejecutores |
+| Contenedor `duckdb` sin imagen base definida | `duckdb/duckdb:1.5.6` | Imagen oficial en Docker Hub |
+| `metadata-db` sin imagen definida | `postgres:19.0` | Misma imagen que la base operacional |
+| — | Maven 3.10.0 (`maven:3.10.0-eclipse-temurin-25`), Commons CSV 1.14.1, `pyspark-client` 4.1.4 | Dependencias de build y runtime sin fijar |
+| «DuckDB 1.5.6: se conserva la línea acordada» | DuckDB 1.5.6 porque Superset 6.1.0 exige `duckdb<2` | Se sustituye la preferencia por la restricción comprobada |
+
+Se revisaron y **no cambian**, por ser ya la última versión estable o la última compatible: PostgreSQL 19.0, Java 25, Flink 2.2.1, Flink CDC 3.7.0, Spark 4.1.4, Iceberg 1.12.0 en Spark, Airflow 3.4.0, proveedor Spark 6.3.4, DuckDB 1.5.6, `duckdb-engine` 0.17.0, Superset 6.1.0, RustFS 1.0.6, Iceberg REST Catalog 1.10.1 y JDBC 42.7.14. El motivo de cada una está en la sección 3.
+
+Otros cambios de esta revisión:
+
+- Política de versiones ampliada: última estable compatible, sin candidatas, y toda imagen base en Docker Hub para `amd64` y `arm64` (sección 3.1). Tabla de imágenes por servicio (sección 3.2).
+- Nombre de proyecto de Compose explícito, sin `container_name` y con puertos del host configurables, para convivir con otros proyectos Docker de la misma máquina (sección 39).
+- `.gitattributes` con finales de línea LF (sección 7).
+- Dos validaciones nuevas en la Fase 0: Python de Airflow y Spark, y PostgreSQL 19 como base de metadatos (sección 46).
+
+### Revisión 2, 2026-11-22
+
+Cambios respecto a la versión inicial del documento.
+
+#### Versiones
 
 | Antes | Ahora | Motivo |
 |---|---|---|
@@ -2056,7 +2160,7 @@ Revisión 2, 2026-11-22. Cambios respecto a la versión inicial del documento.
 | Iceberg REST «compatible» | `apache/iceberg-rest-fixture:1.10.1` | Faltaba definir implementación |
 | — | JDBC 42.7.14, `duckdb-engine` 0.17.0, proveedor Spark 6.3.4 | Dependencias de runtime sin fijar |
 
-### Diseño
+#### Diseño
 
 | Tema | Cambio | Sección |
 |---|---|---|
@@ -2075,7 +2179,7 @@ Revisión 2, 2026-11-22. Cambios respecto a la versión inicial del documento.
 | Compose | Cinco jobs one-shot, `metadata-db`, servicios de Airflow 3, presupuesto de memoria | 39, 40 |
 | Airflow | Tareas de validación definidas y tarea `iceberg_maintenance` | 18, 38 |
 
-### Modelo relacional
+#### Modelo relacional
 
 | Antes | Ahora |
 |---|---|
@@ -2087,7 +2191,7 @@ Revisión 2, 2026-11-22. Cambios respecto a la versión inicial del documento.
 | `NOT NULL` fijos en `movie` | `original_title`, `plot`, `release_date` y `popularity` quedan sujetos al perfilado del CSV |
 | `created_at` / `updated_at` sin nulabilidad | `NOT NULL` con valor por defecto |
 
-### Documento
+#### Documento
 
 - Subsecciones del modelo relacional renumeradas de 9.x a 12.x, y las del modelo Silver de 17.x a 20.x.
 - Directorio raíz corregido a `postgresql-19-cdc-duckdb/`; se refleja la ubicación real de este documento en `lab-design/`.

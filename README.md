@@ -20,10 +20,11 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 | Elemento | Estado |
 |---|---|
-| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 2 |
+| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 3 |
 | Diagramas de arquitectura, linaje, ERD, DAG y arranque ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Generados |
-| Versiones del stack | ✅ Fijadas y verificadas contra Docker Hub, Maven Central y PyPI |
-| Validaciones de compatibilidad entre componentes | ⏳ Pendientes (7 pruebas) |
+| Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
+| Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
+| Validaciones de compatibilidad entre componentes | ⏳ Pendientes (9 pruebas) |
 | Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
@@ -54,16 +55,17 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Java | **25** | Event Simulator |
 | Apache Flink | **2.2.1** | Runtime de streaming |
 | Apache Flink CDC | **3.7.0** | PostgreSQL CDC → Iceberg |
-| Apache Iceberg | **1.10.1** en Flink · **1.12.0** en Spark | Formato de tablas del lakehouse |
+| Apache Iceberg | **1.10.2** en Flink · **1.12.0** en Spark | Formato de tablas del lakehouse |
 | Apache Spark / PySpark | **4.1.4** | Bronze → Silver → Gold |
+| Python | **3.12** | Intérprete común de Airflow, Spark y Superset |
 | Apache Airflow | **3.4.0** | Orquestación de los jobs PySpark |
 | DuckDB | **1.5.6** | SQL/query engine embebido |
 | Apache Superset | **6.1.0** | BI y dashboards |
 | RustFS | **1.0.6** | Object storage S3-compatible |
 | Iceberg REST Catalog | **1.10.1** | Catálogo compartido |
-| Docker Compose | **v2** | Runtime del laboratorio |
+| Docker Compose | **v2 o posterior** | Runtime del laboratorio |
 
-> ℹ️ Las versiones no son simplemente «las más nuevas»: Spark queda en 4.1.4 porque Iceberg aún no publica runtime para Spark 4.2 ni 4.3, y Flink usa Iceberg 1.10.1 porque es contra lo que se compila Flink CDC 3.7.0. El razonamiento completo está en la [sección 3 del diseño](lab-design/LAB-DESIGN.md#3--software-stack).
+> ℹ️ Cada componente usa la versión estable más reciente que el resto del stack admite, y toda imagen base está publicada en Docker Hub. Cuatro quedan por debajo de la última publicada por compatibilidad: Flink 2.2.1 (Flink CDC 3.7 no soporta Flink 2.3), Spark 4.1.4 (Iceberg no publica runtime para Spark 4.2 ni 4.3), Iceberg 1.10.2 en Flink (línea contra la que se compila Flink CDC 3.7.0) y DuckDB 1.5.6 (Superset 6.1.0 exige `duckdb<2`). El razonamiento completo y la tabla de imágenes están en la [sección 3 del diseño](lab-design/LAB-DESIGN.md#3--software-stack).
 
 ## 5. 🥉🥈🥇 Capas de datos
 
@@ -83,6 +85,8 @@ Contenido actual:
 ```text
 postgresql-19-cdc-duckdb/
 |
+|-- .gitattributes
+|-- CLAUDE.md
 |-- README.md
 `-- lab-design/
     |-- LAB-DESIGN.md
@@ -115,7 +119,7 @@ postgresql-19-cdc-duckdb/
 
 ## 7. ✅ Requisitos
 
-- 🐳 Docker Engine con Docker Compose v2.
+- 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2.
 - CPU x86_64/amd64 o ARM64.
 - Recomendado: **8 CPU, 16 GB RAM y al menos 30 GB libres**.
 - Acceso a Internet durante el primer build. El runtime no depende de servicios cloud externos.
@@ -143,7 +147,7 @@ Flujo demostrativo esperado:
 
 ## 9. 🚀 Hoja de ruta
 
-1. **Fase 0: validaciones previas.** Siete pruebas cortas de compatibilidad entre componentes. La primera es que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, publicado el 2026-11-19; si falla, el respaldo es PostgreSQL 18. Detalle en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
+1. **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes. La primera es que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, publicado el 2026-11-19; si falla, el respaldo es PostgreSQL 18. Detalle en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
 2. Preparar y perfilar el CSV de 6,899 películas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.
