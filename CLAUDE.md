@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## Plan de trabajo
+
+El trabajo del laboratorio sigue [planning/PLAN.md](planning/PLAN.md). Las reglas comunes a todos los agentes están en [AGENTS.md](AGENTS.md); aplícalas también aquí.
+
 ## Consulta de documentación
 
 1. **Context7 es la primera fuente.** Para cualquier duda sobre una librería, framework, herramienta o servicio (sintaxis, opciones de configuración, versiones, compatibilidad, ejemplos), consulta primero el servidor MCP de Context7: `resolve-library-id` y después `query-docs`.

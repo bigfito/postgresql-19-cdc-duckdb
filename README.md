@@ -27,7 +27,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
 | Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Generado: 6,899 películas sintéticas, 24.5 MB, con su script generador y su [README](raw_data/README.md) |
-| Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
+| Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -88,8 +88,12 @@ postgresql-19-cdc-duckdb/
 |
 |-- .gitattributes
 |-- .gitignore
+|-- AGENTS.md
 |-- CLAUDE.md
 |-- README.md
+|-- planning/
+|   |-- PLAN.md
+|   `-- update_progress.py
 |-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
@@ -151,15 +155,16 @@ Flujo demostrativo esperado:
 
 ## 9. 🚀 Hoja de ruta
 
-1. ✅ **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes, todas superadas. PostgreSQL 19.0 funciona con Flink CDC 3.7.0, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones).
-2. ✅ Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
-3. DDL de PostgreSQL y logical replication.
-4. Java Event Simulator.
-5. RustFS, Iceberg REST Catalog y pipeline Flink CDC → Bronze.
-6. `bronze_to_silver.py` (dimensiones, SCD2, hechos y bridges) y `silver_to_gold.py`.
-7. DAG de Airflow.
-8. DuckDB y Superset; dashboards y KPIs.
-9. Prueba end-to-end con `INSERT`, `UPDATE` y `DELETE`.
+El trabajo está dividido en 13 fases, de F0 a F12. Las actividades de cada una y el avance, por fase y global, están en el **[plan de trabajo](planning/PLAN.md)**.
+
+| Fases | Contenido |
+|---|---|
+| F0 y F1 | Diseño, validaciones previas y dataset de entrada |
+| F2 a F5 | Base del proyecto, PostgreSQL, almacenamiento, catálogo y pipeline CDC hasta Bronze |
+| F6 | Event Simulator en Java 25 |
+| F7 a F9 | Silver, Gold y orquestación con Airflow |
+| F10 | DuckDB y Superset |
+| F11 y F12 | Prueba de extremo a extremo, documentación y cierre |
 
 ## 10. 📚 Documentación
 
@@ -167,6 +172,8 @@ Flujo demostrativo esperado:
 |---|---|
 | [`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md) | Diseño completo: requisitos, stack, modelos de datos, pipeline, despliegue y registro de cambios |
 | [`lab-design/DECISIONS-AND-VALIDATIONS.md`](lab-design/DECISIONS-AND-VALIDATIONS.md) | Decisiones vigentes, abiertas y descartadas; validaciones con sus resultados; registro de cambios |
+| [`planning/PLAN.md`](planning/PLAN.md) | Plan de actividades por fases, tablero de avance y bitácora |
+| [`AGENTS.md`](AGENTS.md) | Reglas comunes para los agentes de programación que trabajen en el repositorio |
 | [Arquitectura](lab-design/diagrams/lab-architecture.svg) | Componentes y camino del dato |
 | [Linaje por capa](lab-design/diagrams/medallion-dataflow.svg) | Qué pasa de una capa a la siguiente |
 | [Modelo operacional](lab-design/diagrams/operational-erd.svg) | ERD de las 20 tablas del esquema `catalog` |

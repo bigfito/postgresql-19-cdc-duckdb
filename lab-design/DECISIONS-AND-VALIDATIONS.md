@@ -4,6 +4,8 @@ Este documento acompaña a [LAB-DESIGN.md](LAB-DESIGN.md). Aquel describe el dis
 
 Las secciones que se citan por número pertenecen a `LAB-DESIGN.md`.
 
+Este documento registra qué se decidió y qué se probó. Cuándo se resuelve cada decisión abierta y cuándo se ejecuta cada validación pendiente está en el [plan de trabajo](../planning/PLAN.md), fase F0.
+
 | Parte | Contenido |
 |---|---|
 | [1. Decisiones](#1-decisiones) | Vigentes, de versiones, abiertas y descartadas |

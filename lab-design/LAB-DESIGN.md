@@ -203,12 +203,18 @@ postgresql-19-cdc-duckdb/
 |-- .env.example
 |-- .gitattributes
 |-- .gitignore
+|-- AGENTS.md
 |-- CLAUDE.md
 |-- README.md
 |
 |-- lab-design/
 |   |-- LAB-DESIGN.md
+|   |-- DECISIONS-AND-VALIDATIONS.md
 |   `-- diagrams/
+|
+|-- planning/
+|   |-- PLAN.md
+|   `-- update_progress.py
 |
 |-- raw_data/
 |   |-- README.md
@@ -273,6 +279,8 @@ Notas sobre la estructura:
 - Cada directorio vacío lleva un archivo `.gitkeep` para que Git lo conserve y la estructura sea visible al clonar. En los directorios `data/` y `logs/` ese marcador es lo único que se versiona.
 - `.gitattributes` fuerza finales de línea LF en todo archivo de texto. Los scripts, SQL, YAML y jobs de este repositorio se ejecutan dentro de contenedores Linux, y un clon en Windows con `core.autocrlf=true` los dejaría con CRLF, que rompe la ejecución. El dataset `*.csv` queda excluido de cualquier conversión.
 - `lab-design/diagrams/` guarda, por cada diagrama, la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Se regeneran con Archify: `archify finalize <tipo> <fuente>.json <salida>.html` y `export-svg.mjs <salida>.html <salida>.svg auto`.
+- `planning/PLAN.md` es el único plan de actividades del laboratorio, con su tablero de avance por fase y global. `planning/update_progress.py` recalcula ese tablero a partir de las actividades marcadas.
+- `AGENTS.md` da a cualquier agente de programación las reglas comunes y lo dirige al plan; `CLAUDE.md` añade lo propio de Claude Code.
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset.
@@ -581,7 +589,7 @@ En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: t
 
 El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
 
-> ⚠️ **Por validar antes de implementar.** Dos puntos de esta sección no se han probado: que una interfaz Lanterna funcione dentro del contenedor a través de `docker compose attach`, también desde una terminal de Windows; y que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figuran como validaciones 10 y 11 en el documento de decisiones y validaciones.
+> ⚠️ **Por validar antes de implementar.** Dos puntos de esta sección no se han probado: que una interfaz Lanterna funcione dentro del contenedor a través de `docker compose attach`, también desde una terminal de Windows; y que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figuran como validaciones 10 y 11 en el documento de decisiones y validaciones, y su ejecución está en el plan (F0-14 y F0-15).
 
 ## 10. 🐘 PostgreSQL 19
 
@@ -2227,26 +2235,9 @@ Una demostración completa deberá poder mostrar:
 
 ## 43. 🚀 Trabajo siguiente
 
-Con esta arquitectura y modelos definidos, la implementación puede avanzar en este orden:
+El orden de trabajo, las actividades de cada fase y el avance están en el plan: **[planning/PLAN.md](../planning/PLAN.md)**.
 
-0. ~~Ejecutar las validaciones previas del documento de decisiones y validaciones~~ (hecho: las nueve pasaron).
-1. ~~Fijar versiones compatibles~~ (hecho en la sección 3; se confirma con el paso 0).
-2. Generar los 20 CSV de `raw_data/` descritos en la sección 8.
-3. Implementar DDL PostgreSQL completo con las restricciones de la sección 12, y comprobarlo cargando los CSV con `COPY`.
-4. Implementar inicialización de logical replication: roles, publicación y parámetros.
-5. Construir Java Event Simulator.
-6. Configurar RustFS e Iceberg REST Catalog.
-7. Configurar Flink CDC PostgreSQL -> Iceberg Bronze.
-8. Crear catálogo y namespaces `bronze`, `silver`, `gold`.
-9. Implementar `bronze_to_silver.py`.
-10. Implementar SCD Type 2 y bridges.
-11. Implementar `silver_to_gold.py`.
-12. Configurar Airflow DAG.
-13. Configurar DuckDB contra Iceberg.
-14. Configurar Superset contra DuckDB.
-15. Agregar healthchecks, observabilidad básica y validaciones.
-16. Construir dashboards y KPIs finales.
-17. Ejecutar una prueba end-to-end con INSERT, UPDATE y DELETE.
+Este documento no lleva lista de tareas. Lo que falta por validar o decidir tampoco se planifica aquí: su ejecución es una actividad del plan.
 
 ## 44. ✅ Criterio de éxito
 
@@ -2329,7 +2320,7 @@ Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 | Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
 | Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |
 
-> ⚠️ **Por validar: el administrador de Airflow.** Airflow 3 trae por defecto un gestor de autenticación simple, que define los usuarios en la configuración y genera sus contraseñas, y no ofrece `airflow users create`. Ese comando pertenece al gestor basado en Flask AppBuilder, que es un proveedor aparte. La validación 8 corrió con el gestor por defecto y sin iniciar sesión en la interfaz. Falta decidir cuál de los dos usa el laboratorio y comprobar el inicio de sesión; figura como validación 12.
+> ⚠️ **Por validar: el administrador de Airflow.** Airflow 3 trae por defecto un gestor de autenticación simple, que define los usuarios en la configuración y genera sus contraseñas, y no ofrece `airflow users create`. Ese comando pertenece al gestor basado en Flask AppBuilder, que es un proveedor aparte. La validación 8 corrió con el gestor por defecto y sin iniciar sesión en la interfaz. Falta decidir cuál de los dos usa el laboratorio y comprobar el inicio de sesión; figura como validación 12, y su ejecución está en el plan (F0-16 y F0-17).
 
 ### 45.5 Dónde se definen
 
