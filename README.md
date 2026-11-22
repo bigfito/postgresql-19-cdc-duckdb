@@ -25,7 +25,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ⏳ 1 de 9 superada: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0 |
+| Validaciones de compatibilidad entre componentes | ⏳ 4 de 9 superadas: PostgreSQL 19 → Flink CDC → Iceberg sobre RustFS, tombstones y persistencia del catálogo |
 | Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 

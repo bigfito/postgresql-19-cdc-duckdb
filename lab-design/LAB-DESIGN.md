@@ -308,7 +308,7 @@ flink-jobmanager:
 
 iceberg-rest:
   volumes:
-    - ./iceberg/data:/catalog   # ruta interna a fijar al configurar el backend JDBC
+    - ./iceberg/data:/catalog   # con CATALOG_URI=jdbc:sqlite:/catalog/iceberg_catalog.db
 
 airflow:
   volumes:
@@ -867,7 +867,7 @@ El pipeline se define en un único YAML (`flink/jobs/postgres-to-bronze.yaml`) y
 | Saber qué operación fue | campo de metadatos `__data_event_type__` en `transform` |
 | No perder los DELETE | `converter-after-transform: SOFT_DELETE`, que convierte el borrado en una inserción marcada `-D` |
 
-El pipeline parte de la guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg», que cubre snapshot inicial, INSERT, UPDATE y DELETE con PostgreSQL, `pgoutput` y `REPLICA IDENTITY FULL`. Respecto a esa guía, este laboratorio cambia dos cosas, y ambas se validan en la sección 46: el catálogo (REST sobre RustFS en lugar de Hadoop sobre disco local) y el bloque `transform`.
+El pipeline parte de la guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg», que cubre snapshot inicial, INSERT, UPDATE y DELETE con PostgreSQL, `pgoutput` y `REPLICA IDENTITY FULL`. Respecto a esa guía, este laboratorio cambia dos cosas: el catálogo (REST sobre RustFS en lugar de Hadoop sobre disco local) y el bloque `transform`. Ambas pasaron las validaciones 2 y 3 de la sección 46 con el borrador de abajo, sin modificarlo.
 
 Borrador:
 
@@ -925,7 +925,8 @@ Puntos que conviene no pasar por alto:
 - **Checkpointing obligatorio.** El sink de Iceberg publica los datos en cada checkpoint de Flink; sin checkpointing Bronze queda vacío. Se fijará `execution.checkpointing.interval` (propuesta: 30 s) y los checkpoints se guardarán en `flink/data/`.
 - **At-least-once.** El sink no ofrece exactly-once: reintenta y se apoya en la clave primaria para escribir de forma idempotente. Por eso todas las tablas capturadas tienen PK.
 - **Una sola base.** El conector PostgreSQL captura tablas de una única base de datos; `elastiflix` cumple.
-- **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía y es una de las validaciones de la sección 46.
+- **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía, como muestra el borrador; la validación 2 confirmó que funciona.
+- **Credenciales S3.** El borrador no lleva claves. `S3FileIO` las toma de las variables de entorno `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`, que deben declararse tanto en `flink-jobmanager` como en `flink-taskmanager`. Así las credenciales viven en `.env` y no en el YAML del pipeline.
 - **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0`, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. La guía usa Iceberg 1.10.1; este laboratorio toma el último parche de esa línea, 1.10.2, y añade `iceberg-aws-bundle` 1.10.2 para `S3FileIO`. Hadoop se mantiene en la 3.3.6 que indica la guía aunque exista la 3.5.0, porque forma parte del conjunto probado con el conector. El conector PostgreSQL ya incluye su driver JDBC.
 - **Reinicio.** Al reiniciar, el pipeline retoma desde su último checkpoint. Si se pierden los checkpoints, vuelve a tomar el snapshot inicial, lo cual es seguro porque la escritura es un upsert por PK.
 
@@ -957,7 +958,7 @@ Detalles de operación:
 - Imagen `rustfs/rustfs:1.0.6`; API S3 en el puerto 9000 y consola en el 9001.
 - El contenedor corre como `10001:10001`; `rustfs/data/` debe ser escribible por ese usuario.
 - Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`.
-- El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store.
+- El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store: reutiliza la propia imagen `rustfs/rustfs`, que incluye `curl`, y firma con `curl --aws-sigv4`. No hace falta una imagen de cliente S3 aparte.
 - Todos los clientes (Flink, Spark, DuckDB y el catálogo) usan el mismo endpoint interno `http://rustfs:9000` con acceso path-style.
 - RustFS 1.0 incluye un Iceberg REST Catalog propio («S3 Tables»), pero está marcado como *preview*. No se usa en este laboratorio; el catálogo es un servicio aparte (sección 16).
 
@@ -981,7 +982,8 @@ DuckDB será cliente del catálogo, no propietario exclusivo de este.
 
 - Imagen `apache/iceberg-rest-fixture:1.10.1`, la implementación de referencia del proyecto Iceberg. Está pensada para pruebas, lo cual es adecuado para un laboratorio local; no es una recomendación para producción.
 - **Configuración.** La imagen traduce variables `CATALOG_*` a propiedades del catálogo. Las que usa el quickstart oficial de Iceberg son `CATALOG_WAREHOUSE=s3://warehouse/`, `CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO`, `CATALOG_S3_ENDPOINT=http://rustfs:9000` y `CATALOG_S3_PATH__STYLE__ACCESS=true`, además de las credenciales `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`.
-- **Persistencia.** Por defecto esa imagen guarda el catálogo en memoria (`jdbc:sqlite::memory:`): al reiniciar el contenedor las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se configurará con backend JDBC sobre un archivo SQLite en `iceberg/data/`, siguiendo la misma convención (`CATALOG_URI`); se comprueba en la sección 46.
+- **Persistencia.** La imagen trae `CATALOG_URI=jdbc:sqlite:/tmp/iceberg_catalog.db`: el catálogo es un archivo dentro del contenedor. Sobrevive a un reinicio, pero se pierde al recrear el contenedor (`docker compose down` o un cambio en el servicio), y entonces las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se fija `CATALOG_URI=jdbc:sqlite:/catalog/iceberg_catalog.db` y se monta `./iceberg/data` en `/catalog`. La validación 4 confirmó que así las tablas sobreviven a la recreación del contenedor, también con el directorio en una unidad NTFS de Windows.
+- **Healthcheck.** La imagen ya declara uno (`curl` contra `/v1/config`); el Compose puede usar `condition: service_healthy` sin definirlo.
 - El job one-shot `iceberg-init` crea los namespaces `bronze`, `silver` y `gold`.
 - Sin autenticación: el catálogo solo es alcanzable dentro de la red del Compose.
 - Alternativas si la imagen de referencia se queda corta: Lakekeeper o Apache Polaris. Cambiar de catálogo no altera el resto del diseño porque todos los motores hablan el protocolo REST.
@@ -1030,7 +1032,7 @@ cdc_op_type  string   operación del último evento: +I (insert), +U (update), -
 cdc_op_ts    bigint   instante del cambio en PostgreSQL, en milisegundos; en filas del snapshot inicial, instante de lectura
 ```
 
-Los valores exactos de `cdc_op_type` para INSERT y UPDATE se confirman en la sección 46; el de DELETE (`-D`) está documentado.
+Los tres valores se confirmaron en la validación 3 de la sección 46. Las filas del snapshot inicial llegan como `+I`.
 
 Reglas:
 
@@ -2117,15 +2119,18 @@ Estado de verificación de las versiones al 2026-11-22:
 | Superset abre conexiones analíticas con `NullPool` y expone `DB_CONNECTION_MUTATOR` | Código fuente de Superset (Context7) |
 | La imagen `postgres` 18+ usa el volumen `/var/lib/postgresql` | README de la imagen oficial |
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
-| El catálogo REST de referencia usa SQLite en memoria por defecto | Código fuente de Iceberg 1.10.1 |
+| La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se ha ejecutado la primera; las otras ocho siguen pendientes.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las cuatro primeras; las otras cinco siguen pendientes.
 
 ### Resultados
 
 | # | Fecha | Resultado |
 |---:|---|---|
 | 1 | 2026-11-22 | ✅ Superada |
+| 2 | 2026-11-22 | ✅ Superada, con Iceberg 1.10.2 |
+| 3 | 2026-11-22 | ✅ Superada |
+| 4 | 2026-11-22 | ✅ Superada |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -2154,6 +2159,38 @@ Observaciones que afectan al diseño:
 - **Ruido esperado en los logs.** Durante el snapshot PostgreSQL registra `replication slot "elastiflix_cdc_0" does not exist`, una vez por tabla. Todo indica que el conector intenta borrar un slot auxiliar de la fase de snapshot que no llegó a crear; no se investigó más. No afecta al resultado y no debe tratarse como fallo en los healthchecks.
 
 Lo que esta prueba no cubre: las 20 tablas reales, el volumen del dataset completo y el reinicio del JobManager, porque los checkpoints se guardaron en memoria. El sink Iceberg y las columnas `cdc_op_type` y `cdc_op_ts` corresponden a las validaciones 2 y 3.
+
+#### Validaciones 2, 3 y 4: sink Iceberg, tombstones y persistencia del catálogo
+
+Entorno: el de la validación 1 más `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1` y, en la imagen de Flink, el conector `iceberg` `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.2, `iceberg-aws-bundle` 1.10.2, Hadoop client 3.3.6 y Commons Logging 1.2. El pipeline fue el borrador completo de la sección 14, sin cambios. Los datos se leyeron con `duckdb/duckdb:1.5.6` usando el SQL de la sección 34.
+
+| # | Qué se comprobó | Resultado |
+|---:|---|---|
+| 2 | Catálogo REST por `catalog-impl`, con `S3FileIO` sobre RustFS | El pipeline arranca a la primera y completa checkpoints sin errores |
+| 2 | Runtime Iceberg 1.10.2 con el conector compilado contra 1.10.1 | Funciona; no hizo falta volver a 1.10.1 |
+| 2 | Creación automática de namespace y tablas | El conector crea `bronze` y sus tres tablas; en `bronze.movie` se comprobó que queda sin particionar, en formato v2 y con la clave primaria como campo identificador |
+| 2 | Bucket creado por `rustfs-init` con `curl --aws-sigv4` | Correcto |
+| 2 | Tipos en Iceberg | `DECIMAL` con su precisión y escala, `DATE`, `TIMESTAMP WITH TIME ZONE`; `cdc_op_type` es texto y `cdc_op_ts` es `BIGINT` |
+| 2 | Columna de 12 800 caracteres | Llega completa |
+| 3 | Valores de `cdc_op_type` | `+I` para el snapshot y los INSERT, `+U` para los UPDATE, `-D` para los DELETE |
+| 3 | Tombstone | La fila borrada permanece con `-D`, todos sus valores y el `cdc_op_ts` del borrado; lo mismo cada relación borrada por la cascada |
+| 3 | Una fila por clave primaria | Sí: cada UPDATE o DELETE sustituye a la fila anterior |
+| 3 | Reinserción de una clave borrada | Sustituye al tombstone por una fila `+I`; las relaciones borradas siguen como `-D` |
+| 3 | UPDATE y DELETE de la misma fila dentro de un checkpoint | Queda `-D` con los valores del UPDATE; el `+U` intermedio no se ve, como anticipa la sección 17 |
+| 3 | INSERT y DELETE de una clave nueva dentro de un checkpoint | Queda un tombstone de una fila que Bronze nunca mostró viva |
+| 4 | Reinicio del contenedor `iceberg-rest` | Tablas y snapshots intactos |
+| 4 | Recreación del contenedor con `CATALOG_URI` apuntando a `/catalog` | Tablas y snapshots intactos; SQLite funciona sobre el bind mount en NTFS |
+| 4 | Flink tras recrear el catálogo | Sigue publicando snapshots sin reiniciar el job |
+
+Observaciones que afectan al diseño:
+
+- **Las credenciales S3 no estaban en el borrador.** Se resuelven con las variables `AWS_*` en los dos contenedores de Flink (sección 14).
+- **El catálogo no es en memoria por defecto**, sino un archivo en `/tmp` del contenedor; la conclusión sobre la persistencia no cambia (sección 16).
+- **Bronze acumula deletes desde el primer cambio.** Tras cuatro commits, `bronze.movie` tenía 5 filas (dos de ellas tombstones) repartidas en 4 archivos de datos con 11 registros, más 4 archivos de deletes de igualdad y 1 de deletes posicionales. Confirma que la compactación de la sección 38 hace falta desde el inicio.
+- **Silver debe aceptar tombstones sin fila previa.** Una clave insertada y borrada entre dos corridas llega solo como `-D`; `bronze_to_silver.py` no debe suponer que antes hubo una versión vigente.
+- **DuckDB ya lee Bronze.** El SQL de la sección 34 adjuntó el catálogo y leyó tablas con deletes de igualdad sin ajustes. Adelanta parte de la validación 6, que sigue pendiente porque se refiere a tablas Gold escritas por Spark.
+
+Lo que estas pruebas no cubren: las 20 tablas, el volumen real, el intervalo de checkpoint de 30 s previsto (se usó 10 s), los checkpoints persistidos en `flink/data/` y la lectura desde Spark, que es la validación 5.
 
 ## 47. 📝 Registro de cambios de la revisión
 
