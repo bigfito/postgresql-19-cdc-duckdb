@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "ElastiFlix: linaje de datos por capa (medallion)",
+    "locale": "es",
+    "output": "medallion-dataflow.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "entries": {
+        "emphasis": { "label": "Captura continua (CDC)" },
+        "default": { "label": "Carga batch PySpark" },
+        "dashed": { "label": "Resolución de claves" }
+      }
+    }
+  },
+  "stages": [
+    { "label": "Origen" },
+    { "label": "Operacional" },
+    { "label": "Bronze" },
+    { "label": "Silver" },
+    { "label": "Gold y consumo" }
+  ],
+  "nodes": [
+    { "id": "csv", "type": "external", "label": "elastiflix.csv", "sublabel": "6,899 películas", "stage": 0, "row": 1, "tag": "sin vectores" },
+    { "id": "oltp", "type": "database", "label": "catalog.*", "sublabel": "20 tablas 3FN", "stage": 1, "row": 1, "tag": "PostgreSQL 19" },
+    { "id": "bronzeEntities", "type": "database", "label": "Entidades", "sublabel": "12 tablas espejo", "stage": 2, "row": 0, "tag": "cdc_op_type" },
+    { "id": "bronzeLinks", "type": "database", "label": "Relaciones", "sublabel": "8 tablas espejo", "stage": 2, "row": 2, "tag": "cdc_op_ts" },
+    { "id": "dims", "type": "database", "label": "Dimensiones", "sublabel": "14 dim_*", "stage": 3, "row": 0, "tag": "SCD2 / Tipo 1" },
+    { "id": "facts", "type": "database", "label": "Hechos", "sublabel": "2 fact_*", "stage": 3, "row": 1, "tag": "snapshots" },
+    { "id": "bridges", "type": "database", "label": "Bridges", "sublabel": "6 bridge_*", "stage": 3, "row": 2, "tag": "vigencias" },
+    { "id": "gold", "type": "database", "label": "Productos Gold", "sublabel": "7 tablas BI", "stage": 4, "row": 0, "tag": "recarga total" },
+    { "id": "bi", "type": "frontend", "label": "Superset", "sublabel": "vía DuckDB", "stage": 4, "row": 2, "tag": "solo lectura" }
+  ],
+  "flows": [
+    { "id": "load", "from": "csv", "to": "oltp", "label": "DML por película", "classification": "transacción JDBC", "variant": "default" },
+    { "id": "cdc-entities", "from": "oltp", "to": "bronzeEntities", "label": "upsert por PK", "classification": "Flink CDC", "variant": "emphasis" },
+    { "id": "cdc-links", "from": "oltp", "to": "bronzeLinks", "label": "upsert + -D", "classification": "Flink CDC", "variant": "emphasis" },
+    { "id": "to-dims", "from": "bronzeEntities", "to": "dims", "label": "estado vigente", "classification": "bronze_to_silver", "variant": "default" },
+    { "id": "to-facts", "from": "bronzeEntities", "to": "facts", "label": "métricas", "classification": "bronze_to_silver", "variant": "default" },
+    { "id": "to-bridges", "from": "bronzeLinks", "to": "bridges", "label": "pares N:M", "classification": "bronze_to_silver", "variant": "default" },
+    { "id": "sk-facts", "from": "dims", "to": "facts", "label": "SK", "classification": "lookup", "variant": "dashed" },
+    { "id": "sk-bridges", "from": "bridges", "to": "facts", "label": "conteos", "classification": "agregado", "variant": "dashed" },
+    { "id": "dims-gold", "from": "dims", "to": "gold", "label": "versión vigente", "classification": "silver_to_gold", "variant": "default" },
+    { "id": "facts-gold", "from": "facts", "to": "gold", "label": "último snapshot", "classification": "silver_to_gold", "variant": "default" },
+    { "id": "serve", "from": "gold", "to": "bi", "label": "SQL", "classification": "solo lectura", "variant": "default" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Bronze", "items": ["Espejo por PK de las 20 tablas de catalog", "Añade cdc_op_type y cdc_op_ts", "Un DELETE queda como tombstone (-D)"] },
+    { "dot": "slate", "title": "Silver", "items": ["SCD2 en dim_movie, dim_collection y dim_keyword", "Bridges con movie_id y vigencia propia", "Un snapshot por cambio de record_hash"] },
+    { "dot": "orange", "title": "Gold", "items": ["Tablas planas con tipos simples", "Los bridges también alimentan Gold (pesos N:M)", "Única capa visible para DuckDB y Superset"] }
+  ]
+}

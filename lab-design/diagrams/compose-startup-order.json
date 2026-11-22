@@ -1,0 +1,280 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Docker Compose: orden de arranque y jobs de inicialización",
+    "locale": "es",
+    "output": "compose-startup-order.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "entries": {
+        "database": {
+          "label": "Servicio con estado"
+        },
+        "backend": {
+          "label": "Servicio de cómputo"
+        },
+        "messagebus": {
+          "label": "Job de inicialización (one-shot)"
+        },
+        "cloud": {
+          "label": "Servicio de plataforma"
+        },
+        "frontend": {
+          "label": "Interfaz BI"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "cdc",
+      "label": "Operacional y CDC"
+    },
+    {
+      "id": "store",
+      "label": "Almacenamiento y catálogo"
+    },
+    {
+      "id": "batch",
+      "label": "Batch y orquestación"
+    },
+    {
+      "id": "bi",
+      "label": "Consumo"
+    }
+  ],
+  "mainPath": [
+    "rustfs",
+    "rustfsInit",
+    "icebergRest",
+    "icebergInit",
+    "cdcSubmit",
+    "simulator"
+  ],
+  "nodes": [
+    {
+      "id": "rustfs",
+      "lane": "store",
+      "col": 0,
+      "type": "database",
+      "label": "rustfs",
+      "sublabel": "S3 :9000"
+    },
+    {
+      "id": "rustfsInit",
+      "lane": "store",
+      "col": 1,
+      "type": "messagebus",
+      "label": "rustfs-init",
+      "sublabel": "crea bucket warehouse"
+    },
+    {
+      "id": "icebergRest",
+      "lane": "store",
+      "col": 2,
+      "type": "cloud",
+      "label": "iceberg-rest",
+      "sublabel": "catálogo :8181"
+    },
+    {
+      "id": "icebergInit",
+      "lane": "store",
+      "col": 3,
+      "type": "messagebus",
+      "label": "iceberg-init",
+      "sublabel": "bronze, silver, gold"
+    },
+    {
+      "id": "postgres",
+      "lane": "cdc",
+      "col": 0,
+      "type": "database",
+      "label": "postgresql",
+      "sublabel": "DDL + publicación"
+    },
+    {
+      "id": "flink",
+      "lane": "cdc",
+      "col": 1,
+      "type": "backend",
+      "label": "flink",
+      "sublabel": "jobmanager + taskmanager"
+    },
+    {
+      "id": "cdcSubmit",
+      "lane": "cdc",
+      "col": 4,
+      "type": "messagebus",
+      "label": "flink-cdc-submit",
+      "sublabel": "envía pipeline YAML"
+    },
+    {
+      "id": "simulator",
+      "lane": "cdc",
+      "col": 5,
+      "type": "backend",
+      "label": "java-simulator",
+      "sublabel": "empieza a emitir"
+    },
+    {
+      "id": "metadataDb",
+      "lane": "batch",
+      "col": 0,
+      "type": "database",
+      "label": "metadata-db",
+      "sublabel": "airflow + superset"
+    },
+    {
+      "id": "airflowInit",
+      "lane": "batch",
+      "col": 1,
+      "type": "messagebus",
+      "label": "airflow-init",
+      "sublabel": "migra BD y crea admin"
+    },
+    {
+      "id": "spark",
+      "lane": "batch",
+      "col": 4,
+      "type": "backend",
+      "label": "spark",
+      "sublabel": "master + worker"
+    },
+    {
+      "id": "airflow",
+      "lane": "batch",
+      "col": 2,
+      "type": "backend",
+      "label": "airflow",
+      "sublabel": "api, scheduler, dags"
+    },
+    {
+      "id": "supersetInit",
+      "lane": "bi",
+      "col": 1,
+      "type": "messagebus",
+      "label": "superset-init",
+      "sublabel": "BD, admin y datasource"
+    },
+    {
+      "id": "superset",
+      "lane": "bi",
+      "col": 2,
+      "type": "frontend",
+      "label": "superset",
+      "sublabel": "UI + DuckDB embebido"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "rustfs",
+      "to": "rustfsInit",
+      "label": "healthy",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "rustfsInit",
+      "to": "icebergRest",
+      "label": "completó",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "icebergRest",
+      "to": "icebergInit",
+      "label": "healthy",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e4",
+      "from": "icebergInit",
+      "to": "cdcSubmit",
+      "label": "completó",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
+      "from": "postgres",
+      "to": "flink",
+      "label": "healthy"
+    },
+    {
+      "id": "e6",
+      "from": "flink",
+      "to": "cdcSubmit",
+      "label": "healthy"
+    },
+    {
+      "id": "e7",
+      "from": "cdcSubmit",
+      "to": "simulator",
+      "label": "job RUNNING",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e8",
+      "from": "metadataDb",
+      "to": "airflowInit",
+      "label": "healthy"
+    },
+    {
+      "id": "e9",
+      "from": "airflowInit",
+      "to": "airflow",
+      "label": "completó"
+    },
+    {
+      "id": "e10",
+      "from": "icebergInit",
+      "to": "spark",
+      "label": "completó",
+      "role": "branch"
+    },
+    {
+      "id": "e12",
+      "from": "metadataDb",
+      "to": "supersetInit",
+      "label": "healthy",
+      "role": "branch"
+    },
+    {
+      "id": "e13",
+      "from": "supersetInit",
+      "to": "superset",
+      "label": "completó"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "orange",
+      "title": "Jobs one-shot",
+      "items": [
+        "Terminan con código 0 y no se reinician",
+        "depends_on usa service_completed_successfully",
+        "Son idempotentes: se pueden relanzar"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Por qué el simulador va al final",
+      "items": [
+        "Espera a que el pipeline CDC esté RUNNING",
+        "Así los INSERT se capturan como streaming",
+        "No como parte del snapshot inicial"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Notas",
+      "items": [
+        "Airflow y Superset arrancan sin esperar a Spark ni a Gold",
+        "Solo las corridas del DAG y los datasets los necesitan",
+        "Todo vive en un único docker-compose.yml"
+      ]
+    }
+  ]
+}
