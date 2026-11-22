@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 1264 1374" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="standard" data-erd-ui="cards" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" style="--flow-cycle: 4.320s; width: 1264px; height: 1374px; min-width: 0px;" width="1264" height="1374" xmlns="http://www.w3.org/2000/svg"><style>
+<svg viewBox="0 0 1228 1374" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="standard" data-erd-ui="cards" data-reader-fit="intrinsic-height" data-reader-min-text="7.5" style="--flow-cycle: 4.320s; width: 1228px; height: 1374px; min-width: 0px;" width="1228" height="1374" xmlns="http://www.w3.org/2000/svg"><style>
 /*
 JetBrains Mono variable WOFF2 subsets from Google Fonts service revision v24.
 These fixed bytes are shared by the viewer and its SVG/raster exports.
@@ -813,7 +813,7 @@ svg[data-erd-ui="cards"]:has([data-legend-semantic-kind="optional"]:is(:hover, :
 svg[data-theme="light"] { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --edge-label: #5b6474; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; --reader-accent: #077f9c; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; --er-hue: ; --er-wash: ; }
 svg[data-theme="dark"] { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --edge-label: #94a3b8; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; --reader-accent: #077f9c; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; --er-hue: ; --er-wash: ; }
 rect.c-bg-rect { fill: var(--bg); }
-</style><rect x="0" y="0" width="1264" height="1374" class="c-bg-rect"/><metadata id="archify-software-notices">NOTICE
+</style><rect x="0" y="0" width="1228" height="1374" class="c-bg-rect"/><metadata id="archify-software-notices">NOTICE
 Archify
 Copyright (c) 2026 tt-a1i (Archify)
 Copyright (c) 2025 Cocoon AI
@@ -1299,7 +1299,7 @@ opened. The complete license is preserved in
           <text data-domain-label="" x="671" y="25.6" class="t-muted er-band-label" font-size="9" font-weight="700">Relaciones N:M</text>
         </g>
         <g data-domain-band="Entidades compartidas" class="er-hue-messagebus">
-          <rect x="952" y="22" width="300" height="1282" rx="12" class="c-lane er-band" stroke-width="1"/>
+          <rect x="952" y="22" width="264" height="1282" rx="12" class="c-lane er-band" stroke-width="1"/>
           <rect x="960" y="15" width="145" height="15" rx="7.5" class="c-mask"/>
           <rect x="960" y="15" width="145" height="15" rx="7.5" class="er-band-pill"/>
           <text data-domain-label="" x="967" y="25.6" class="t-muted er-band-label" font-size="9" font-weight="700">Entidades compartidas</text>
@@ -1319,15 +1319,15 @@ opened. The complete license is preserved in
         <path data-edge-from="movie_collection" data-edge-to="movie" data-edge-key="3" data-edge-id="movie_collection__movie" data-er-ends="one optional" data-composition-points="458,620;458,576" d="M 458 620 L 458 576" class="a-default" data-animate="edge" style="--step: 3;" stroke-width="1.5" marker-start="url(#er-one-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_collection" data-edge-to="collection" data-edge-key="4" data-edge-id="movie_collection__collection" data-er-ends="many one optional" data-composition-points="470,736;470,780" d="M 470 736 L 470 780" class="a-default" data-animate="edge" style="--step: 4;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_genre" data-edge-to="movie" data-edge-key="5" data-edge-id="movie_genre__movie" data-er-ends="many one optional" data-composition-points="668,88;610.5,88;610.5,248;594.5,248" d="M 668 88 L 610.5 88 M 610.5 248 L 594.5 248" class="a-default" data-animate="edge" style="--step: 5;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="movie_genre" data-edge-to="genre" data-edge-key="6" data-edge-id="movie_genre__genre" data-er-ends="many one optional" data-composition-points="908,88;982,88" d="M 908 88 L 982 88" class="a-default" data-animate="edge" style="--step: 6;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="movie_genre" data-edge-to="genre" data-edge-key="6" data-edge-id="movie_genre__genre" data-er-ends="many one optional" data-composition-points="908,88;964,88" d="M 908 88 L 964 88" class="a-default" data-animate="edge" style="--step: 6;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_keyword" data-edge-to="movie" data-edge-key="7" data-edge-id="movie_keyword__movie" data-er-ends="many one optional" data-composition-points="684,620;684,560;594.5,560" d="M 684 620 L 684 568 Q 684 560 676 560 L 594.5 560" class="a-default" data-animate="edge" style="--step: 7;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="movie_keyword" data-edge-to="keyword" data-edge-key="8" data-edge-id="movie_keyword__keyword" data-er-ends="many one optional" data-composition-points="908,668;982,668" d="M 908 668 L 982 668" class="a-default" data-animate="edge" style="--step: 8;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="movie_keyword" data-edge-to="keyword" data-edge-key="8" data-edge-id="movie_keyword__keyword" data-er-ends="many one optional" data-composition-points="908,668;964,668" d="M 908 668 L 964 668" class="a-default" data-animate="edge" style="--step: 8;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_cast" data-edge-to="movie" data-edge-key="9" data-edge-id="movie_cast__movie" data-er-ends="many one optional" data-composition-points="668,828;631.25,828;631.25,296;594.5,296" d="M 668 828 L 639.25 828 Q 631.25 828 631.25 820 L 631.25 304 Q 631.25 296 623.25 296 L 594.5 296" class="a-default" data-animate="edge" style="--step: 9;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="movie_cast" data-edge-to="person" data-edge-key="10" data-edge-id="movie_cast__person" data-er-ends="many one optional" data-composition-points="908,828;982,828" d="M 908 828 L 982 828" class="a-default" data-animate="edge" style="--step: 10;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="movie_cast" data-edge-to="person" data-edge-key="10" data-edge-id="movie_cast__person" data-er-ends="many one optional" data-composition-points="908,828;964,828" d="M 908 828 L 964 828" class="a-default" data-animate="edge" style="--step: 10;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_production_company" data-edge-to="movie" data-edge-key="11" data-edge-id="movie_production_company__movie" data-er-ends="many one optional" data-composition-points="668,988;631.25,988;631.25,320;594.5,320" d="M 668 988 L 639.25 988 Q 631.25 988 631.25 980 L 631.25 328 Q 631.25 320 623.25 320 L 594.5 320" class="a-default" data-animate="edge" style="--step: 11;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="movie_production_company" data-edge-to="production_company" data-edge-key="12" data-edge-id="movie_production_company__production_company" data-er-ends="many one optional" data-composition-points="908,988;982,988" d="M 908 988 L 982 988" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="movie_production_company" data-edge-to="production_company" data-edge-key="12" data-edge-id="movie_production_company__production_company" data-er-ends="many one optional" data-composition-points="908,988;964,988" d="M 908 988 L 964 988" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_production_country" data-edge-to="movie" data-edge-key="13" data-edge-id="movie_production_country__movie" data-er-ends="many one optional" data-composition-points="668,1128;631.25,1128;631.25,344;594.5,344" d="M 668 1128 L 639.25 1128 Q 631.25 1128 631.25 1120 L 631.25 352 Q 631.25 344 623.25 344 L 594.5 344" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
-        <path data-edge-from="movie_production_country" data-edge-to="production_country" data-edge-key="14" data-edge-id="movie_production_country__production_country" data-er-ends="many one optional" data-composition-points="908,1128;982,1128" d="M 908 1128 L 982 1128" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
+        <path data-edge-from="movie_production_country" data-edge-to="production_country" data-edge-key="14" data-edge-id="movie_production_country__production_country" data-er-ends="many one optional" data-composition-points="908,1128;964,1128" d="M 908 1128 L 964 1128" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_spoken_language" data-edge-to="movie" data-edge-key="15" data-edge-id="movie_spoken_language__movie" data-er-ends="many one optional" data-composition-points="668,1268;631.25,1268;631.25,368;594.5,368" d="M 668 1268 L 639.25 1268 Q 631.25 1268 631.25 1260 L 631.25 376 Q 631.25 368 623.25 368 L 594.5 368" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_spoken_language" data-edge-to="spoken_language" data-edge-key="16" data-edge-id="movie_spoken_language__spoken_language" data-er-ends="many one optional" data-composition-points="908,1268;964,1268" d="M 908 1268 L 964 1268" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
         <path data-edge-from="movie_enrichment" data-edge-to="movie" data-edge-key="17" data-edge-id="movie_enrichment__movie" data-er-ends="many one optional" data-composition-points="590,988;618.5,988;618.5,384;594.5,384" d="M 590 988 L 610.5 988 Q 618.5 988 618.5 980 L 618.5 392 Q 618.5 384 610.5 384 L 594.5 384" class="a-default" data-animate="edge" style="--step: 12;" stroke-width="1.5" marker-start="url(#er-many-optional-start)" marker-end="url(#er-one-end)"/>
@@ -1945,190 +1945,190 @@ opened. The complete license is preserved in
 
         <g id="node-genre" data-node-id="genre" data-node-label="genre" tabindex="0" role="button" aria-label="Enfocar genre, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>genre · Entidad · Entidades compartidas</title>
-          <rect x="982" y="40" width="240" height="76" rx="8" class="c-mask"/>
-          <rect x="982" y="40" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 7; --flow-node-name: archify-relay-node-10;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 990 40 H 1214 A 8 8 0 0 1 1222 48 V 70 H 982 V 48 A 8 8 0 0 1 990 40 Z"/>
-          <path class="er-table-cap" d="M 994 41.4 H 1210" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(990 47) scale(0.875)">
+          <rect x="964" y="40" width="240" height="76" rx="8" class="c-mask"/>
+          <rect x="964" y="40" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 7; --flow-node-name: archify-relay-node-10;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 40 H 1196 A 8 8 0 0 1 1204 48 V 70 H 964 V 48 A 8 8 0 0 1 972 40 Z"/>
+          <path class="er-table-cap" d="M 976 41.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 47) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="59" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">genre</text>
-          <line x1="982" y1="70" x2="1222" y2="70" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="59" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">genre</text>
+          <line x1="964" y1="70" x2="1204" y2="70" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="982" y1="70" x2="1222" y2="70" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="70" x2="1204" y2="70" class="c-grid er-row-rule" stroke-width="0.5"/>
 
-            <rect x="992" y="75" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="1003" y="85" class="t-database" font-size="9" font-weight="600">PK</text>
-            <text x="1024" y="85" class="t-primary er-name-pk" font-size="11">genre_id</text>
-            <text x="1210" y="85" class="er-type" font-size="10.5" text-anchor="end">bigint identity</text>
+            <rect x="974" y="75" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="85" class="t-database" font-size="9" font-weight="600">PK</text>
+            <text x="1006" y="85" class="t-primary er-name-pk" font-size="11">genre_id</text>
+            <text x="1192" y="85" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="982" y1="90" x2="1222" y2="90" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="91" width="232" height="18" rx="4" class="er-zebra"/>
-            <rect x="992" y="95" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="1003" y="105" class="t-muted" font-size="9" font-weight="600">UK</text>
-            <text x="1024" y="105" class="t-primary" font-size="11">name</text>
-            <text x="1210" y="105" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <line x1="964" y1="90" x2="1204" y2="90" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="91" width="232" height="18" rx="4" class="er-zebra"/>
+            <rect x="974" y="95" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="985" y="105" class="t-muted" font-size="9" font-weight="600">UK</text>
+            <text x="1006" y="105" class="t-primary" font-size="11">name</text>
+            <text x="1192" y="105" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
         </g>
 
         <g id="node-keyword" data-node-id="keyword" data-node-label="keyword" tabindex="0" role="button" aria-label="Enfocar keyword, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>keyword · Entidad · Entidades compartidas</title>
-          <rect x="982" y="620" width="240" height="116" rx="8" class="c-mask"/>
-          <rect x="982" y="620" width="240" height="116" rx="8" class="c-database er-table" data-animate="node" style="--step: 9; --flow-node-name: archify-relay-node-11;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 990 620 H 1214 A 8 8 0 0 1 1222 628 V 650 H 982 V 628 A 8 8 0 0 1 990 620 Z"/>
-          <path class="er-table-cap" d="M 994 621.4 H 1210" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(990 627) scale(0.875)">
+          <rect x="964" y="620" width="240" height="116" rx="8" class="c-mask"/>
+          <rect x="964" y="620" width="240" height="116" rx="8" class="c-database er-table" data-animate="node" style="--step: 9; --flow-node-name: archify-relay-node-11;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 620 H 1196 A 8 8 0 0 1 1204 628 V 650 H 964 V 628 A 8 8 0 0 1 972 620 Z"/>
+          <path class="er-table-cap" d="M 976 621.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 627) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="639" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">keyword</text>
-          <line x1="982" y1="650" x2="1222" y2="650" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="639" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">keyword</text>
+          <line x1="964" y1="650" x2="1204" y2="650" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="982" y1="650" x2="1222" y2="650" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="650" x2="1204" y2="650" class="c-grid er-row-rule" stroke-width="0.5"/>
 
-            <rect x="992" y="655" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="1003" y="665" class="t-database" font-size="9" font-weight="600">PK</text>
-            <text x="1024" y="665" class="t-primary er-name-pk" font-size="11">keyword_id</text>
-            <text x="1210" y="665" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
+            <rect x="974" y="655" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="665" class="t-database" font-size="9" font-weight="600">PK</text>
+            <text x="1006" y="665" class="t-primary er-name-pk" font-size="11">keyword_id</text>
+            <text x="1192" y="665" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="982" y1="670" x2="1222" y2="670" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="671" width="232" height="18" rx="4" class="er-zebra"/>
+            <line x1="964" y1="670" x2="1204" y2="670" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="671" width="232" height="18" rx="4" class="er-zebra"/>
 
-            <text x="1024" y="685" class="t-primary" font-size="11">name</text>
-            <text x="1210" y="685" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <text x="1006" y="685" class="t-primary" font-size="11">name</text>
+            <text x="1192" y="685" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
           <g data-er-row="2">
-            <line x1="982" y1="690" x2="1222" y2="690" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="690" x2="1204" y2="690" class="c-grid er-row-rule" stroke-width="0.5"/>
 
 
-            <text x="1024" y="705" class="t-primary" font-size="11">created_at</text>
-            <text x="1210" y="705" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
+            <text x="1006" y="705" class="t-primary" font-size="11">created_at</text>
+            <text x="1192" y="705" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
           </g>
           <g data-er-row="3">
-            <line x1="982" y1="710" x2="1222" y2="710" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="711" width="232" height="18" rx="4" class="er-zebra"/>
+            <line x1="964" y1="710" x2="1204" y2="710" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="711" width="232" height="18" rx="4" class="er-zebra"/>
 
-            <text x="1024" y="725" class="t-primary" font-size="11">updated_at</text>
-            <text x="1210" y="725" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
+            <text x="1006" y="725" class="t-primary" font-size="11">updated_at</text>
+            <text x="1192" y="725" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
           </g>
         </g>
 
         <g id="node-person" data-node-id="person" data-node-label="person" tabindex="0" role="button" aria-label="Enfocar person, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>person · Entidad · Entidades compartidas</title>
-          <rect x="982" y="780" width="240" height="96" rx="8" class="c-mask"/>
-          <rect x="982" y="780" width="240" height="96" rx="8" class="c-database er-table" data-animate="node" style="--step: 11; --flow-node-name: archify-relay-node-12;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 990 780 H 1214 A 8 8 0 0 1 1222 788 V 810 H 982 V 788 A 8 8 0 0 1 990 780 Z"/>
-          <path class="er-table-cap" d="M 994 781.4 H 1210" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(990 787) scale(0.875)">
+          <rect x="964" y="780" width="240" height="96" rx="8" class="c-mask"/>
+          <rect x="964" y="780" width="240" height="96" rx="8" class="c-database er-table" data-animate="node" style="--step: 11; --flow-node-name: archify-relay-node-12;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 780 H 1196 A 8 8 0 0 1 1204 788 V 810 H 964 V 788 A 8 8 0 0 1 972 780 Z"/>
+          <path class="er-table-cap" d="M 976 781.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 787) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="799" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">person</text>
-          <line x1="982" y1="810" x2="1222" y2="810" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="799" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">person</text>
+          <line x1="964" y1="810" x2="1204" y2="810" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="982" y1="810" x2="1222" y2="810" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="810" x2="1204" y2="810" class="c-grid er-row-rule" stroke-width="0.5"/>
 
-            <rect x="992" y="815" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="1003" y="825" class="t-database" font-size="9" font-weight="600">PK</text>
-            <text x="1024" y="825" class="t-primary er-name-pk" font-size="11">person_id</text>
-            <text x="1210" y="825" class="er-type" font-size="10.5" text-anchor="end">bigint identity</text>
+            <rect x="974" y="815" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="825" class="t-database" font-size="9" font-weight="600">PK</text>
+            <text x="1006" y="825" class="t-primary er-name-pk" font-size="11">person_id</text>
+            <text x="1192" y="825" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="982" y1="830" x2="1222" y2="830" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="831" width="232" height="18" rx="4" class="er-zebra"/>
-            <rect x="992" y="835" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="1003" y="845" class="t-muted" font-size="9" font-weight="600">UK</text>
-            <text x="1024" y="845" class="t-primary" font-size="11">name</text>
-            <text x="1210" y="845" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <line x1="964" y1="830" x2="1204" y2="830" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="831" width="232" height="18" rx="4" class="er-zebra"/>
+            <rect x="974" y="835" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="985" y="845" class="t-muted" font-size="9" font-weight="600">UK</text>
+            <text x="1006" y="845" class="t-primary" font-size="11">name</text>
+            <text x="1192" y="845" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
           <g data-er-row="2">
-            <line x1="982" y1="850" x2="1222" y2="850" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="850" x2="1204" y2="850" class="c-grid er-row-rule" stroke-width="0.5"/>
 
 
-            <text x="1024" y="865" class="t-primary" font-size="11">created_at</text>
-            <text x="1210" y="865" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
+            <text x="1006" y="865" class="t-primary" font-size="11">created_at</text>
+            <text x="1192" y="865" class="er-type" font-size="10.5" text-anchor="end">timestamptz</text>
           </g>
         </g>
 
         <g id="node-production_company" data-node-id="production_company" data-node-label="production_company" tabindex="0" role="button" aria-label="Enfocar production_company, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>production_company · Entidad · Entidades compartidas</title>
-          <rect x="982" y="940" width="240" height="76" rx="8" class="c-mask"/>
-          <rect x="982" y="940" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-13;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 990 940 H 1214 A 8 8 0 0 1 1222 948 V 970 H 982 V 948 A 8 8 0 0 1 990 940 Z"/>
-          <path class="er-table-cap" d="M 994 941.4 H 1210" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(990 947) scale(0.875)">
+          <rect x="964" y="940" width="240" height="76" rx="8" class="c-mask"/>
+          <rect x="964" y="940" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-13;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 940 H 1196 A 8 8 0 0 1 1204 948 V 970 H 964 V 948 A 8 8 0 0 1 972 940 Z"/>
+          <path class="er-table-cap" d="M 976 941.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 947) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="959" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">production_company</text>
-          <line x1="982" y1="970" x2="1222" y2="970" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="959" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">production_company</text>
+          <line x1="964" y1="970" x2="1204" y2="970" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="982" y1="970" x2="1222" y2="970" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="970" x2="1204" y2="970" class="c-grid er-row-rule" stroke-width="0.5"/>
 
-            <rect x="992" y="975" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="1003" y="985" class="t-database" font-size="9" font-weight="600">PK</text>
-            <text x="1024" y="985" class="t-primary er-name-pk" font-size="11">company_id</text>
-            <text x="1210" y="985" class="er-type" font-size="10.5" text-anchor="end">bigint identity</text>
+            <rect x="974" y="975" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="985" class="t-database" font-size="9" font-weight="600">PK</text>
+            <text x="1006" y="985" class="t-primary er-name-pk" font-size="11">company_id</text>
+            <text x="1192" y="985" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="982" y1="990" x2="1222" y2="990" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="991" width="232" height="18" rx="4" class="er-zebra"/>
-            <rect x="992" y="995" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="1003" y="1005" class="t-muted" font-size="9" font-weight="600">UK</text>
-            <text x="1024" y="1005" class="t-primary" font-size="11">name</text>
-            <text x="1210" y="1005" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <line x1="964" y1="990" x2="1204" y2="990" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="991" width="232" height="18" rx="4" class="er-zebra"/>
+            <rect x="974" y="995" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="985" y="1005" class="t-muted" font-size="9" font-weight="600">UK</text>
+            <text x="1006" y="1005" class="t-primary" font-size="11">name</text>
+            <text x="1192" y="1005" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
         </g>
 
         <g id="node-production_country" data-node-id="production_country" data-node-label="production_country" tabindex="0" role="button" aria-label="Enfocar production_country, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>production_country · Entidad · Entidades compartidas</title>
-          <rect x="982" y="1080" width="240" height="76" rx="8" class="c-mask"/>
-          <rect x="982" y="1080" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-14;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 990 1080 H 1214 A 8 8 0 0 1 1222 1088 V 1110 H 982 V 1088 A 8 8 0 0 1 990 1080 Z"/>
-          <path class="er-table-cap" d="M 994 1081.4 H 1210" stroke-width="2.6" stroke-linecap="round" fill="none"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(990 1087) scale(0.875)">
+          <rect x="964" y="1080" width="240" height="76" rx="8" class="c-mask"/>
+          <rect x="964" y="1080" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-14;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 1080 H 1196 A 8 8 0 0 1 1204 1088 V 1110 H 964 V 1088 A 8 8 0 0 1 972 1080 Z"/>
+          <path class="er-table-cap" d="M 976 1081.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 1087) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="1099" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">production_country</text>
-          <line x1="982" y1="1110" x2="1222" y2="1110" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="1099" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">production_country</text>
+          <line x1="964" y1="1110" x2="1204" y2="1110" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="982" y1="1110" x2="1222" y2="1110" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="1110" x2="1204" y2="1110" class="c-grid er-row-rule" stroke-width="0.5"/>
 
-            <rect x="992" y="1115" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="1003" y="1125" class="t-database" font-size="9" font-weight="600">PK</text>
-            <text x="1024" y="1125" class="t-primary er-name-pk" font-size="11">country_id</text>
-            <text x="1210" y="1125" class="er-type" font-size="10.5" text-anchor="end">bigint identity</text>
+            <rect x="974" y="1115" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="1125" class="t-database" font-size="9" font-weight="600">PK</text>
+            <text x="1006" y="1125" class="t-primary er-name-pk" font-size="11">country_id</text>
+            <text x="1192" y="1125" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="982" y1="1130" x2="1222" y2="1130" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="986" y="1131" width="232" height="18" rx="4" class="er-zebra"/>
-            <rect x="992" y="1135" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="1003" y="1145" class="t-muted" font-size="9" font-weight="600">UK</text>
-            <text x="1024" y="1145" class="t-primary" font-size="11">name</text>
-            <text x="1210" y="1145" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <line x1="964" y1="1130" x2="1204" y2="1130" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="1131" width="232" height="18" rx="4" class="er-zebra"/>
+            <rect x="974" y="1135" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="985" y="1145" class="t-muted" font-size="9" font-weight="600">UK</text>
+            <text x="1006" y="1145" class="t-primary" font-size="11">name</text>
+            <text x="1192" y="1145" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
         </g>
 
         <g id="node-spoken_language" data-node-id="spoken_language" data-node-label="spoken_language" tabindex="0" role="button" aria-label="Enfocar spoken_language, Entidad" aria-pressed="false" data-node-kind="database" data-node-tag="Entidades compartidas" data-node-context="Entidad" class="er-hue-messagebus">
           <title>spoken_language · Entidad · Entidades compartidas</title>
-          <rect x="964" y="1220" width="276" height="76" rx="8" class="c-mask"/>
-          <rect x="964" y="1220" width="276" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-15;" stroke-width="1.2"/>
-          <path class="er-table-header" d="M 972 1220 H 1232 A 8 8 0 0 1 1240 1228 V 1250 H 964 V 1228 A 8 8 0 0 1 972 1220 Z"/>
-          <path class="er-table-cap" d="M 976 1221.4 H 1228" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+          <rect x="964" y="1220" width="240" height="76" rx="8" class="c-mask"/>
+          <rect x="964" y="1220" width="240" height="76" rx="8" class="c-database er-table" data-animate="node" style="--step: 12; --flow-node-name: archify-relay-node-15;" stroke-width="1.2"/>
+          <path class="er-table-header" d="M 972 1220 H 1196 A 8 8 0 0 1 1204 1228 V 1250 H 964 V 1228 A 8 8 0 0 1 972 1220 Z"/>
+          <path class="er-table-cap" d="M 976 1221.4 H 1192" stroke-width="2.6" stroke-linecap="round" fill="none"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(972 1227) scale(0.875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" x="1102" y="1239" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">spoken_language</text>
-          <line x1="964" y1="1250" x2="1240" y2="1250" class="c-grid er-header-rule" stroke-width="1"/>
+          <text data-node-label="" x="1084" y="1239" class="t-primary er-title" font-size="13" font-weight="700" text-anchor="middle">spoken_language</text>
+          <line x1="964" y1="1250" x2="1204" y2="1250" class="c-grid er-header-rule" stroke-width="1"/>
           <g data-er-row="0">
-            <line x1="964" y1="1250" x2="1240" y2="1250" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <line x1="964" y1="1250" x2="1204" y2="1250" class="c-grid er-row-rule" stroke-width="0.5"/>
 
             <rect x="974" y="1255" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="pk"/><text x="985" y="1265" class="t-database" font-size="9" font-weight="600">PK</text>
             <text x="1006" y="1265" class="t-primary er-name-pk" font-size="11">spoken_language_id</text>
-            <text x="1228" y="1265" class="er-type" font-size="10.5" text-anchor="end">bigint identity</text>
+            <text x="1192" y="1265" class="er-type" font-size="10.5" text-anchor="end">bigint</text>
           </g>
           <g data-er-row="1">
-            <line x1="964" y1="1270" x2="1240" y2="1270" class="c-grid er-row-rule" stroke-width="0.5"/>
-            <rect x="968" y="1271" width="268" height="18" rx="4" class="er-zebra"/>
+            <line x1="964" y1="1270" x2="1204" y2="1270" class="c-grid er-row-rule" stroke-width="0.5"/>
+            <rect x="968" y="1271" width="232" height="18" rx="4" class="er-zebra"/>
             <rect x="974" y="1275" width="22" height="13" rx="3" class="er-key-badge" data-er-badge="uk"/><text x="985" y="1285" class="t-muted" font-size="9" font-weight="600">UK</text>
             <text x="1006" y="1285" class="t-primary" font-size="11">name</text>
-            <text x="1228" y="1285" class="er-type" font-size="10.5" text-anchor="end">text</text>
+            <text x="1192" y="1285" class="er-type" font-size="10.5" text-anchor="end">text</text>
           </g>
         </g>
 

@@ -31,7 +31,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 3. 🗺️ Arquitectura
 
-![Arquitectura end-to-end del laboratorio ElastiFlix: del CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](lab-design/diagrams/lab-architecture.svg)
+![Arquitectura end-to-end del laboratorio ElastiFlix: de los CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](lab-design/diagrams/lab-architecture.svg)
 
 > 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha); Flink, Spark y DuckDB resuelven las tablas ahí.
 

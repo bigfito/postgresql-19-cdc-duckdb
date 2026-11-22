@@ -35,7 +35,7 @@
       "id": "csv",
       "type": "external",
       "label": "raw_data/*.csv",
-      "sublabel": "6,899 películas",
+      "sublabel": "20 CSV · 6,899 películas",
       "pos": [
         250,
         40

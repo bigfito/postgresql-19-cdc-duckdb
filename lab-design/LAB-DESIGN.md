@@ -57,7 +57,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 | Java | **25** (LTS) | `eclipse-temurin:25.0.5.1_2-jre` | Event Simulator |
 | Apache Maven | **3.10.0** | `maven:3.10.0-eclipse-temurin-25` | Etapa de build del simulador |
 | PostgreSQL JDBC | **42.7.14** | `org.postgresql:postgresql` | Driver del simulador |
-| Apache Commons CSV | **1.14.1** | `org.apache.commons:commons-csv` | Lectura del CSV en el simulador |
+| Apache Commons CSV | **1.14.1** | `org.apache.commons:commons-csv` | Lectura de los CSV en el simulador |
 | Apache Flink | **2.2.1** | `flink:2.2.1-java21` | Runtime de streaming |
 | Apache Flink CDC | **3.7.0** | conectores `postgres` e `iceberg`, versión `3.7.0-2.2` | PostgreSQL CDC → Iceberg |
 | Apache Iceberg en Flink | **1.10.2** | `iceberg-flink-runtime-2.0`, `iceberg-aws-bundle` | Sink Iceberg del pipeline CDC |
@@ -130,7 +130,7 @@ Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajust
 
 ## 4. 🗺️ Diagrama de Arquitectura
 
-![Arquitectura end-to-end del laboratorio ElastiFlix: del CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](diagrams/lab-architecture.svg)
+![Arquitectura end-to-end del laboratorio ElastiFlix: de los CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](diagrams/lab-architecture.svg)
 
 > 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha). Por legibilidad no se dibuja una flecha de cada motor hacia el catálogo: Flink, Spark y DuckDB resuelven las tablas ahí.
 >
@@ -181,7 +181,7 @@ El diagrama de la sección 4 muestra los componentes. Este muestra qué datos pa
 
 ![Linaje de datos por capa: CSV, tablas operacionales de PostgreSQL, tablas espejo de Bronze, dimensiones, hechos y bridges de Silver, productos Gold y consumo en Superset](diagrams/medallion-dataflow.svg)
 
-> 🔍 **Cómo leerlo:** de izquierda a derecha. Las flechas verdes son captura continua de Flink CDC; las grises, cargas batch de PySpark; las punteadas, resolución de claves dentro de Silver. Los bridges también alimentan Gold (pesos N:M), aunque esa flecha no se dibuja.
+> 🔍 **Cómo leerlo:** de izquierda a derecha. Las flechas verdes son captura continua de Flink CDC; las grises, el resto de movimientos (la carga transaccional del simulador, los jobs batch de PySpark y la consulta de Superset); las punteadas, resolución de claves dentro de Silver. Los bridges también alimentan Gold (pesos N:M), aunque esa flecha no se dibuja.
 >
 > Versión interactiva: [`diagrams/medallion-dataflow.html`](diagrams/medallion-dataflow.html) · Fuente editable: [`diagrams/medallion-dataflow.json`](diagrams/medallion-dataflow.json).
 

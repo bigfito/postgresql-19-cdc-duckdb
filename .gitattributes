@@ -29,7 +29,7 @@ Dockerfile.* text eol=lf
 *.html      text eol=lf
 *.svg       text eol=lf
 
-# El dataset se lee byte a byte: las celdas contienen JSON y saltos de línea
+# El dataset se lee byte a byte: algunas celdas contienen saltos de línea
 # propios. Git no debe tocar sus finales de línea.
 *.csv       -text
 

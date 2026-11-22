@@ -479,7 +479,7 @@
       "attributes": [
         {
           "name": "genre_id",
-          "type": "bigint identity",
+          "type": "bigint",
           "key": "pk"
         },
         {
@@ -524,7 +524,7 @@
       "attributes": [
         {
           "name": "person_id",
-          "type": "bigint identity",
+          "type": "bigint",
           "key": "pk"
         },
         {
@@ -547,7 +547,7 @@
       "attributes": [
         {
           "name": "company_id",
-          "type": "bigint identity",
+          "type": "bigint",
           "key": "pk"
         },
         {
@@ -566,7 +566,7 @@
       "attributes": [
         {
           "name": "country_id",
-          "type": "bigint identity",
+          "type": "bigint",
           "key": "pk"
         },
         {
@@ -585,7 +585,7 @@
       "attributes": [
         {
           "name": "spoken_language_id",
-          "type": "bigint identity",
+          "type": "bigint",
           "key": "pk"
         },
         {
@@ -753,8 +753,8 @@
       "dot": "cyan",
       "title": "Claves",
       "items": [
-        "movie_id, collection_id y keyword_id son IDs de TMDB",
-        "Los IDs identity los genera PostgreSQL; el nombre es UNIQUE",
+        "movie_id, collection_id y keyword_id son claves naturales dispersas",
+        "Los otros cinco IDs los asigna el dataset, desde 1; el nombre es UNIQUE",
         "La posición de cada relación es UNIQUE junto con movie_id"
       ]
     },
