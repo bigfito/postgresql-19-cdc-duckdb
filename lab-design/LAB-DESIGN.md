@@ -39,7 +39,7 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 - Recomendación para una ejecución cómoda del laboratorio: **8 CPU, 16 GB RAM y al menos 30 GB libres**. Con 16 GB el margen es estrecho (Flink, Spark, Airflow 3, Superset y dos PostgreSQL a la vez), por lo que cada servicio declarará límites de memoria en el Compose; ver [sección 39](#39--docker-compose).
 - Puertos locales disponibles para las interfaces que decidamos publicar, por ejemplo PostgreSQL, Flink UI, Airflow UI, RustFS, Iceberg REST y Superset. Se publicarán ligados a `127.0.0.1`, no a todas las interfaces.
 - Acceso a Internet durante el primer build para descargar imágenes y dependencias.
-- El runtime final no deberá depender de servicios cloud externos. Esto incluye las extensiones de DuckDB (`iceberg`, `httpfs`), que se instalarán durante el build de la imagen y no en la primera consulta.
+- El runtime final no deberá depender de servicios cloud externos. Esto incluye las extensiones de DuckDB (`iceberg`, `httpfs` y `avro`), que se instalarán durante el build de la imagen y no en la primera consulta.
 
 ### 2.3 Requisitos de interoperabilidad
 
@@ -122,7 +122,7 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
 | JDBC 42.7.14 y Commons CSV 1.14.1 | JAR del simulador | Maven Central |
 | PySpark 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
-| DuckDB 1.5.6, `duckdb-engine` 0.17.0 y extensiones `httpfs` e `iceberg` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
+| DuckDB 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y extensiones `httpfs`, `iceberg` y `avro` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
 
 Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajusta permisos) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
 
@@ -1839,16 +1839,18 @@ DuckDB es una librería embebida: no escucha en un puerto ni acepta conexiones d
 
 ### Inicialización de cada conexión
 
-DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS y adjuntar el catálogo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. La sintaxis es la documentada por DuckDB para un catálogo REST sin autenticación y un object store S3-compatible; lo que queda por probar es su funcionamiento contra RustFS (sección 46):
+DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS, adjuntar el catálogo y crear las vistas de consumo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. Es el que pasó las validaciones 6 y 7 de la sección 46:
 
 ```sql
+SET extension_directory = '/opt/duckdb_extensions';
+SET autoinstall_known_extensions = false;
 LOAD httpfs;
 LOAD iceberg;
 
 CREATE OR REPLACE SECRET rustfs (
     TYPE s3,
-    KEY_ID '<clave del laboratorio>',
-    SECRET '<secreto del laboratorio>',
+    KEY_ID '${AWS_ACCESS_KEY_ID}',
+    SECRET '${AWS_SECRET_ACCESS_KEY}',
     ENDPOINT 'rustfs:9000',
     URL_STYLE 'path',
     USE_SSL false
@@ -1859,15 +1861,21 @@ ATTACH 'warehouse' AS lake (
     ENDPOINT 'http://iceberg-rest:8181',
     AUTHORIZATION_TYPE 'none'
 );
+
+CREATE OR REPLACE VIEW memory.main.<producto> AS SELECT * FROM lake.gold.<producto>;
 ```
+
+La última sentencia se repite para cada producto Gold.
 
 Reglas:
 
-- Las extensiones `httpfs` e `iceberg` se instalan durante el build de la imagen. En runtime solo se cargan (`LOAD`), sin descargar nada.
-- El catálogo se adjunta en solo lectura. DuckDB nunca escribe en el lakehouse.
+- **Tres extensiones, no dos.** `httpfs`, `iceberg` y `avro` se instalan durante el build de la imagen. `iceberg` necesita `avro` y, si no la encuentra, intenta descargarla al cargarse; sin acceso a Internet esa descarga hace fallar todas las consultas. En runtime solo se cargan (`LOAD`), y `autoinstall_known_extensions = false` convierte cualquier extensión ausente en un error visible en lugar de una descarga silenciosa.
+- **Directorio de extensiones propio.** Se instalan en `/opt/duckdb_extensions`, la misma ruta en la imagen de Superset y en la del contenedor de línea de comandos, y `extension_directory` apunta ahí. El directorio por defecto queda bajo el `HOME` del usuario, que en Superset es `/app/superset_home`: el volumen montado en esa ruta taparía lo instalado en el build.
+- **Credenciales por variables de entorno.** `${AWS_ACCESS_KEY_ID}` y `${AWS_SECRET_ACCESS_KEY}` se sustituyen justo antes de ejecutar el archivo; no hay claves escritas en él.
+- **Vistas en la base en memoria, una por producto Gold.** Son obligatorias para los datasets de Superset (sección 35). Se crean en este script porque una base en memoria no conserva nada entre conexiones.
+- DuckDB nunca escribe en el lakehouse. Superset rechaza cualquier DDL o DML sobre esta base, que es su comportamiento por defecto.
 - Superset solo consulta el namespace `gold`.
-
-DuckDB podrá utilizar vistas SQL sobre las tablas Gold si simplifican el consumo; se crean en el mismo script de inicialización, ya que una base en memoria no las conserva entre conexiones.
+- El archivo no lleva `;` dentro de comentarios: quien lo ejecuta descarta las líneas de comentario y parte el resto por `;`.
 
 ## 35. 📊 Apache Superset
 
@@ -1885,11 +1893,13 @@ Gold será la fuente de verdad para las visualizaciones.
 
 ### Configuración
 
-- Imagen propia basada en `apache/superset:6.1.0-py312`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y las extensiones de DuckDB preinstaladas. Se usa la variante `-py312` porque la etiqueta `6.1.0` a secas trae Python 3.10, ya sin soporte.
+- Imagen propia basada en `apache/superset:6.1.0-py312`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y las extensiones de DuckDB preinstaladas. Se usa la variante `-py312` porque la etiqueta `6.1.0` a secas trae Python 3.10, ya sin soporte.
+- La imagen base de la serie 6.1 es mínima: no trae ningún driver, tampoco el de PostgreSQL que Superset necesita para sus propios metadatos. Por eso `psycopg2-binary` forma parte de la imagen. Los paquetes se instalan en el entorno virtual `/app/.venv` con `uv pip install`.
 - Superset 6.1.0 limita DuckDB a `duckdb<2,>=1.4.2`. Subir a DuckDB 2.x requiere antes una versión de Superset que lo admita.
 - La base de datos se registra con la URI SQLAlchemy `duckdb:///:memory:`.
-- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB. Sin ese hook, las conexiones nuevas no verían el catálogo. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`.
-- **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`) por defecto, de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. Con pocas tablas Gold debería ser aceptable; se mide en la sección 46 y, si no lo es, la alternativa es un archivo DuckDB de solo lectura generado por un job.
+- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB. Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
+- **Datasets sobre vistas, en el esquema `main`.** Superset no consigue leer las columnas de una tabla Iceberg adjunta: el inspector de SQLAlchemy devuelve una sola columna sin tipo, y sin columnas no se puede construir un gráfico. Sí las lee de las vistas de la base en memoria que crea el script de inicialización (sección 34). Cada dataset se define como tabla física `main.<producto>`. La alternativa, que también funciona, es un dataset virtual con `SELECT * FROM lake.gold.<producto>`, pero ahí Superset no reconoce el tipo de las columnas `DECIMAL`. SQL Lab puede consultar `lake.gold.<producto>` directamente.
+- **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`), de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. La validación 7 lo midió: la inicialización cuesta unos 40 ms y cada vista añade entre 5 y 9 ms, frente a los 7 ms de la consulta en sí. De extremo a extremo, una consulta por la API de Superset tarda unos 150 ms en secuencia y hasta 440 ms en el percentil 95 con ocho consultas simultáneas y cuatro workers. Es aceptable para el laboratorio; no hace falta el archivo DuckDB de solo lectura que se había previsto como alternativa.
 - Cada worker de Superset tiene su propio DuckDB en memoria. No comparten archivo, así que no hay bloqueos entre procesos.
 - Metadatos de Superset en `metadata-db` (base `superset`).
 - El job one-shot `superset-init` migra la base, crea el usuario administrador y registra la base de datos DuckDB. Los datasets y dashboards se importan desde `superset/config/` cuando Gold ya tiene datos.
@@ -2219,7 +2229,7 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las seis primeras; siguen pendientes la 7, la 8 y la 9.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las siete primeras. Sigue pendiente la 8, y la 9 está a medias: comprobada para Superset, no para Airflow.
 
 ### Resultados
 
@@ -2231,6 +2241,8 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | 4 | 2026-11-22 | ✅ Superada |
 | 5 | 2026-11-22 | ✅ Superada |
 | 6 | 2026-11-22 | ✅ Superada |
+| 7 | 2026-11-22 | ✅ Superada, con tres ajustes al diseño |
+| 9 | 2026-11-22 | 🟡 Parcial: Superset sí; Airflow pendiente |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -2333,6 +2345,47 @@ Observaciones que afectan al diseño:
 - **El SQL de DuckDB de la sección 34 no necesita cambios.** Funcionó igual contra tablas de Flink, tablas compactadas y tablas de Spark.
 
 Lo que estas pruebas no cubren: los jobs corrieron con el Python 3.10 de la imagen de Spark tanto en el driver como en los ejecutores, así que no dicen nada del desajuste con Airflow, que es la validación 8. Tampoco cubren el `MERGE` de Silver, tablas particionadas, lectores concurrentes durante una recarga de Gold ni el volumen real.
+
+#### Validación 7: Superset sobre DuckDB, y la mitad de la 9
+
+Entorno: `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, la imagen de Spark de la validación 5 para escribir dos tablas Gold (6,899 y 120 filas), `postgres:19.0` como `metadata-db` y una imagen propia sobre `apache/superset:6.1.0-py312` con `psycopg2-binary`, `duckdb` 1.5.6 y `duckdb-engine` 0.17.0. Superset corrió con cuatro workers de Gunicorn. **La red del Compose se declaró interna, sin salida a Internet**, para que cualquier descarga en runtime fallara a la vista. Las consultas se lanzaron por la API REST de Superset, que es el camino de SQL Lab y de los gráficos.
+
+| Qué se comprobó | Resultado |
+|---|---|
+| `superset db upgrade`, creación del administrador y `superset init` sobre PostgreSQL 19.0 | Correcto: 344 migraciones aplicadas, sin errores |
+| Registro de la base con `superset set-database-uri` y la URI `duckdb:///:memory:` | Correcto; Superset la reconoce como `duckdb` |
+| El hook ejecuta el SQL de inicialización en cada conexión | Sí: una inicialización por consulta, lo que confirma el `NullPool` |
+| Extensiones precargadas, sin red | **Falló con el diseño original:** `iceberg` intenta descargar `avro`. Con `avro` instalada en el build, correcto |
+| Extensiones fuera de `/app/superset_home`, con un volumen montado en esa ruta | Correcto con `extension_directory` |
+| SQL Lab sobre `lake.gold.<tabla>`: conteos, agregaciones, tipos y un join entre dos tablas Gold | Correcto |
+| DML desde SQL Lab | Rechazado por Superset (`DML_NOT_ALLOWED_ERROR`) |
+| Dataset físico sobre una tabla Iceberg adjunta | **No sirve:** Superset detecta una sola columna sin tipo y el gráfico falla |
+| Dataset físico sobre una vista de `memory.main` | Correcto: las 12 columnas con su tipo, y la consulta de gráfico funciona |
+| Dataset virtual con SQL sobre `lake.gold` | Funciona, pero las columnas `DECIMAL` quedan sin tipo |
+| Varios workers | Las consultas se reparten entre los cuatro; cada uno inicializa su propio DuckDB |
+| Fiabilidad | 729 de 730 consultas correctas. La fallida fue un error interno de Superset (`'NoneType' object has no attribute 'push'`) que no se reprodujo en cinco rondas más |
+| Metadatos de Superset en PostgreSQL 19 tras las pruebas | 759 consultas y 3 datasets registrados, sin errores |
+
+Coste de repetir la inicialización en cada consulta:
+
+| Medida | Sin vistas | 2 vistas | 7 vistas |
+|---|---:|---:|---:|
+| Inicialización, mediana en secuencia | 42 ms | 60 ms | 79 ms |
+| Inicialización, mediana con 8 consultas simultáneas | 102 ms | 115 ms | 162 ms |
+| Consulta completa por la API, mediana en secuencia | 137 ms | 158 ms | 170 ms |
+| Consulta completa por la API, P95 con 8 simultáneas | 399 ms | 414 ms | 440 ms |
+| Consultas por segundo con 8 simultáneas | 24.6 | 22.9 | 21.0 |
+
+La misma consulta sobre una conexión ya inicializada tarda 7 ms: la inicialización pesa más que la consulta, pero el total es aceptable.
+
+Observaciones que afectan al diseño, ya incorporadas en las secciones 34 y 35:
+
+- **Hay que instalar `avro`** además de `httpfs` e `iceberg`. Es el fallo más serio que encontró esta prueba: con Internet pasa inadvertido, porque DuckDB la descarga sola, y sin Internet rompe todas las consultas.
+- **Los datasets van sobre vistas**, no sobre las tablas Iceberg. Lo que el diseño daba como opcional pasa a ser necesario.
+- **La imagen de Superset necesita `psycopg2-binary`**: la base de la serie 6.1 no trae ningún driver.
+- Los datasets se crean con esquema `main`. Con `memory.main` el gráfico funciona, pero una tarea interna de Superset que detecta formatos de fecha falla al citar ese nombre como si fuera un solo identificador.
+
+Lo que esta prueba no cubre: la interfaz web en un navegador, la importación de dashboards, la caché de resultados de Superset y el volumen real de Gold. La opción `READ_ONLY` al adjuntar el catálogo no se probó. De la validación 9 queda la parte de Airflow.
 
 ## 47. 📝 Registro de cambios de la revisión
 

@@ -25,7 +25,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ⏳ 6 de 9 superadas: el camino PostgreSQL 19 → Flink CDC → Bronze → Spark → Gold → DuckDB funciona; faltan Superset, el Python de Airflow y Spark, y la base de metadatos |
+| Validaciones de compatibilidad entre componentes | ⏳ 7 de 9 superadas: el camino completo PostgreSQL 19 → Flink CDC → Bronze → Spark → Gold → DuckDB → Superset funciona; faltan el Python de Airflow y Spark, y Airflow sobre la base de metadatos |
 | Dataset de entrada: 20 CSV en `raw_data/`, uno por tabla | ⏳ Pendiente de generar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
