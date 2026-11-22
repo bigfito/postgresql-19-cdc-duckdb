@@ -83,7 +83,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 > - **DuckDB 1.5.6 y no 2.0.1.** Superset 6.1.0 declara `duckdb<2,>=1.4.2` en su extra `duckdb`, de modo que DuckDB 2.x queda fuera hasta que Superset lo admita. La 1.5.6 es la última versión de la serie 1.x.
 > - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
 > - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
-> - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. Ver «Despliegue de Airflow» en la sección 18.
+> - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. La validación 8 reprodujo el fallo con las imágenes por defecto y confirmó la solución. Ver «Despliegue de Airflow» en la sección 18.
 > - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector se comprobó en la validación 1 de la [sección 46](#46--validaciones-previas-fase-0).
 
 ### 3.1 Política de versiones
@@ -121,7 +121,9 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Iceberg 1.10.2 (`iceberg-flink-runtime-2.0`, `iceberg-aws-bundle`) | Imagen de Flink | Maven Central |
 | Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
 | JDBC 42.7.14 y Commons CSV 1.14.1 | JAR del simulador | Maven Central |
-| PySpark 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
+| PySpark 4.1.4, `pyspark-client` 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
+| Java 21 (`openjdk-21-jre-headless`) | Imagen de Airflow | Repositorio de paquetes de Debian |
+| Python 3.12, instalado con `uv` | Imagen de Spark | PyPI (`uv`) y builds de CPython que descarga `uv` desde GitHub |
 | DuckDB 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y extensiones `httpfs`, `iceberg` y `avro` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
 
 Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajusta permisos) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
@@ -1157,7 +1159,14 @@ Airflow no gobernará cada evento CDC.
 
 - Imagen propia basada en `apache/airflow:3.4.0-python3.12`, con Java 21, PySpark 4.1.4 y `apache-airflow-providers-apache-spark` 6.3.4. La versión de PySpark del cliente debe coincidir con la del clúster Spark.
 - El proveedor 6.3.4 depende de `pyspark-client>=4.0.0` sin tope superior, así que por sí solo instalaría la 4.3.0. Se fijan `pyspark==4.1.4` y `pyspark-client==4.1.4` en el mismo `pip install`.
-- **Misma versión menor de Python en Airflow y en Spark.** `SparkSubmitOperator` lanza `spark-submit` en modo cliente contra el clúster standalone, que no admite modo clúster para aplicaciones Python. El driver corre entonces dentro del contenedor de Airflow y los ejecutores dentro de `spark-worker`; si sus versiones menores de Python difieren, PySpark aborta el job. La imagen base de Spark trae Python 3.10 (Ubuntu 22.04) y Airflow no publica imagen con 3.10, por lo que `pyspark/Dockerfile` instala Python 3.12 y fija `PYSPARK_PYTHON` a ese intérprete. Se comprueba en la sección 46.
+- **Misma versión menor de Python en Airflow y en Spark.** `SparkSubmitOperator` lanza `spark-submit` en modo cliente contra el clúster standalone, que no admite modo clúster para aplicaciones Python. El driver corre entonces dentro del contenedor de Airflow y los ejecutores dentro de `spark-worker`; si sus versiones menores de Python difieren, PySpark aborta el job. La imagen base de Spark trae Python 3.10 (Ubuntu 22.04) y Airflow no publica imagen con 3.10, por lo que `pyspark/Dockerfile` instala Python 3.12 y fija `PYSPARK_PYTHON` a ese intérprete. La validación 8 de la sección 46 reprodujo el fallo y comprobó la solución.
+- **Cómo se instala Python 3.12 en la imagen de Spark.** Con `uv`: `pip3 install uv`, `uv python install 3.12` con `UV_PYTHON_INSTALL_DIR=/opt/python` y un enlace `/usr/local/bin/python3.12`. No toca el Python 3.10 del sistema ni añade repositorios de paquetes. La imagen declara `PYSPARK_PYTHON=python3.12`, y la de Airflow también: el driver comunica a los ejecutores el nombre del intérprete y cada lado lo resuelve en su `PATH`.
+- **Solo fallan los jobs que ejecutan Python en los ejecutores.** Un job que use únicamente la API de DataFrame corre aunque las versiones no coincidan; una UDF de Python o una operación sobre RDD aborta con `PYTHON_VERSION_MISMATCH`. No conviene apoyarse en esa diferencia: basta una UDF para romper un job que antes funcionaba.
+- **Lo que necesita la imagen de Airflow para ser driver.** Java 21 (`openjdk-21-jre-headless`, con `JAVA_HOME`), los JAR `iceberg-spark-runtime-4.1_2.13` e `iceberg-aws-bundle` 1.12.0 dentro del directorio `jars` del paquete `pyspark`, y `SPARK_CONF_DIR` apuntando a la misma configuración de catálogo que usa Spark (`pyspark/conf/`, sección 46). El comando `spark-submit` lo aporta el propio paquete `pyspark`.
+- **Los jobs se montan también en Airflow.** En modo cliente `spark-submit` lee el archivo de la aplicación en la máquina que lo lanza, así que `pyspark/jobs/` y `pyspark/conf/` se montan en los contenedores de Airflow además de en los de Spark.
+- **El driver debe ser alcanzable desde los ejecutores.** Cada tarea fija `spark.driver.host` al nombre del servicio que ejecuta las tareas (`airflow-scheduler`, con `LocalExecutor`) y `spark.driver.bindAddress=0.0.0.0`.
+- **Conexión de Spark.** `AIRFLOW_CONN_SPARK_DEFAULT=spark://spark-master:7077?deploy-mode=client`.
+- **Entre servicios de Airflow 3.** Todos comparten `AIRFLOW__API_AUTH__JWT_SECRET`, y el scheduler alcanza la API de ejecución con `AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-apiserver:8080/execution/`.
 - `LocalExecutor`. Servicios de Airflow 3: `airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor`, más el job one-shot `airflow-init` (migra la base y crea el usuario administrador).
 - Metadatos en `metadata-db` (base `airflow`).
 - Programación: el DAG se dispara a mano durante la demostración y, opcionalmente, cada 10 minutos. `max_active_runs = 1` para que dos corridas no escriban Silver a la vez.
@@ -2147,7 +2156,7 @@ No se utilizará:
 
 Con esta arquitectura y modelos definidos, la implementación puede avanzar en este orden:
 
-0. Ejecutar las validaciones previas de la sección 46. La primera, PostgreSQL 19 con Flink CDC 3.7.0, ya pasó.
+0. ~~Ejecutar las validaciones previas de la sección 46~~ (hecho: las nueve pasaron).
 1. ~~Fijar versiones compatibles~~ (hecho en la sección 3; se confirma con el paso 0).
 2. Generar los 20 CSV de `raw_data/` descritos en la sección 8.
 3. Implementar DDL PostgreSQL completo con las restricciones de la sección 12, y comprobarlo cargando los CSV con `COPY`.
@@ -2229,7 +2238,7 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las siete primeras. Sigue pendiente la 8, y la 9 está a medias: comprobada para Superset, no para Airflow.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve pruebas se han ejecutado y superado. Abajo están los resultados y lo que cada una dejó sin cubrir.
 
 ### Resultados
 
@@ -2242,7 +2251,8 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | 5 | 2026-11-22 | ✅ Superada |
 | 6 | 2026-11-22 | ✅ Superada |
 | 7 | 2026-11-22 | ✅ Superada, con tres ajustes al diseño |
-| 9 | 2026-11-22 | 🟡 Parcial: Superset sí; Airflow pendiente |
+| 8 | 2026-11-22 | ✅ Superada |
+| 9 | 2026-11-22 | ✅ Superada |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -2385,7 +2395,42 @@ Observaciones que afectan al diseño, ya incorporadas en las secciones 34 y 35:
 - **La imagen de Superset necesita `psycopg2-binary`**: la base de la serie 6.1 no trae ningún driver.
 - Los datasets se crean con esquema `main`. Con `memory.main` el gráfico funciona, pero una tarea interna de Superset que detecta formatos de fecha falla al citar ese nombre como si fuera un solo identificador.
 
-Lo que esta prueba no cubre: la interfaz web en un navegador, la importación de dashboards, la caché de resultados de Superset y el volumen real de Gold. La opción `READ_ONLY` al adjuntar el catálogo no se probó. De la validación 9 queda la parte de Airflow.
+Lo que esta prueba no cubre: la interfaz web en un navegador, la importación de dashboards, la caché de resultados de Superset y el volumen real de Gold. La opción `READ_ONLY` al adjuntar el catálogo no se probó. La parte de Airflow de la validación 9 se comprobó después, junto con la 8.
+
+#### Validaciones 8 y 9: Python de Airflow y Spark, y metadatos sobre PostgreSQL 19
+
+Entorno: `postgres:19.0` como `metadata-db`, `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, un clúster Spark standalone y los tres servicios de Airflow 3 (`api-server`, `scheduler`, `dag-processor`) con `LocalExecutor`. La imagen de Airflow parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` 4.1.4, `pyspark-client` 4.1.4, el proveedor Spark 6.3.4 y los JAR de Iceberg 1.12.0. La de Spark es la de la validación 5 más Python 3.12 instalado con `uv`. La red del Compose fue interna, sin salida a Internet.
+
+Se usaron dos jobs: uno solo con la API de DataFrame y otro con una UDF de Python, una operación sobre RDD y una escritura en Iceberg.
+
+Primero, el fallo que motivó el cambio de diseño, con los ejecutores todavía en el Python 3.10 de la imagen base:
+
+| Caso | Driver | Ejecutores | Resultado |
+|---|---|---|---|
+| Job solo con DataFrame | 3.12 | 3.10 | Termina bien: no ejecuta Python en los ejecutores |
+| Job con UDF de Python | 3.12 | 3.10 | **Falla:** `PYTHON_VERSION_MISMATCH`, «Python in worker has different version: 3.10 than that in driver: 3.12» |
+| Job con UDF, pidiendo `python3.12` | 3.12 | 3.10, sin `python3.12` | **Falla:** `Cannot run program "python3.12"` |
+
+Después, con Python 3.12 en los dos lados y el DAG lanzado por el scheduler:
+
+| Qué se comprobó | Resultado |
+|---|---|
+| Python 3.12 instalado con `uv` en la imagen de Spark | Correcto: 3.12.16, el mismo parche que trae la imagen de Airflow |
+| `pyspark` y `pyspark-client` en la misma versión | Correcto: ambos 4.1.4; el paquete importado reporta 4.1.4 |
+| Airflow detecta el DAG | Sí, sin errores de importación |
+| DAG con dos `SparkSubmitOperator` encadenados, disparado a mano | `success` al primer intento, 29 s en total |
+| Modo cliente contra el clúster standalone | El driver corre en `airflow-scheduler` y los ejecutores se conectan de vuelta a él |
+| UDF de Python y operación sobre RDD en los ejecutores | Corren con Python 3.12.16 |
+| Escritura y lectura de una tabla Iceberg desde el job lanzado por Airflow | Correcto, con los JAR de Iceberg en la imagen de Airflow |
+| `airflow db migrate` sobre PostgreSQL 19.0 | Correcto: 73 tablas creadas, sin errores |
+| `api-server`, `scheduler` y `dag-processor` sobre PostgreSQL 19.0 | Arrancan y operan; ningún error ni traza en sus logs durante la prueba |
+| Sin salida a Internet | Nada intentó descargar en runtime |
+
+La validación 9 queda completa: Superset se comprobó en la validación 7 y Airflow aquí.
+
+Decisión que quedaba abierta y se cierra: Python 3.12 se instala en la imagen de Spark con `uv`. Los detalles de las dos imágenes están en la sección 18.
+
+Lo que estas pruebas no cubren: los jobs reales `bronze_to_silver.py` y `silver_to_gold.py`, la programación periódica del DAG, los reintentos, el `MERGE` de Silver y la arquitectura `arm64`. El DAG se disparó por línea de comandos; no se usó la interfaz web de Airflow.
 
 ## 47. 📝 Registro de cambios de la revisión
 

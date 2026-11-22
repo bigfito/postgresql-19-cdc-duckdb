@@ -25,7 +25,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ⏳ 7 de 9 superadas: el camino completo PostgreSQL 19 → Flink CDC → Bronze → Spark → Gold → DuckDB → Superset funciona; faltan el Python de Airflow y Spark, y Airflow sobre la base de metadatos |
+| Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0) |
 | Dataset de entrada: 20 CSV en `raw_data/`, uno por tabla | ⏳ Pendiente de generar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
@@ -150,7 +150,7 @@ Flujo demostrativo esperado:
 
 ## 9. 🚀 Hoja de ruta
 
-1. **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes. La primera, que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, ya pasó, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
+1. ✅ **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes, todas superadas. PostgreSQL 19.0 funciona con Flink CDC 3.7.0, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
 2. Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.
