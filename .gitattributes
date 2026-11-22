@@ -1,0 +1,51 @@
+# Finales de línea.
+#
+# Casi todo lo que hay en este repositorio se ejecuta dentro de contenedores
+# Linux: scripts de inicialización, SQL, YAML del pipeline, DAG y jobs PySpark.
+# Un script con CRLF falla ahí con «bad interpreter» o «$'\r': command not found».
+# Por eso todo archivo de texto se guarda y se extrae con LF, sin importar el
+# valor de core.autocrlf en la máquina de quien clona.
+* text=auto eol=lf
+
+# Archivos que se montan o copian a contenedores: LF explícito.
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.sql       text eol=lf
+*.py        text eol=lf
+*.java      text eol=lf
+*.xml       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.cfg       text eol=lf
+*.conf      text eol=lf
+*.properties text eol=lf
+*.env       text eol=lf
+.env.example text eol=lf
+Dockerfile  text eol=lf
+Dockerfile.* text eol=lf
+*.md        text eol=lf
+*.html      text eol=lf
+*.svg       text eol=lf
+
+# El dataset se lee byte a byte: las celdas contienen JSON y saltos de línea
+# propios. Git no debe tocar sus finales de línea.
+*.csv       -text
+
+# Scripts que solo corren en Windows.
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binarios.
+*.jar       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.parquet   binary
+*.zip       binary
+*.gz        binary
