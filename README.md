@@ -25,7 +25,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ⏳ Pendientes (9 pruebas) |
+| Validaciones de compatibilidad entre componentes | ⏳ 1 de 9 superada: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0 |
 | Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
@@ -150,7 +150,7 @@ Flujo demostrativo esperado:
 
 ## 9. 🚀 Hoja de ruta
 
-1. **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes. La primera es que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, publicado el 2026-11-19; si falla, el respaldo es PostgreSQL 18. Detalle en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
+1. **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes. La primera, que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, ya pasó, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
 2. Preparar y perfilar el CSV de 6,899 películas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.

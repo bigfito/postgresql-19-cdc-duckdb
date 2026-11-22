@@ -84,7 +84,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 > - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
 > - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
 > - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. Ver «Despliegue de Airflow» en la sección 18.
-> - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector es la primera validación de la [sección 46](#46--validaciones-previas-fase-0).
+> - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector se comprobó en la validación 1 de la [sección 46](#46--validaciones-previas-fase-0).
 
 ### 3.1 Política de versiones
 
@@ -457,7 +457,7 @@ Las tablas capturadas tendrán primary key y se configurarán con `REPLICA IDENT
 ### Imagen y riesgo de versión
 
 - Imagen `postgres:19.0`, con el volumen montado en `/var/lib/postgresql` (ver regla de persistencia, sección 7).
-- PostgreSQL 19.0 se publicó el 2026-11-19. Flink CDC 3.7.0 es anterior e incluye Debezium 1.9.8, que no declara soporte para versiones tan nuevas. El protocolo `pgoutput` es estable entre versiones mayores, por lo que se espera que funcione, pero **debe comprobarse antes de construir el resto** (sección 46). Si falla, el respaldo es PostgreSQL 18 con el mismo diseño.
+- PostgreSQL 19.0 se publicó el 2026-11-19. Flink CDC 3.7.0 es anterior e incluye Debezium 1.9.8, que no declara soporte para versiones tan nuevas. El protocolo `pgoutput` es estable entre versiones mayores, y la validación 1 de la sección 46 lo confirmó el 2026-11-22: el conector toma el snapshot, lee el WAL y se recupera de una caída contra PostgreSQL 19.0. PostgreSQL 18 deja de ser necesario como respaldo.
 
 ## 11. 🔗 Contrato de tipos interoperables
 
@@ -863,7 +863,7 @@ El pipeline se define en un único YAML (`flink/jobs/postgres-to-bronze.yaml`) y
 
 | Necesidad | Mecanismo de Flink CDC |
 |---|---|
-| Saber cuándo ocurrió cada cambio | `metadata.list: op_ts` en la fuente PostgreSQL (milisegundos desde epoch; vale `0` en filas del snapshot inicial) |
+| Saber cuándo ocurrió cada cambio | `metadata.list: op_ts` en la fuente PostgreSQL (milisegundos desde epoch; en filas del snapshot inicial es el instante en que el conector leyó la fila, no `0`) |
 | Saber qué operación fue | campo de metadatos `__data_event_type__` en `transform` |
 | No perder los DELETE | `converter-after-transform: SOFT_DELETE`, que convierte el borrado en una inserción marcada `-D` |
 
@@ -1027,7 +1027,7 @@ Cada tabla Bronze tiene las mismas columnas que su tabla PostgreSQL, más dos co
 
 ```text
 cdc_op_type  string   operación del último evento: +I (insert), +U (update), -D (delete)
-cdc_op_ts    bigint   instante del cambio en PostgreSQL, en milisegundos; 0 en filas del snapshot inicial
+cdc_op_ts    bigint   instante del cambio en PostgreSQL, en milisegundos; en filas del snapshot inicial, instante de lectura
 ```
 
 Los valores exactos de `cdc_op_type` para INSERT y UPDATE se confirman en la sección 46; el de DELETE (`-D`) está documentado.
@@ -1198,6 +1198,8 @@ Para que el resultado no dependa de la hora en que corre el job, `effective_from
 1. `cdc_op_ts` de la fila Bronze, cuando es mayor que cero;
 2. `updated_at` de la fila, o `created_at` si no existe `updated_at`;
 3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores.
+
+> ⚠️ **Regla por revisar.** Este orden se escribió suponiendo que `cdc_op_ts` vale `0` en las filas del snapshot inicial, de modo que esas filas cayeran en `updated_at`. La validación 1 mostró que no es así: el conector PostgreSQL de Flink CDC 3.7.0 pone ahí el instante en que leyó la fila. Con la regla tal como está, una fila que ya existía cuando arrancó el pipeline recibe como `effective_from` la hora del snapshot y no la de su último cambio. En el laboratorio solo afecta a lo que exista antes de enviar el pipeline (los catálogos sembrados por el DDL), porque las películas se insertan después. Si se quiere la fecha real, la alternativa es invertir los dos primeros puntos para las filas que no son tombstones: `updated_at` cuando la tabla lo tiene y `cdc_op_ts` solo para los DELETE y para las tablas sin `updated_at`.
 
 La versión que se cierra recibe como `effective_to` el `effective_from` de la que la reemplaza.
 
@@ -2035,7 +2037,7 @@ No se utilizará:
 
 Con esta arquitectura y modelos definidos, la implementación puede avanzar en este orden:
 
-0. Ejecutar las validaciones previas de la sección 46. Si PostgreSQL 19 no funciona con Flink CDC 3.7.0, cambiar a PostgreSQL 18 antes de continuar.
+0. Ejecutar las validaciones previas de la sección 46. La primera, PostgreSQL 19 con Flink CDC 3.7.0, ya pasó.
 1. ~~Fijar versiones compatibles~~ (hecho en la sección 3; se confirma con el paso 0).
 2. Preparar el CSV completo de 6,899 películas sin vectores y perfilarlo (nulos, duplicados, longitudes).
 3. Implementar DDL PostgreSQL completo, con las restricciones ajustadas al perfilado.
@@ -2117,7 +2119,41 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | El catálogo REST de referencia usa SQLite en memoria por defecto | Código fuente de Iceberg 1.10.1 |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Ninguna de las nueve pruebas se ha ejecutado todavía.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se ha ejecutado la primera; las otras ocho siguen pendientes.
+
+### Resultados
+
+| # | Fecha | Resultado |
+|---:|---|---|
+| 1 | 2026-11-22 | ✅ Superada |
+
+#### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
+
+Entorno: `postgres:19.0` con `wal_level=logical`, y `flink:2.2.1-java21` con la distribución de Flink CDC `3.7.0-2.2`, el conector `postgres` y el sink `values`, que imprime cada evento. El bloque `source` fue el de la sección 14, sin cambios. Se usaron tres tablas del esquema `catalog` (`movie`, `genre`, `movie_genre`) que cubren todos los tipos de la sección 11, una clave `IDENTITY`, una clave compuesta y un `ON DELETE CASCADE`.
+
+| Qué se comprobó | Resultado |
+|---|---|
+| Envío del pipeline | Aceptado; el job queda en `RUNNING` y completa checkpoints |
+| Rol `elastiflix_cdc` con `REPLICATION` y `SELECT`, sin superusuario | Suficiente |
+| Publicación creada por el DDL y `autocreate.mode: disabled` | El conector la reutiliza y crea él mismo el slot `elastiflix_cdc` con `pgoutput` |
+| `tables: elastiflix.catalog.\.*` con `table-id.include-database: false` | Captura las tres tablas; el identificador que emite es `catalog.<tabla>` |
+| Snapshot inicial | 10 de 10 filas previas, con sus claves primarias |
+| Tipos | `bigint`→`BIGINT`, `integer`→`INT`, `text`→`STRING`, `date`→`DATE`, `boolean`→`BOOLEAN`, `numeric(p,s)`→`DECIMAL(p,s)` con la misma precisión y escala, `timestamp(6) with time zone`→`TIMESTAMP_LTZ(6)`; los `NULL` llegan como nulos |
+| INSERT | Una transacción sobre tres tablas produce un evento por fila, todos con el mismo `op_ts` |
+| UPDATE | Trae la fila anterior y la nueva completas |
+| Columna larga (12 800 caracteres, almacenada en TOAST) no modificada por el UPDATE | Llega completa en la fila anterior y en la nueva, gracias a `REPLICA IDENTITY FULL` |
+| DELETE con cascada | Un evento por la película y uno por cada relación, cada uno con la fila completa; primero llega el de la película y después los de sus relaciones |
+| Reinserción de una clave borrada | Llega como INSERT normal |
+| Caída del TaskManager con escrituras durante la caída | El slot se conserva inactivo en PostgreSQL; al volver, el job se restaura del último checkpoint y entrega los cuatro cambios pendientes |
+| Pérdidas y duplicados | Ninguno: 24 eventos de datos, todos distintos, y los conteos por tabla coinciden con las filas finales de PostgreSQL |
+| Avance del slot | `confirmed_flush_lsn` avanza tras los checkpoints; WAL retenido al final: 896 bytes |
+
+Observaciones que afectan al diseño:
+
+- **`op_ts` no vale `0` en el snapshot.** Las filas del snapshot traen el instante en que el conector las leyó. Se corrigieron las secciones 14 y 17, y la regla de `effective_from` de la sección 21 queda marcada para revisión.
+- **Ruido esperado en los logs.** Durante el snapshot PostgreSQL registra `replication slot "elastiflix_cdc_0" does not exist`, una vez por tabla. Todo indica que el conector intenta borrar un slot auxiliar de la fase de snapshot que no llegó a crear; no se investigó más. No afecta al resultado y no debe tratarse como fallo en los healthchecks.
+
+Lo que esta prueba no cubre: las 20 tablas reales, el volumen del dataset completo y el reinicio del JobManager, porque los checkpoints se guardaron en memoria. El sink Iceberg y las columnas `cdc_op_type` y `cdc_op_ts` corresponden a las validaciones 2 y 3.
 
 ## 47. 📝 Registro de cambios de la revisión
 
