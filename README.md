@@ -24,6 +24,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas de arquitectura, linaje, ERD, DAG y arranque ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Generados |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
+| Estructura de directorios del proyecto | ✅ Creada (vacía) |
 | Validaciones de compatibilidad entre componentes | ⏳ Pendientes (9 pruebas) |
 | Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
@@ -86,8 +87,10 @@ Contenido actual:
 postgresql-19-cdc-duckdb/
 |
 |-- .gitattributes
+|-- .gitignore
 |-- CLAUDE.md
 |-- README.md
+|-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
     `-- diagrams/
@@ -98,7 +101,7 @@ postgresql-19-cdc-duckdb/
         `-- compose-startup-order.{json,html,svg}
 ```
 
-Estructura prevista al implementar (un directorio por servicio, con sus volúmenes dentro):
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen, vacíos y con un `.gitkeep` cada uno; `docker-compose.yml`, `.env.example` y el contenido de cada servicio están pendientes. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-propuesta-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/

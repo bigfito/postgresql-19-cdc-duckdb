@@ -209,6 +209,7 @@ postgresql-19-cdc-duckdb/
 |-- .env.example
 |-- .gitattributes
 |-- .gitignore
+|-- CLAUDE.md
 |-- README.md
 |
 |-- lab-design/
@@ -272,7 +273,8 @@ postgresql-19-cdc-duckdb/
 
 Notas sobre la estructura:
 
-- `.env.example` se versiona; `.env` es local y queda en `.gitignore`, igual que todos los directorios `data/` y `logs/`.
+- `.env.example` se versiona; `.env` es local y queda en `.gitignore`, igual que el contenido de todos los directorios `data/` y `logs/`.
+- Cada directorio vacío lleva un archivo `.gitkeep` para que Git lo conserve y la estructura sea visible al clonar. En los directorios `data/` y `logs/` ese marcador es lo único que se versiona.
 - `.gitattributes` fuerza finales de línea LF en todo archivo de texto. Los scripts, SQL, YAML y jobs de este repositorio se ejecutan dentro de contenedores Linux, y un clon en Windows con `core.autocrlf=true` los dejaría con CRLF, que rompe la ejecución. El dataset `*.csv` queda excluido de cualquier conversión.
 - `lab-design/diagrams/` guarda, por cada diagrama, la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Se regeneran con Archify: `archify finalize <tipo> <fuente>.json <salida>.html` y `export-svg.mjs <salida>.html <salida>.svg auto`.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.

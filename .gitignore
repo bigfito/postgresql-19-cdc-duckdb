@@ -1,0 +1,36 @@
+# Configuración local con credenciales. Se versiona .env.example, no .env.
+.env
+
+# Datos persistentes de cada servicio (regla de persistencia, sección 7 del
+# diseño). El directorio se versiona mediante su .gitkeep; su contenido no.
+postgresql/data/*
+!postgresql/data/.gitkeep
+metadata-db/data/*
+!metadata-db/data/.gitkeep
+flink/data/*
+!flink/data/.gitkeep
+iceberg/data/*
+!iceberg/data/.gitkeep
+rustfs/data/*
+!rustfs/data/.gitkeep
+superset/data/*
+!superset/data/.gitkeep
+
+# Logs de Airflow.
+airflow/logs/*
+!airflow/logs/.gitkeep
+
+# Salida de build del simulador Java.
+java-simulator/target/
+
+# Python.
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editores y sistema operativo.
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
