@@ -73,7 +73,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 > ℹ️ **Por qué estas versiones y no las más nuevas.** Verificado el 2026-11-22:
 >
 > - **Spark 4.1.4 y no 4.3.0.** Iceberg publica un runtime por cada versión menor de Spark. Iceberg 1.12.0 (la más reciente) cubre Spark 3.5, 4.0 y 4.1; no existe runtime para Spark 4.2 ni 4.3, así que con 4.3.0 los jobs no podrían leer ni escribir Iceberg.
-> - **Iceberg 1.10.1 dentro de Flink.** Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y, en su perfil para Flink 2.x, usa el artefacto `iceberg-flink-runtime-2.0`. Es la combinación que el propio proyecto prueba; no se sustituye por el runtime 1.12.0 para Flink 2.2.
+> - **Iceberg 1.10.1 dentro de Flink.** Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y, en su perfil para Flink 2.x, usa el artefacto `iceberg-flink-runtime-2.0`. La guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg» lista exactamente ese conjunto para Flink 2.2.1: «Iceberg Flink runtime 1.10.1 (2.0)». No se sustituye por el runtime 1.12.0 para Flink 2.2.
 > - **Dos versiones de Iceberg conviven.** Flink escribe Bronze con 1.10.1 y Spark lee Bronze y escribe Silver y Gold con 1.12.0. Las tablas se crean en formato v2, que ambas versiones y DuckDB leen.
 > - **DuckDB 1.5.6 y no 2.0.1.** Se conserva la línea 1.5 acordada. DuckDB 2.0 ya está publicado; adoptarlo es una actualización a probar end-to-end, no un cambio de parche.
 > - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector es la primera validación de la [sección 46](#46--validaciones-previas-fase-0).
@@ -823,7 +823,9 @@ El pipeline se define en un único YAML (`flink/jobs/postgres-to-bronze.yaml`) y
 | Saber qué operación fue | campo de metadatos `__data_event_type__` en `transform` |
 | No perder los DELETE | `converter-after-transform: SOFT_DELETE`, que convierte el borrado en una inserción marcada `-D` |
 
-Borrador ilustrativo; la sintaxis exacta se cierra en la validación de la sección 46:
+El pipeline parte de la guía oficial de Flink CDC «Real-time PostgreSQL Ingestion into Iceberg», que cubre snapshot inicial, INSERT, UPDATE y DELETE con PostgreSQL, `pgoutput` y `REPLICA IDENTITY FULL`. Respecto a esa guía, este laboratorio cambia dos cosas, y ambas se validan en la sección 46: el catálogo (REST sobre RustFS en lugar de Hadoop sobre disco local) y el bloque `transform`.
+
+Borrador:
 
 ```yaml
 source:
@@ -836,15 +838,18 @@ source:
   slot.name: elastiflix_cdc
   decoding.plugin.name: pgoutput
   scan.startup.mode: initial
+  table-id.include-database: false
   metadata.list: op_ts
+  debezium.publication.name: elastiflix_pub
+  debezium.publication.autocreate.mode: disabled
 
 transform:
-  - source-table: elastiflix.catalog.\.*
+  - source-table: catalog.\.*
     projection: \*, __data_event_type__ AS cdc_op_type, op_ts AS cdc_op_ts
     converter-after-transform: SOFT_DELETE
 
 route:
-  - source-table: elastiflix.catalog.\.*
+  - source-table: catalog.\.*
     sink-table: bronze.<>
     replace-symbol: <>
 
@@ -856,11 +861,20 @@ sink:
   catalog.properties.io-impl: org.apache.iceberg.aws.s3.S3FileIO
   catalog.properties.s3.endpoint: http://rustfs:9000
   catalog.properties.s3.path-style-access: true
+  table.properties.format-version: 2
 
 pipeline:
   name: elastiflix-postgres-to-bronze
   parallelism: 1
+  local-time-zone: UTC
 ```
+
+Puntos que conviene no pasar por alto:
+
+- **Identificador de tabla.** `tables` usa `base.esquema.tabla`, pero con `table-id.include-database: false` (su valor por defecto) el identificador que ven `transform` y `route` es `esquema.tabla`. Por eso ambos bloques usan `catalog.\.*` y no `elastiflix.catalog.\.*`.
+- **Publicación.** El conector reutiliza la publicación `elastiflix_pub` creada en `postgresql/init/` (`autocreate.mode: disabled`) y crea él mismo el slot al arrancar.
+- **Creación de tablas.** El conector crea automáticamente el namespace `bronze` y sus tablas; no hay DDL de Bronze que mantener.
+- **Formato v2.** Se fija `format-version: 2`, que es el que soporta el flujo de UPDATE y DELETE.
 
 ### Garantías y requisitos operativos
 
@@ -868,7 +882,7 @@ pipeline:
 - **At-least-once.** El sink no ofrece exactly-once: reintenta y se apoya en la clave primaria para escribir de forma idempotente. Por eso todas las tablas capturadas tienen PK.
 - **Una sola base.** El conector PostgreSQL captura tablas de una única base de datos; `elastiflix` cumple.
 - **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía y es una de las validaciones de la sección 46.
-- **JAR necesarios en la imagen de Flink:** `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` en versión `3.7.0-2.2`, `iceberg-flink-runtime-2.0` 1.10.1 e `iceberg-aws-bundle` 1.10.1, más la distribución de Flink CDC 3.7.0.
+- **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0` 1.10.1, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. Este laboratorio añade `iceberg-aws-bundle` 1.10.1 para `S3FileIO`. El conector PostgreSQL ya incluye su driver JDBC.
 - **Reinicio.** Al reiniciar, el pipeline retoma desde su último checkpoint. Si se pierden los checkpoints, vuelve a tomar el snapshot inicial, lo cual es seguro porque la escritura es un upsert por PK.
 
 ## 15. 🪣 RustFS
@@ -898,7 +912,8 @@ Detalles de operación:
 
 - Imagen `rustfs/rustfs:1.0.6`; API S3 en el puerto 9000 y consola en el 9001.
 - El contenedor corre como `10001:10001`; `rustfs/data/` debe ser escribible por ese usuario.
-- El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe.
+- Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`.
+- El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store.
 - Todos los clientes (Flink, Spark, DuckDB y el catálogo) usan el mismo endpoint interno `http://rustfs:9000` con acceso path-style.
 - RustFS 1.0 incluye un Iceberg REST Catalog propio («S3 Tables»), pero está marcado como *preview*. No se usa en este laboratorio; el catálogo es un servicio aparte (sección 16).
 
@@ -921,7 +936,8 @@ DuckDB será cliente del catálogo, no propietario exclusivo de este.
 ### Implementación
 
 - Imagen `apache/iceberg-rest-fixture:1.10.1`, la implementación de referencia del proyecto Iceberg. Está pensada para pruebas, lo cual es adecuado para un laboratorio local; no es una recomendación para producción.
-- **Persistencia.** Por defecto esa imagen guarda el catálogo en memoria: al reiniciar el contenedor las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se configurará con backend JDBC sobre un archivo SQLite en `iceberg/data/`.
+- **Configuración.** La imagen traduce variables `CATALOG_*` a propiedades del catálogo. Las que usa el quickstart oficial de Iceberg son `CATALOG_WAREHOUSE=s3://warehouse/`, `CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO`, `CATALOG_S3_ENDPOINT=http://rustfs:9000` y `CATALOG_S3_PATH__STYLE__ACCESS=true`, además de las credenciales `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`.
+- **Persistencia.** Por defecto esa imagen guarda el catálogo en memoria (`jdbc:sqlite::memory:`): al reiniciar el contenedor las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se configurará con backend JDBC sobre un archivo SQLite en `iceberg/data/`, siguiendo la misma convención (`CATALOG_URI`); se comprueba en la sección 46.
 - El job one-shot `iceberg-init` crea los namespaces `bronze`, `silver` y `gold`.
 - Sin autenticación: el catálogo solo es alcanzable dentro de la red del Compose.
 - Alternativas si la imagen de referencia se queda corta: Lakekeeper o Apache Polaris. Cambiar de catálogo no altera el resto del diseño porque todos los motores hablan el protocolo REST.
@@ -1690,7 +1706,7 @@ DuckDB es una librería embebida: no escucha en un puerto ni acepta conexiones d
 
 ### Inicialización de cada conexión
 
-DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS y adjuntar el catálogo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. Borrador ilustrativo, a cerrar en la sección 46:
+DuckDB se usa en memoria; no guarda datos propios. Cada conexión nueva debe cargar las extensiones, declarar el acceso a RustFS y adjuntar el catálogo. Ese SQL vive en `duckdb/init/attach_lakehouse.sql`. La sintaxis es la documentada por DuckDB para un catálogo REST sin autenticación y un object store S3-compatible; lo que queda por probar es su funcionamiento contra RustFS (sección 46):
 
 ```sql
 LOAD httpfs;
@@ -1738,7 +1754,8 @@ Gold será la fuente de verdad para las visualizaciones.
 
 - Imagen propia basada en `apache/superset:6.1.0`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y las extensiones de DuckDB preinstaladas.
 - La base de datos se registra con la URI SQLAlchemy `duckdb:///:memory:`.
-- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB. Sin ese hook, las conexiones nuevas no verían el catálogo.
+- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB. Sin ese hook, las conexiones nuevas no verían el catálogo. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`.
+- **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`) por defecto, de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. Con pocas tablas Gold debería ser aceptable; se mide en la sección 46 y, si no lo es, la alternativa es un archivo DuckDB de solo lectura generado por un job.
 - Cada worker de Superset tiene su propio DuckDB en memoria. No comparten archivo, así que no hay bloqueos entre procesos.
 - Metadatos de Superset en `metadata-db` (base `superset`).
 - El job one-shot `superset-init` migra la base, crea el usuario administrador y registra la base de datos DuckDB. Los datasets y dashboards se importan desde `superset/config/` cuando Gold ya tiene datos.
@@ -2000,7 +2017,7 @@ Antes de implementar el laboratorio completo conviene probar, con el mínimo de 
 | 4 | El catálogo conserva las tablas tras reiniciar el contenedor `iceberg-rest` | las de la prueba 2 | Cambiar el backend del catálogo |
 | 5 | Spark 4.1.4 con Iceberg 1.12.0 lee las tablas Bronze escritas por Flink con Iceberg 1.10.1, incluidos los deletes de igualdad, y puede compactarlas | + Spark | Alinear la versión de Iceberg de Spark con la de Flink |
 | 6 | DuckDB 1.5.6 adjunta el catálogo REST y lee una tabla Gold escrita por Spark | + DuckDB | Ajustar el formato de escritura de Gold |
-| 7 | Superset 6.1.0 ejecuta el SQL de inicialización en cada conexión DuckDB y consulta Gold con varios workers | + Superset | Usar un archivo DuckDB de solo lectura generado por un job |
+| 7 | Superset 6.1.0 ejecuta el SQL de inicialización en cada conexión DuckDB, consulta Gold con varios workers y el coste de repetir la inicialización por consulta es aceptable | + Superset | Usar un archivo DuckDB de solo lectura generado por un job |
 
 Estado de verificación de las versiones al 2026-11-22:
 
@@ -2011,7 +2028,12 @@ Estado de verificación de las versiones al 2026-11-22:
 | DuckDB 1.5.6, `duckdb-engine` 0.17.0 y el proveedor Spark de Airflow 6.3.4 son las versiones publicadas | Consulta a PyPI |
 | Flink CDC 3.7.0 se compila contra Iceberg 1.10.1 y usa `iceberg-flink-runtime-2.0` en su perfil Flink 2.x; incluye Debezium 1.9.8 | `pom.xml` del tag `release-3.7.0` |
 | Iceberg soporta Spark 3.5, 4.0 y 4.1, y Flink 2.2 desde 1.12.0 | Tabla de soporte multi-motor de Iceberg |
-| Opciones `metadata.list`, `SOFT_DELETE`, `route` y tipos de catálogo del sink | Documentación de Flink CDC 3.7.0 |
+| Opciones `metadata.list`, `SOFT_DELETE`, `route`, `table-id.include-database` y tipos de catálogo del sink | Documentación de Flink CDC 3.7.0 |
+| Forma del pipeline PostgreSQL → Iceberg, dependencias para Flink 2.2.1 y creación automática de namespace y tablas | Guía oficial de Flink CDC (Context7; está en la rama principal, no en la documentación publicada de 3.7.0) |
+| Sintaxis de `ATTACH ... (TYPE iceberg, ENDPOINT, AUTHORIZATION_TYPE 'none')` y del secreto S3 en DuckDB | Documentación de DuckDB (Context7) |
+| Variables `CATALOG_*` del catálogo REST de referencia y uso de RustFS como object store | Quickstart de Spark de Iceberg (Context7) |
+| Airflow corre como UID 50000 con GID 0 | Documentación de Airflow (Context7) |
+| Superset abre conexiones analíticas con `NullPool` y expone `DB_CONNECTION_MUTATOR` | Código fuente de Superset (Context7) |
 | La imagen `postgres` 18+ usa el volumen `/var/lib/postgresql` | README de la imagen oficial |
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | El catálogo REST de referencia usa SQLite en memoria por defecto | Código fuente de Iceberg 1.10.1 |
