@@ -1871,6 +1871,21 @@ Quedan para cuando haga falta demostrar operación del lakehouse:
 
 Estas tareas no deben oscurecer el flujo principal.
 
+Procedimientos de Iceberg que usa `iceberg_maintenance`, comprobados en la validación 5 de la sección 46:
+
+```sql
+CALL lake.system.rewrite_data_files(
+    table => 'bronze.movie',
+    options => map('rewrite-all', 'true', 'remove-dangling-deletes', 'true'));
+CALL lake.system.rewrite_position_delete_files(
+    table => 'bronze.movie', options => map('rewrite-all', 'true'));
+CALL lake.system.expire_snapshots(table => 'bronze.movie', retain_last => 5);
+```
+
+- La compactación puede correr con Flink escribiendo: no hubo conflictos de commit ni reinicios del job.
+- `rewrite-all` tiene sentido mientras las tablas sean pequeñas, como en este laboratorio; con tablas grandes se sustituye por `delete-file-threshold`.
+- Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda; el valor de arriba es una propuesta.
+
 ## 39. 🐳 Docker Compose
 
 Un único comando deberá levantar el laboratorio completo:
@@ -2121,7 +2136,7 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las cuatro primeras; las otras cinco siguen pendientes.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. De las nueve pruebas se han ejecutado las seis primeras; siguen pendientes la 7, la 8 y la 9.
 
 ### Resultados
 
@@ -2131,6 +2146,8 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | 2 | 2026-11-22 | ✅ Superada, con Iceberg 1.10.2 |
 | 3 | 2026-11-22 | ✅ Superada |
 | 4 | 2026-11-22 | ✅ Superada |
+| 5 | 2026-11-22 | ✅ Superada |
+| 6 | 2026-11-22 | ✅ Superada |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -2191,6 +2208,48 @@ Observaciones que afectan al diseño:
 - **DuckDB ya lee Bronze.** El SQL de la sección 34 adjuntó el catálogo y leyó tablas con deletes de igualdad sin ajustes. Adelanta parte de la validación 6, que sigue pendiente porque se refiere a tablas Gold escritas por Spark.
 
 Lo que estas pruebas no cubren: las 20 tablas, el volumen real, el intervalo de checkpoint de 30 s previsto (se usó 10 s), los checkpoints persistidos en `flink/data/` y la lectura desde Spark, que es la validación 5.
+
+#### Validaciones 5 y 6: Spark sobre Bronze y DuckDB sobre Gold
+
+Entorno: el de las validaciones 2 a 4, con Flink escribiendo Bronze, más un clúster Spark standalone (`apache/spark:4.1.4-scala2.13-java21-python3-ubuntu`, un master y un worker) con `iceberg-spark-runtime-4.1_2.13` 1.12.0 e `iceberg-aws-bundle` 1.12.0 en `/opt/spark/jars`. Los jobs PySpark se lanzaron con `spark-submit` en modo cliente contra el master.
+
+Configuración del catálogo en Spark, la misma para leer Bronze y escribir Gold:
+
+```properties
+spark.sql.extensions                        org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+spark.sql.catalog.lake                      org.apache.iceberg.spark.SparkCatalog
+spark.sql.catalog.lake.type                 rest
+spark.sql.catalog.lake.uri                  http://iceberg-rest:8181
+spark.sql.catalog.lake.warehouse            s3://warehouse/
+spark.sql.catalog.lake.io-impl              org.apache.iceberg.aws.s3.S3FileIO
+spark.sql.catalog.lake.s3.endpoint          http://rustfs:9000
+spark.sql.catalog.lake.s3.path-style-access true
+spark.sql.session.timeZone                  UTC
+```
+
+Las credenciales S3 llegan, igual que en Flink, por las variables `AWS_*` del master, del worker y del contenedor que lanza el job.
+
+| # | Qué se comprobó | Resultado |
+|---:|---|---|
+| 5 | Spark 4.1.4 con Iceberg 1.12.0 lee tablas escritas por Flink con Iceberg 1.10.2 | Lee las tres tablas; las filas vivas y los tombstones coinciden con PostgreSQL |
+| 5 | Deletes de igualdad | Se aplican: con 8 registros en archivos de datos, `bronze.movie` devuelve sus 4 filas |
+| 5 | Esquema visto por Spark | Tipos correctos, `NOT NULL` conservado y `timestamp` con zona UTC |
+| 5 | Compactación con `rewrite_data_files`, `rewrite_position_delete_files` y `expire_snapshots` | Termina bien en las tres tablas; `movie_genre` y `genre` quedan en 1 archivo de datos y 0 de deletes |
+| 5 | Compactación con Flink escribiendo un UPDATE cada 2 s | Sin conflictos de commit; el job de Flink sigue en `RUNNING`, sin reinicios ni checkpoints fallidos |
+| 5 | Contenido tras compactar | Idéntico: misma huella en `movie_genre` y `genre`, y `movie` coincide con PostgreSQL tras los 30 UPDATE concurrentes |
+| 5 | Lectura con DuckDB después de la compactación | Mismo resultado que Spark |
+| 6 | Spark crea el namespace `gold` y una tabla con `CREATE OR REPLACE TABLE ... USING iceberg`, formato v2 | Correcto |
+| 6 | DuckDB 1.5.6 lee la tabla Gold escrita por Spark | Mismas filas y tipos: `DECIMAL(19,2)`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `BIGINT`, texto |
+| 6 | Agregaciones en DuckDB sobre Gold | Correctas |
+| 6 | Segunda corrida de recarga completa tras un DELETE y un UPDATE en origen | DuckDB ve el contenido nuevo: la película borrada desaparece y la medida cambia |
+
+Observaciones que afectan al diseño:
+
+- **Bronze se ensucia muy rápido.** Recién compactada, `bronze.movie` acumuló en un minuto 9 archivos de datos, 8 de deletes de igualdad y 8 de deletes posicionales para 4 filas, por los 30 UPDATE de la prueba. Con el checkpoint de 30 s previsto serán menos commits, pero la tarea `iceberg_maintenance` debe correr en cada ejecución del DAG, no de forma ocasional.
+- **Gold conserva un snapshot por recarga.** `CREATE OR REPLACE TABLE` no borra el historial; tras dos corridas la tabla tenía 2 snapshots. La expiración de snapshots de la sección 38 aplica también a Gold.
+- **El SQL de DuckDB de la sección 34 no necesita cambios.** Funcionó igual contra tablas de Flink, tablas compactadas y tablas de Spark.
+
+Lo que estas pruebas no cubren: los jobs corrieron con el Python 3.10 de la imagen de Spark tanto en el driver como en los ejecutores, así que no dicen nada del desajuste con Airflow, que es la validación 8. Tampoco cubren el `MERGE` de Silver, tablas particionadas, lectores concurrentes durante una recarga de Gold ni el volumen real.
 
 ## 47. 📝 Registro de cambios de la revisión
 

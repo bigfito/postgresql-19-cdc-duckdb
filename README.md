@@ -25,7 +25,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ⏳ 4 de 9 superadas: PostgreSQL 19 → Flink CDC → Iceberg sobre RustFS, tombstones y persistencia del catálogo |
+| Validaciones de compatibilidad entre componentes | ⏳ 6 de 9 superadas: el camino PostgreSQL 19 → Flink CDC → Bronze → Spark → Gold → DuckDB funciona; faltan Superset, el Python de Airflow y Spark, y la base de metadatos |
 | Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
