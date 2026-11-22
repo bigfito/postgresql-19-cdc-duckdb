@@ -34,7 +34,7 @@
     {
       "id": "csv",
       "type": "external",
-      "label": "elastiflix.csv",
+      "label": "raw_data/*.csv",
       "sublabel": "6,899 películas",
       "pos": [
         250,

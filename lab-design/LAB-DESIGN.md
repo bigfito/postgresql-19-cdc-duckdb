@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 3 (2026-11-22):** este documento incorpora las correcciones de la revisión de diseño y una segunda pasada de versiones. Cada componente está en su versión estable más reciente compatible con el resto, y toda imagen base se comprobó en Docker Hub; ver [sección 3](#3--software-stack). El detalle de cada cambio está en la [sección 47](#47--registro-de-cambios-de-la-revisión) y lo que aún debe probarse antes de implementar está en la [sección 46](#46--validaciones-previas-fase-0).
+> 📝 **Revisión 4 (2026-11-22):** este documento incorpora las correcciones de la revisión de diseño, una segunda pasada de versiones y el cambio del dataset de entrada a un CSV por tabla (sección 8). Cada componente está en su versión estable más reciente compatible con el resto, y toda imagen base se comprobó en Docker Hub; ver [sección 3](#3--software-stack). El detalle de cada cambio está en la [sección 47](#47--registro-de-cambios-de-la-revisión) y lo que aún debe probarse antes de implementar está en la [sección 46](#46--validaciones-previas-fase-0).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -20,8 +20,8 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
 ### 2.1 Requisitos funcionales
 
-- 📄 Contar con el archivo fuente `raw_data/elastiflix.csv`, derivado del catálogo ElastiFlix y sin los campos vectoriales.
-- ☕ Ejecutar un simulador de eventos en Java 25 que lea el CSV y produzca transacciones `INSERT`, `UPDATE` y `DELETE` reales.
+- 📄 Contar con el dataset de entrada en `raw_data/`: 20 archivos CSV, uno por tabla del modelo relacional, con datos sintéticos que reproducen el perfil del catálogo ElastiFlix y sin los campos vectoriales (sección 8).
+- ☕ Ejecutar un simulador de eventos en Java 25 que lea esos CSV y produzca transacciones `INSERT`, `UPDATE` y `DELETE` reales.
 - 🐘 Mantener el modelo operacional normalizado dentro de PostgreSQL 19, base `elastiflix`, esquema `catalog`.
 - 🌊 Capturar cambios por logical replication mediante Flink CDC.
 - 🥉 Replicar PostgreSQL **as-is** en Iceberg Bronze, añadiendo únicamente dos columnas técnicas de CDC (`cdc_op_type`, `cdc_op_ts`) y conservando los DELETE como tombstones.
@@ -152,8 +152,8 @@ Los jobs one-shot (`rustfs-init`, `iceberg-init`, `airflow-init`, y el que ajust
 
 1. El proyecto será completamente autocontenido y reproducible con Docker Compose.
 2. La base operacional será PostgreSQL 19 y la base de datos se llamará `elastiflix`.
-3. El dataset fuente será un CSV con más de 5,000 registros. La fuente documentada completa contiene 6,899 películas.
-4. El CSV no se cargará masivamente con `COPY` como mecanismo principal del laboratorio. Una aplicación Java 25 simulará actividad transaccional insertando registros gradualmente.
+3. El dataset de entrada será un conjunto de 20 archivos CSV, uno por tabla del modelo relacional, con 6,899 películas sintéticas que reproducen el perfil del catálogo original.
+4. Los CSV no se cargarán masivamente con `COPY` como mecanismo principal del laboratorio. Una aplicación Java 25 simulará actividad transaccional insertando registros gradualmente.
 5. El simulador Java podrá generar `INSERT`, `UPDATE` y `DELETE` reales sobre PostgreSQL.
 6. Apache Flink CDC capturará los cambios de PostgreSQL y los escribirá en Apache Iceberg.
 7. Bronze será una réplica `as-is` del modelo relacional normalizado de PostgreSQL: mismas tablas y columnas, más dos columnas técnicas de CDC. Guarda el último estado por clave primaria y conserva las filas borradas como tombstones.
@@ -217,7 +217,9 @@ postgresql-19-cdc-duckdb/
 |   `-- diagrams/
 |
 |-- raw_data/
-|   `-- elastiflix.csv
+|   |-- README.md
+|   |-- generate_raw_data.py
+|   `-- <tabla>.csv        (20 archivos, uno por tabla)
 |
 |-- java-simulator/
 |   |-- Dockerfile
@@ -277,6 +279,7 @@ Notas sobre la estructura:
 - Cada directorio vacío lleva un archivo `.gitkeep` para que Git lo conserve y la estructura sea visible al clonar. En los directorios `data/` y `logs/` ese marcador es lo único que se versiona.
 - `.gitattributes` fuerza finales de línea LF en todo archivo de texto. Los scripts, SQL, YAML y jobs de este repositorio se ejecutan dentro de contenedores Linux, y un clon en Windows con `core.autocrlf=true` los dejaría con CRLF, que rompe la ejecución. El dataset `*.csv` queda excluido de cualquier conversión.
 - `lab-design/diagrams/` guarda, por cada diagrama, la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Se regeneran con Archify: `archify finalize <tipo> <fuente>.json <salida>.html` y `export-svg.mjs <salida>.html <salida>.svg auto`.
+- `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset.
 - `flink/jobs/` contiene el YAML del pipeline CDC y `flink/data/` los checkpoints. Los JAR se descargan en el build, por eso no hay `flink/lib/`.
@@ -328,19 +331,100 @@ No se utilizará un directorio raíz genérico `volumes/`.
 
 ## 8. 🎞️ Dataset fuente ElastiFlix
 
-La fuente documentada es el índice Elasticsearch `elastiflix-reloaded`, cuyo índice concreto corresponde a `elastiflix-dq-staging-20261113-220031` en la fotografía de datos proporcionada.
+El dataset de entrada son **20 archivos CSV, uno por cada tabla del esquema `catalog`**, en `raw_data/`. El simulador los lee ya normalizados y con sus claves.
 
-Características documentadas:
+### 8.1 Naturaleza de los datos
 
-- 6,899 películas.
-- Una película por documento.
-- `_id` coincide con `id`.
-- `id` corresponde al TMDB movie id y será la clave natural de película.
-- Todas las propiedades no vectoriales están presentes en `_source`; algunas pueden contener `null` o arrays vacíos.
+- **Los datos son sintéticos.** Títulos, sinopsis, personas y compañías son inventados; no reproducen películas, personas ni textos reales.
+- **El perfil es el del catálogo original.** Volúmenes, tasas de nulos, distribuciones y catálogos (géneros, países, idiomas, clasificaciones, códigos de enrichment) siguen los del índice Elasticsearch `elastiflix-reloaded` (índice concreto `elastiflix-dq-staging-20261113-220031`), que contiene 6,899 películas.
+- Junto a los CSV se versionan el script que los genera, `generate_raw_data.py`, y un `README.md` con la semilla, la forma de regenerarlos y sus comprobaciones.
 
-### Tipos vectoriales expresamente excluidos
+### 8.2 Archivos y columnas
 
-No se modelarán ni propagarán:
+Cada archivo lleva el nombre exacto de su tabla. Las columnas, tipos, claves y restricciones son los de la sección 12; el orden de columnas dentro de cada archivo es este:
+
+| Archivo | Columnas, en este orden | Clave primaria |
+|---|---|---|
+| `movie_status.csv` | `status_code` | `status_code` |
+| `content_rating.csv` | `rating_code` | `rating_code` |
+| `original_language.csv` | `language_code`, `description` | `language_code` |
+| `enrichment_field.csv` | `field_name` | `field_name` |
+| `genre.csv` | `genre_id`, `name` | `genre_id` |
+| `keyword.csv` | `keyword_id`, `name` | `keyword_id` |
+| `person.csv` | `person_id`, `name` | `person_id` |
+| `production_company.csv` | `company_id`, `name` | `company_id` |
+| `production_country.csv` | `country_id`, `name` | `country_id` |
+| `spoken_language.csv` | `spoken_language_id`, `name` | `spoken_language_id` |
+| `collection.csv` | `collection_id`, `name` | `collection_id` |
+| `movie.csv` | `movie_id`, `imdb_id`, `title`, `original_title`, `original_language_code`, `overview`, `plot`, `tagline`, `status_code`, `rating_code`, `release_date`, `runtime_minutes`, `budget_usd`, `revenue_usd`, `popularity`, `user_score`, `vote_average`, `vote_count`, `adult`, `video`, `homepage`, `poster_path`, `backdrop_path` | `movie_id` |
+| `movie_collection.csv` | `movie_id`, `collection_id`, `observed_poster_path`, `observed_backdrop_path` | `movie_id` |
+| `movie_genre.csv` | `movie_id`, `genre_id`, `source_position` | `movie_id`, `genre_id` |
+| `movie_keyword.csv` | `movie_id`, `keyword_id`, `source_position` | `movie_id`, `keyword_id` |
+| `movie_cast.csv` | `movie_id`, `person_id`, `billing_order` | `movie_id`, `person_id` |
+| `movie_production_company.csv` | `movie_id`, `company_id`, `source_position` | `movie_id`, `company_id` |
+| `movie_production_country.csv` | `movie_id`, `country_id`, `source_position` | `movie_id`, `country_id` |
+| `movie_spoken_language.csv` | `movie_id`, `spoken_language_id`, `source_position` | `movie_id`, `spoken_language_id` |
+| `movie_enrichment.csv` | `movie_id`, `field_name`, `code` | `movie_id`, `field_name` |
+
+Lo que el simulador puede dar por cierto al leerlos:
+
+- Se cumplen las claves primarias, las claves foráneas y las restricciones de la sección 12.
+- Dentro de una película no se repite ningún género, keyword, persona, compañía, país ni idioma.
+- `source_position` y `billing_order` empiezan en 1 y son consecutivos dentro de cada película.
+- Toda entidad está referenciada por al menos una película.
+- No hay columnas `created_at` ni `updated_at`: las asigna PostgreSQL.
+- `original_language.description` llega `NULL`; el nombre del idioma lo aporta Silver (sección 24).
+
+### 8.3 Formato
+
+- UTF-8 sin BOM, finales de línea LF y una fila de cabecera con los nombres de columna.
+- RFC 4180: separador coma, comillas dobles solo cuando hacen falta y comilla doble escapada duplicándola. `plot` y `overview` contienen saltos de línea y comillas dentro de la celda.
+- `NULL` es un campo vacío sin comillas. No existen cadenas vacías.
+- Booleanos `true` o `false`. Fechas `YYYY-MM-DD`. Decimales con punto y la escala de su columna.
+
+`.gitattributes` marca los `*.csv` como `-text`, así que Git no altera sus bytes.
+
+### 8.4 Orden e identificadores
+
+- `movie.csv` va ordenado por `movie_id` ascendente. Es el orden en que el simulador da de alta las películas.
+- Los archivos de relación van ordenados por `movie_id` y después por su posición.
+- **Claves sustitutas asignadas por el dataset.** En `genre`, `person`, `production_company`, `production_country` y `spoken_language` el identificador es consecutivo desde 1, en orden de primera aparición al recorrer las películas. PostgreSQL no las genera: el simulador inserta el valor del archivo, de modo que un identificador significa lo mismo en el CSV, en PostgreSQL y en Bronze.
+- `movie_id`, `keyword_id` y `collection_id` son claves naturales dispersas, no consecutivas.
+
+### 8.5 Volumen
+
+| Tabla | Filas |
+|---|---:|
+| `movie` | 6,899 |
+| `collection` / `movie_collection` | ~1,040 / ~1,930 |
+| `genre` / `movie_genre` | 19 / ~18,600 |
+| `keyword` / `movie_keyword` | ~11,800 / ~53,900 |
+| `person` / `movie_cast` | ~95,000 / ~179,000 |
+| `production_company` / `movie_production_company` | ~8,100 / ~24,000 |
+| `production_country` / `movie_production_country` | 98 / ~10,100 |
+| `spoken_language` / `movie_spoken_language` | 68 / ~9,900 |
+| `original_language` | 43 |
+| `movie_status`, `content_rating`, `enrichment_field` | 1, 7, 21 |
+| `movie_enrichment` | ~18,600 |
+
+El reparto de una película tiene 20 personas de mediana y hasta varios cientos; por eso `movie_cast` es la tabla más grande.
+
+### 8.6 Defectos de calidad presentes a propósito
+
+El dataset conserva los defectos del catálogo original que Silver debe tratar (sección 36):
+
+- nombres de keyword compartidos por dos `keyword_id` distintos;
+- un nombre de colección compartido por dos `collection_id`;
+- colecciones cuyas películas traen rutas de imagen distintas entre sí en `movie_collection`;
+- `Guadaloupe` en `production_country` y `cn` en `original_language`;
+- variantes del nombre de una misma compañía como filas separadas;
+- `plot` truncado alrededor de 3,000 caracteres.
+
+Dos defectos del catálogo original no llegan a los archivos, porque un CSV por tabla no puede representarlos: un `keyword_id` con dos nombres distintos y un nombre repetido dentro de la lista de una película. Llegan ya resueltos.
+
+### 8.7 Tipos vectoriales expresamente excluidos
+
+No se generan, modelan ni propagan:
 
 ```text
 plot_1024
@@ -348,15 +432,7 @@ plot_512
 plot_256
 ```
 
-La exclusión aplica a:
-
-- CSV operativo del laboratorio, cuando sea posible;
-- PostgreSQL;
-- Bronze;
-- Silver;
-- Gold;
-- DuckDB;
-- Superset.
+La exclusión aplica a los CSV de `raw_data/`, PostgreSQL, Bronze, Silver, Gold, DuckDB y Superset.
 
 ## 9. ☕ Aplicación Java 25 Event Simulator
 
@@ -364,24 +440,27 @@ La aplicación de consola Java 25 será responsable de simular una aplicación t
 
 ### Responsabilidades
 
-1. Leer secuencialmente el CSV de `raw_data`.
-2. Deserializar los objetos y arrays JSON incluidos dentro de las celdas CSV.
-3. Resolver el modelo relacional normalizado.
-4. Ejecutar transacciones JDBC reales sobre PostgreSQL.
-5. Generar `INSERT` progresivos para crear sensación de eventos en tiempo real.
-6. Generar también `UPDATE` y `DELETE` sobre registros existentes.
-7. Respetar claves primarias, claves foráneas y tablas puente.
-8. Mostrar en consola la actividad que está generando.
-9. Permitir comportamiento reproducible mediante una semilla aleatoria.
-10. Leer el CSV con un parser que respete comillas y saltos de línea dentro de celdas (por ejemplo Apache Commons CSV); las celdas contienen JSON y no se pueden separar por comas.
+1. Leer los 20 archivos de `raw_data/` (sección 8). Al arrancar carga en memoria los catálogos, las entidades y las relaciones, indexadas por `movie_id`; el conjunto ocupa unas decenas de MB.
+2. Recorrer `movie.csv` en su orden y dar de alta cada película con sus relaciones.
+3. Ejecutar transacciones JDBC reales sobre PostgreSQL.
+4. Generar `INSERT` progresivos para crear sensación de eventos en tiempo real.
+5. Generar también `UPDATE` y `DELETE` sobre registros existentes.
+6. Respetar claves primarias, claves foráneas y tablas puente.
+7. Mostrar en consola la actividad que está generando.
+8. Permitir comportamiento reproducible mediante una semilla aleatoria.
+9. Leer los CSV con un parser RFC 4180 que respete comillas y saltos de línea dentro de celdas (Apache Commons CSV): `plot` y `overview` los contienen.
+10. Tratar el campo vacío como `NULL`; el dataset no contiene cadenas vacías.
+
+El simulador ya no normaliza nada: no deserializa JSON, no resuelve entidades por nombre y no asigna identificadores. Los archivos llegan normalizados y con sus claves.
 
 ### Reglas de carga
 
-- **Nombres repetidos dentro de una película.** `person`, `genre`, `production_company`, `production_country` y `spoken_language` se identifican por nombre exacto. Si un mismo nombre aparece dos veces en la lista de una película, el simulador conserva la primera aparición y descarta las siguientes; de lo contrario la clave primaria de la tabla puente abortaría toda la transacción.
-- **Conflictos de `keyword`.** Si un `keyword_id` ya existe con otro nombre, se conserva el primer nombre y la discrepancia se escribe en el log del simulador con nivel `WARN`. No se persiste en el modelo.
-- **Tipos de UPDATE.** El simulador alterna tres clases, para ejercitar los tres caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`) y de relaciones (añadir o quitar un género o una keyword). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`.
+- **Alta perezosa de catálogos y entidades.** Ninguna tabla se precarga. Una fila de `movie_status`, `content_rating`, `original_language`, `enrichment_field`, `genre`, `keyword`, `person`, `production_company`, `production_country`, `spoken_language` o `collection` se inserta la primera vez que una película la necesita, dentro de la transacción de esa película. El simulador recuerda qué claves ya insertó.
+- **Identificadores del archivo.** Toda fila se inserta con la clave que trae el CSV, también en las cinco tablas de clave sustituta (sección 8.4).
+- **Datos inconsistentes.** Si una película falla por una clave duplicada o una referencia inexistente, el simulador revierte su transacción, lo registra con nivel `ERROR` y continúa con la siguiente. No intenta corregir el dato.
+- **Tipos de UPDATE.** El simulador alterna tres clases, para ejercitar los tres caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`) y de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`.
 - **DELETE.** Siempre sobre `movie`; las relaciones caen por `ON DELETE CASCADE`.
-- **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar el CSV el simulador sigue generando UPDATE y DELETE, y puede volver a insertar desde el CSV una película borrada. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, termina al agotar el CSV.
+- **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando UPDATE y DELETE, y puede volver a insertar una película borrada con los datos de los archivos. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, termina al agotar `movie.csv`.
 
 ### Configuración propuesta
 
@@ -398,20 +477,22 @@ Los pesos serán configurables y no forman parte de una restricción del modelo.
 
 ### Semántica transaccional
 
-Una fila CSV puede afectar varias tablas. La carga de una película deberá ejecutarse de manera transaccional:
+Una película afecta a varias tablas. Su alta se ejecuta en una sola transacción:
 
 ```text
 BEGIN
-  resolver/crear collection
-  resolver/crear catálogos
+  insertar catálogos y entidades que aún no existan
+      (status, rating, idioma original, campos de enrichment,
+       géneros, keywords, personas, compañías, países, idiomas, colección)
   insertar movie
-  insertar genres/bridges
-  insertar keywords/bridges
-  insertar cast/bridges
-  insertar companies/bridges
-  insertar countries/bridges
-  insertar spoken languages/bridges
-  insertar enrichment
+  insertar movie_collection
+  insertar movie_genre
+  insertar movie_keyword
+  insertar movie_cast
+  insertar movie_production_company
+  insertar movie_production_country
+  insertar movie_spoken_language
+  insertar movie_enrichment
 COMMIT
 ```
 
@@ -595,7 +676,7 @@ Reglas principales:
 
 Índice único parcial previsto para `imdb_id` cuando no es null. `poster_path` no será único: dos películas pueden compartir imagen y un UPDATE puede repetirla.
 
-> ⚠️ **`NOT NULL` sujetos a perfilado.** `original_title`, `plot`, `release_date` y `popularity` se declaran `NOT NULL` porque la fuente documentada los trae siempre poblados, pero la sección 8 admite nulos en `_source`. Antes de escribir el DDL se perfilará `raw_data/elastiflix.csv`; cualquier columna con algún nulo pasará a `NULL` en lugar de rechazar la película.
+> ℹ️ **`NOT NULL` confirmados por el perfilado.** `original_title`, `plot`, `release_date` y `popularity` se declaran `NOT NULL`: el perfilado del índice original no encontró ningún nulo en ellas y el dataset las trae siempre pobladas.
 
 ### 12.3 `collection`
 
@@ -624,9 +705,11 @@ Representa la relación película 0..1 colección. No lleva `source_position`: u
 ### 12.5 `genre`
 
 ```text
-genre_id   bigint GENERATED ALWAYS AS IDENTITY PK
+genre_id   bigint PK
 name       text UNIQUE NOT NULL
 ```
+
+`genre_id` es una clave sustituta que asigna el dataset, consecutiva desde 1 (sección 8.4); PostgreSQL no la genera y el simulador inserta el valor del archivo. Lo mismo vale para `person_id`, `company_id`, `country_id` y `spoken_language_id`.
 
 ### 12.6 `movie_genre`
 
@@ -649,9 +732,9 @@ created_at  timestamptz NOT NULL
 updated_at  timestamptz NOT NULL
 ```
 
-No habrá `UNIQUE(name)` porque existen conflictos id/nombre.
+No habrá `UNIQUE(name)`: en el dataset hay nombres compartidos por dos `keyword_id` distintos (sección 8.6).
 
-Política: el primer nombre observado para un `keyword_id` será canónico. Las discrepancias posteriores no modifican la fila; el simulador las escribe en su log con nivel `WARN` (sección 9).
+Cada `keyword_id` llega con un único nombre. El índice original traía algunos identificadores con dos nombres; el dataset los entrega ya resueltos (sección 8.6), así que el simulador no tiene nada que arbitrar.
 
 ### 12.8 `movie_keyword`
 
@@ -666,7 +749,7 @@ UNIQUE(movie_id, source_position)
 ### 12.9 `person`
 
 ```text
-person_id   bigint GENERATED ALWAYS AS IDENTITY PK
+person_id   bigint PK
 name        text UNIQUE NOT NULL
 created_at  timestamptz NOT NULL
 ```
@@ -683,12 +766,12 @@ PK(movie_id, person_id)
 UNIQUE(movie_id, billing_order)
 ```
 
-Se preservará el orden de facturación. Como `person` se identifica por nombre, un nombre repetido en el reparto de una película se carga una sola vez, con el primer `billing_order` (sección 9).
+Se preservará el orden de facturación. El dataset garantiza que una persona no se repite en el reparto de una película (sección 8.2).
 
 ### 12.11 `production_company`
 
 ```text
-company_id  bigint GENERATED ALWAYS AS IDENTITY PK
+company_id  bigint PK
 name        text UNIQUE NOT NULL
 ```
 
@@ -707,7 +790,7 @@ UNIQUE(movie_id, source_position)
 ### 12.13 `production_country`
 
 ```text
-country_id  bigint GENERATED ALWAYS AS IDENTITY PK
+country_id  bigint PK
 name        text UNIQUE NOT NULL
 ```
 
@@ -735,7 +818,7 @@ La validación permitirá códigos de dos letras usados por el dataset, incluido
 ### 12.16 `spoken_language`
 
 ```text
-spoken_language_id  bigint GENERATED ALWAYS AS IDENTITY PK
+spoken_language_id  bigint PK
 name                text UNIQUE NOT NULL
 ```
 
@@ -1829,7 +1912,7 @@ Ejemplos documentados que podrán resolverse en Silver:
 - variantes de nombres de personas no se fusionarán automáticamente.
 - `cn` se conservará como código TMDB.
 - `No Language` seguirá siendo un valor real.
-- conflictos en keyword id/nombre se manejarán de forma determinística.
+- un nombre de keyword compartido por dos identificadores se conserva como dos keywords distintas.
 - `budget` y `revenue` mantienen null como ausencia, nunca cero sintético.
 - `user_score` y `vote_average` siguen siendo medidas distintas.
 - `plot` puede reflejar una extracción truncada alrededor de 3,000 caracteres; no se inventará contenido faltante.
@@ -1989,7 +2072,7 @@ Reglas:
 
 | Componente | Responsabilidad |
 |---|---|
-| CSV | Fuente inicial de películas |
+| CSV de `raw_data/` | Fuente inicial: un archivo por tabla |
 | Java 25 simulator | Generación de actividad transaccional |
 | PostgreSQL 19 | Sistema operacional normalizado |
 | Flink CDC | Captura continua de cambios |
@@ -2014,7 +2097,7 @@ Una demostración completa deberá poder mostrar:
 1. Arranque de todo el stack con Docker Compose.
 2. PostgreSQL inicialmente preparado con esquema pero sin la carga completa de películas.
 3. Arranque de Flink CDC.
-4. Java comienza a emitir las películas desde el CSV mediante INSERT.
+4. Java comienza a emitir las películas desde los CSV mediante INSERT.
 5. El observador ve llegar las filas a PostgreSQL.
 6. Flink captura los cambios.
 7. Bronze se actualiza en Iceberg/RustFS.
@@ -2032,7 +2115,7 @@ Una demostración completa deberá poder mostrar:
 No se utilizará:
 
 - BigQuery para este laboratorio local;
-- carga exclusivamente batch del CSV hacia PostgreSQL;
+- carga exclusivamente batch de los CSV hacia PostgreSQL;
 - DuckDB como sustituto del Iceberg REST Catalog;
 - almacenamiento directo de Iceberg en carpetas manipuladas independientemente por cada motor;
 - vectores o embeddings;
@@ -2056,8 +2139,8 @@ Con esta arquitectura y modelos definidos, la implementación puede avanzar en e
 
 0. Ejecutar las validaciones previas de la sección 46. La primera, PostgreSQL 19 con Flink CDC 3.7.0, ya pasó.
 1. ~~Fijar versiones compatibles~~ (hecho en la sección 3; se confirma con el paso 0).
-2. Preparar el CSV completo de 6,899 películas sin vectores y perfilarlo (nulos, duplicados, longitudes).
-3. Implementar DDL PostgreSQL completo, con las restricciones ajustadas al perfilado.
+2. Generar los 20 CSV de `raw_data/` descritos en la sección 8.
+3. Implementar DDL PostgreSQL completo con las restricciones de la sección 12, y comprobarlo cargando los CSV con `COPY`.
 4. Implementar inicialización de logical replication: roles, publicación y parámetros.
 5. Construir Java Event Simulator.
 6. Configurar RustFS e Iceberg REST Catalog.
@@ -2252,6 +2335,20 @@ Observaciones que afectan al diseño:
 Lo que estas pruebas no cubren: los jobs corrieron con el Python 3.10 de la imagen de Spark tanto en el driver como en los ejecutores, así que no dicen nada del desajuste con Airflow, que es la validación 8. Tampoco cubren el `MERGE` de Silver, tablas particionadas, lectores concurrentes durante una recarga de Gold ni el volumen real.
 
 ## 47. 📝 Registro de cambios de la revisión
+
+### Revisión 4, 2026-11-22
+
+El dataset de entrada pasa de un único `raw_data/elastiflix.csv`, con una fila por película y JSON dentro de las celdas, a **un CSV por tabla**.
+
+| Tema | Antes | Ahora | Sección |
+|---|---|---|---|
+| Dataset | Un CSV derivado del índice original, sin especificar | 20 CSV, uno por tabla, con datos sintéticos que reproducen el perfil del índice original | 8 |
+| Contenido de `raw_data/` | `elastiflix.csv` | Los 20 CSV, el script que los genera y su README | 7, 8.1 |
+| Simulador | Lee una fila por película, deserializa JSON y resuelve entidades por nombre | Lee archivos ya normalizados; inserta cada fila con la clave del archivo; alta perezosa de catálogos y entidades | 9 |
+| Nombres repetidos y conflictos de keyword | Los arbitraba el simulador | Llegan resueltos en el dataset | 8.6, 9, 12 |
+| Claves de `genre`, `person`, `production_company`, `production_country`, `spoken_language` | `GENERATED ALWAYS AS IDENTITY` | `bigint` asignado por el dataset, consecutivo desde 1 | 8.4, 12 |
+| `NOT NULL` de `movie` | Sujetos a perfilar el CSV | Confirmados por el perfilado del índice original | 12.2 |
+| Diagramas de arquitectura y de linaje | Nodo `elastiflix.csv` | Nodo `raw_data/*.csv` | 4, 6 |
 
 ### Revisión 3, 2026-11-22
 

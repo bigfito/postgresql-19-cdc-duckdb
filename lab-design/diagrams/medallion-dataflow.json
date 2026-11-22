@@ -23,7 +23,7 @@
     { "label": "Gold y consumo" }
   ],
   "nodes": [
-    { "id": "csv", "type": "external", "label": "elastiflix.csv", "sublabel": "6,899 películas", "stage": 0, "row": 1, "tag": "sin vectores" },
+    { "id": "csv", "type": "external", "label": "raw_data/*.csv", "sublabel": "6,899 películas", "stage": 0, "row": 1, "tag": "sin vectores" },
     { "id": "oltp", "type": "database", "label": "catalog.*", "sublabel": "20 tablas 3FN", "stage": 1, "row": 1, "tag": "PostgreSQL 19" },
     { "id": "bronzeEntities", "type": "database", "label": "Entidades", "sublabel": "12 tablas espejo", "stage": 2, "row": 0, "tag": "cdc_op_type" },
     { "id": "bronzeLinks", "type": "database", "label": "Relaciones", "sublabel": "8 tablas espejo", "stage": 2, "row": 2, "tag": "cdc_op_ts" },

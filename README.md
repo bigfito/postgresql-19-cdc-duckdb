@@ -8,7 +8,7 @@
 
 Este repositorio contiene **ElastiFlix CDC Lakehouse Lab**, un laboratorio reproducible que sigue un cambio de datos desde que nace en una base transaccional hasta que aparece en un dashboard.
 
-Un simulador en Java 25 lee un catálogo de 6,899 películas y ejecuta transacciones reales (`INSERT`, `UPDATE`, `DELETE`) sobre PostgreSQL 19. Apache Flink CDC captura esos cambios desde el WAL y los replica en Apache Iceberg. Dos jobs PySpark, orquestados por Apache Airflow, construyen un modelo dimensional con historial (SCD Type 2) y después productos analíticos listos para BI. Apache Superset los consulta a través de DuckDB.
+Un simulador en Java 25 lee un catálogo de 6,899 películas, repartido en un CSV por tabla, y ejecuta transacciones reales (`INSERT`, `UPDATE`, `DELETE`) sobre PostgreSQL 19. Apache Flink CDC captura esos cambios desde el WAL y los replica en Apache Iceberg. Dos jobs PySpark, orquestados por Apache Airflow, construyen un modelo dimensional con historial (SCD Type 2) y después productos analíticos listos para BI. Apache Superset los consulta a través de DuckDB.
 
 El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, levantarlo y observar cada etapa.
 
@@ -20,13 +20,13 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 | Elemento | Estado |
 |---|---|
-| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 3 |
+| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 4 |
 | Diagramas de arquitectura, linaje, ERD, DAG y arranque ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Generados |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
 | Validaciones de compatibilidad entre componentes | ⏳ 6 de 9 superadas: el camino PostgreSQL 19 → Flink CDC → Bronze → Spark → Gold → DuckDB funciona; faltan Superset, el Python de Airflow y Spark, y la base de metadatos |
-| Dataset `raw_data/elastiflix.csv` | ⏳ Pendiente de incorporar |
+| Dataset de entrada: 20 CSV en `raw_data/`, uno por tabla | ⏳ Pendiente de generar |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente |
 
 ## 3. 🗺️ Arquitectura
@@ -107,7 +107,7 @@ Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). 
 postgresql-19-cdc-duckdb/
 |-- docker-compose.yml
 |-- .env.example
-|-- raw_data/          dataset fuente
+|-- raw_data/          dataset de entrada: un CSV por tabla
 |-- java-simulator/    Event Simulator (Java 25)
 |-- postgresql/        DDL, roles y publicación
 |-- metadata-db/       metadatos de Airflow y Superset
@@ -151,7 +151,7 @@ Flujo demostrativo esperado:
 ## 9. 🚀 Hoja de ruta
 
 1. **Fase 0: validaciones previas.** Nueve pruebas cortas de compatibilidad entre componentes. La primera, que Flink CDC 3.7.0 lea el WAL de PostgreSQL 19.0, ya pasó, así que no hace falta el respaldo a PostgreSQL 18. Detalle y resultados en la [sección 46 del diseño](lab-design/LAB-DESIGN.md#46--validaciones-previas-fase-0).
-2. Preparar y perfilar el CSV de 6,899 películas.
+2. Generar los 20 CSV de entrada, con 6,899 películas sintéticas.
 3. DDL de PostgreSQL y logical replication.
 4. Java Event Simulator.
 5. RustFS, Iceberg REST Catalog y pipeline Flink CDC → Bronze.
