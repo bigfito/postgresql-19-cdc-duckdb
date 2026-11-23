@@ -321,11 +321,10 @@
     },
     {
       "dot": "violet",
-      "title": "Fases terminadas",
+      "title": "Estado",
       "items": [
-        "F0 y F1 están terminadas",
-        "Las esperas a actividades de F0 ya se cumplieron",
-        "F4 puede avanzar en paralelo con F3"
+        "El avance de cada fase está en el tablero del plan, sección 1",
+        "F4 pudo avanzar en paralelo con F3, y F6 desde que terminó F5"
       ]
     }
   ]

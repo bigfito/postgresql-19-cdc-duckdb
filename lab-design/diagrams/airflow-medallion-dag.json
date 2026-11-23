@@ -20,6 +20,9 @@
         },
         "database": {
           "label": "Capa Iceberg"
+        },
+        "external": {
+          "label": "Tarea de control (sin job)"
         }
       }
     }
@@ -28,6 +31,10 @@
     {
       "id": "dag",
       "label": "Airflow 3.4"
+    },
+    {
+      "id": "control",
+      "label": "Estado de la corrida"
     },
     {
       "id": "spark",
@@ -94,6 +101,14 @@
       "type": "backend",
       "label": "iceberg_maintenance",
       "sublabel": "siempre al final"
+    },
+    {
+      "id": "markFailed",
+      "lane": "control",
+      "col": 5,
+      "type": "external",
+      "label": "mark_run_failed",
+      "sublabel": "solo si algo falló"
     },
     {
       "id": "jobSilver",
@@ -169,6 +184,14 @@
       "variant": "dashed"
     },
     {
+      "id": "t6",
+      "from": "maintenance",
+      "to": "markFailed",
+      "label": "one_failed",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
       "id": "submit-silver",
       "from": "runSilver",
       "to": "jobSilver",
@@ -216,6 +239,7 @@
       "items": [
         "Cada validate_* consulta la capa de su mismo nombre",
         "Si una validación falla, no corren las tareas siguientes salvo el mantenimiento",
+        "mark_run_failed espera a las seis tareas y solo corre si alguna falló: deja la corrida en error",
         "La capa siguiente conserva su último estado bueno"
       ]
     },

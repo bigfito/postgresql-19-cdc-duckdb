@@ -180,8 +180,8 @@ x-superset-volumes: &superset-volumes
 # Volúmenes (diseño, secciones 7 y 15)
 # -----------------------------------------------------------------------------
 # rustfs-data es el único volumen con nombre del laboratorio. Los datos de
-# RustFS no van en rustfs/data, como pediría la regla de un directorio por
-# servicio, porque sobre un directorio compartido desde Windows RustFS deja de
+# RustFS no van en un directorio del proyecto, como pediría la regla de un
+# directorio por servicio, porque sobre un directorio compartido desde Windows RustFS deja de
 # responder bajo carga y devuelve 503, lo que detiene el pipeline de Flink.
 # En el volumen los datos viven en el disco de Docker: no se ven desde
 # Windows y se borran con `docker volume rm`, no vaciando un directorio.
@@ -312,7 +312,7 @@ services:
   # Corre como el usuario rustfs (10001:10001) de la imagen; por eso espera a
   # volumes-init, que le deja su volumen de datos con ese dueño.
   # Sus datos son la excepción a la regla de un directorio por servicio: van
-  # en el volumen rustfs-data y no en rustfs/data (ver «Volúmenes», arriba).
+  # en el volumen rustfs-data y no en un directorio (ver «Volúmenes», arriba).
   rustfs:
     image: rustfs/rustfs:1.0.6
     environment:

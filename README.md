@@ -23,7 +23,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 6 |
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
-| Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
+| Imágenes base en Docker Hub | ✅ Las once existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/`, `airflow/`, `duckdb/` y `superset/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
@@ -148,7 +148,6 @@ postgresql-19-cdc-duckdb/
 |-- metadata-db/       metadatos de Airflow y Superset
 |-- flink/             pipeline CDC y checkpoints
 |-- iceberg/           Iceberg REST Catalog
-|-- rustfs/            object storage
 |-- pyspark/           jobs y datos de referencia
 |-- airflow/           DAG elastiflix_medallion
 |-- duckdb/            SQL de inicialización y CLI opcional
@@ -165,21 +164,58 @@ postgresql-19-cdc-duckdb/
 
 ## 8. ▶️ Ejecución
 
-Antes del primer arranque, copia la plantilla de configuración. Sus valores son de laboratorio y sirven tal cual en una máquina local:
+### Primer arranque
+
+1. Copia la plantilla de configuración. Sus valores son de laboratorio y sirven tal cual en una máquina local:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   En PowerShell: `Copy-Item .env.example .env`.
+
+2. Levanta el laboratorio con un único comando, desde la raíz del repositorio:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+Ese comando construye las cinco imágenes propias que usan los servicios, ejecuta los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset) y arranca los 13 servicios. No hay pasos manuales intermedios.
+
+Qué esperar después de lanzarlo:
+
+| Cuándo | Qué ocurre |
+|---|---|
+| La primera vez | Se descargan las imágenes base y se construyen las cinco propias. Construirlas sin caché tardó 2 min 37 s, con las imágenes base ya descargadas; descargarlas depende de la conexión. Las siguientes veces ya están construidas |
+| Al terminar el comando, 1 o 2 minutos con las imágenes construidas | Los 13 servicios están en marcha y el pipeline de Flink CDC, corriendo |
+| Un minuto después de lanzarlo | El simulador empieza a insertar películas en PostgreSQL, y Flink las lleva a Bronze en segundos |
+| Unos 6 minutos después | Termina la primera corrida del DAG, que arranca sola: Silver y Gold ya tienen datos |
+| Cada 10 minutos | El DAG vuelve a correr y Gold se actualiza |
+
+Para ver el estado:
 
 ```bash
-cp .env.example .env
+docker compose ps -a
 ```
 
-Un único comando levanta el laboratorio:
+Lo normal es ver 13 servicios en `Up`, 12 de ellos con `(healthy)`, y seis jobs de preparación en `Exited (0)`. El simulador no lleva comprobación de salud. Repetir `docker compose up -d` no duplica nada: los jobs vuelven a ejecutarse y no cambian lo que ya existe.
 
-```bash
-docker compose up -d --build
-```
+> ℹ️ Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job de preparación, aunque termine bien.
 
-Ese comando también ejecuta los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
+### Direcciones y cuentas
 
-> ✅ Comprobado en la fase F11, desde un laboratorio vuelto a cero y con las imágenes ya construidas: el comando termina en 97 s y deja los 13 servicios en marcha; el simulador empieza a insertar al minuto y la primera corrida del DAG, que arranca sola, deja Silver y Gold creados unos 6 minutos después del comando. La primera vez hay que sumar la construcción de las seis imágenes. Repetir el comando no duplica nada. Falta comprobarlo desde un clon limpio (fase F12). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+Todo se publica solo en `127.0.0.1`. Los usuarios y las contraseñas están en `.env`; los puertos también se cambian ahí.
+
+| Qué | Dirección | Con qué se entra |
+|---|---|---|
+| Superset | <http://127.0.0.1:8088> | `SUPERSET_ADMIN_USER` y `SUPERSET_ADMIN_PASSWORD` |
+| Airflow | <http://127.0.0.1:8080> | `AIRFLOW_ADMIN_USER` y `AIRFLOW_ADMIN_PASSWORD` |
+| Flink | <http://127.0.0.1:8081> | No pide cuenta |
+| Spark | <http://127.0.0.1:8082> | No pide cuenta |
+| Consola de RustFS | <http://127.0.0.1:9001/rustfs/console/> | `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`, en la pestaña de inicio de sesión por clave |
+| Catálogo Iceberg (API REST) | <http://127.0.0.1:8181/v1/namespaces> | No pide cuenta |
+| PostgreSQL operacional | `127.0.0.1:5432`, base `elastiflix` | `postgres` con `POSTGRES_PASSWORD`, o `elastiflix_app` con `ELASTIFLIX_APP_PASSWORD` |
+| Event Simulator | `docker compose attach java-simulator` | No pide cuenta |
 
 ### El simulador
 
@@ -198,8 +234,6 @@ La columna `Bronze` de la interfaz dice si cada cambio ya llegó al lakehouse y 
 
 ### El DAG de Airflow
 
-Airflow está en <http://127.0.0.1:8080>. El usuario y la contraseña son `AIRFLOW_ADMIN_USER` y `AIRFLOW_ADMIN_PASSWORD` de `.env`.
-
 El DAG `elastiflix_medallion` corre solo cada 10 minutos desde el primer arranque, sin activarlo. Cada corrida tarda entre 4 y 5 minutos y hace esto, en orden:
 
 | Tarea | Qué hace |
@@ -213,7 +247,7 @@ El DAG `elastiflix_medallion` corre solo cada 10 minutos desde el primer arranqu
 
 Si una validación falla, las tareas siguientes no corren, salvo el mantenimiento, y la corrida queda en error. La causa está en el log de la tarea que falló. El detalle está en la sección 18 del diseño, [Apache Airflow](lab-design/LAB-DESIGN.md#despliegue-de-airflow).
 
-> ℹ️ Los datos de RustFS no están en `rustfs/data/`: viven en un volumen de Docker, `rustfs-data`. La razón está en la [sección 15 del diseño](lab-design/LAB-DESIGN.md#15--rustfs). Para borrarlos: `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`, con el laboratorio detenido.
+> ℹ️ Los datos de RustFS no están en un directorio del repositorio: viven en un volumen de Docker, `rustfs-data`. La razón está en la [sección 15 del diseño](lab-design/LAB-DESIGN.md#15--rustfs). Solo se borran al [volver a cero](#detener-reanudar-y-volver-a-cero).
 
 ### Los jobs de Silver y Gold
 
@@ -235,8 +269,6 @@ Cada corrida reemplaza completas las siete tablas de Gold, que son las que consu
 
 ### Superset y DuckDB
 
-Superset está en <http://127.0.0.1:8088>. El usuario y la contraseña son `SUPERSET_ADMIN_USER` y `SUPERSET_ADMIN_PASSWORD` de `.env`.
-
 Arranca vacío: sin base de datos conectada, sin datasets y sin dashboards. Quien usa el laboratorio conecta Gold y diseña sus gráficos. Son tres pasos, y cada uno está explicado, botón por botón, en la [guía de la sección 35 del diseño](lab-design/LAB-DESIGN.md#guía-conectar-gold-y-crear-una-visualización):
 
 | Paso | Lo esencial |
@@ -247,7 +279,7 @@ Arranca vacío: sin base de datos conectada, sin datasets y sin dashboards. Quie
 
 La URI no lleva servidor ni contraseña: DuckDB no es un servicio, corre dentro de Superset. Cada consulta lee Gold tal como lo dejó la última corrida del DAG, así que basta con recargar el dashboard para ver los datos nuevos.
 
-Para consultar el lakehouse a mano hay una línea de comandos de DuckDB, opcional, con el catálogo ya adjunto como `lake`:
+Para consultar el lakehouse a mano hay una línea de comandos de DuckDB, opcional, con el catálogo ya adjunto como `lake`. Su imagen, la sexta del laboratorio, se construye la primera vez que se usa:
 
 ```bash
 docker compose --profile tools run --rm duckdb
@@ -262,6 +294,35 @@ Para desarrollar sin esperar al simulador, las tablas se pueden llenar de una ve
 ```bash
 docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scripts:/scripts:ro postgresql bash -c 'PGPASSWORD="$ELASTIFLIX_APP_PASSWORD" psql -h postgresql -U elastiflix_app -d elastiflix -v ON_ERROR_STOP=1 -f /scripts/load_dev_data.sql'
 ```
+
+### Detener, reanudar y volver a cero
+
+| Qué | Cómo |
+|---|---|
+| Detener el laboratorio sin perder nada | `docker compose down` |
+| Volver a levantarlo | `docker compose up -d`. El pipeline se reanuda desde su último checkpoint, el simulador sigue con la película siguiente y el DAG lanza su corrida a su hora |
+| Parar solo el simulador | `docker compose stop java-simulator`; se reanuda con `docker compose start java-simulator` |
+| Después de reiniciar el equipo | `docker compose up -d`. Ningún servicio se reinicia solo |
+
+Para volver a cero, es decir, dejar el laboratorio como recién clonado sin perder las imágenes ni el `.env`:
+
+```bash
+docker compose down
+for d in postgresql/data metadata-db/data flink/data iceberg/data superset/data airflow/logs; do
+  find "$d" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +
+done
+docker volume rm elastiflix-cdc-lakehouse_rustfs-data
+docker compose up -d
+```
+
+Los seis directorios y el volumen se vacían siempre juntos: vaciar solo algunos deja el catálogo apuntando a archivos que ya no existen. Con ello se pierde también lo creado en Superset y el historial de Airflow. El bucle es de Bash; en Windows se ejecuta desde Git Bash o WSL.
+
+### Si algo no arranca
+
+- **Mira primero el estado y el log.** `docker compose ps -a` dice qué servicio no está sano o qué job no terminó con `Exited (0)`, y `docker compose logs <servicio>` dice por qué.
+- **Repite `docker compose up -d`.** Es seguro, y basta cuando un servicio se quedó a medias en el primer arranque.
+- **Si el DAG falla en `validate_bronze`**, el pipeline de Flink no está corriendo. `docker compose up -d` lo reanuda desde su último checkpoint.
+- **Un puerto ocupado** se cambia en `.env`, en las variables que terminan en `_HOST_PORT`.
 
 ### Flujo demostrativo esperado
 

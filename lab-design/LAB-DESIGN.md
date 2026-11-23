@@ -13,6 +13,8 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
 > 📝 **Revisión 6 (2026-11-22):** dataset definitivo, validaciones 10 a 12, reconstrucción de Bronze, medición de memoria con todo el stack y decisiones 26 a 65; los diagramas y bocetos que estaban dibujados en texto pasan a Archify. El detalle está en el registro de cambios de [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
+>
+> 🛠️ **Implementado (2026-11-23):** el laboratorio está construido y comprobado de extremo a extremo (fases F2 a F11 del [plan](../planning/PLAN.md)). Donde la implementación concretó o corrigió el diseño, la sección correspondiente lo dice, casi siempre en un apartado «Cómo está implementado». El documento conserva el futuro con el que se escribió: «deberá» y «será» describen lo que el laboratorio ya hace.
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -90,7 +92,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 
 ### 3.2 Imágenes en Docker Hub
 
-Todas las imágenes base del laboratorio están publicadas en Docker Hub para `linux/amd64` y `linux/arm64`. Comprobado el 2026-11-22 con `docker manifest inspect` y la API de etiquetas de Docker Hub.
+Todas las imágenes base del laboratorio están publicadas en Docker Hub para `linux/amd64` y `linux/arm64`. Comprobado el 2026-11-22 con `docker manifest inspect` y la API de etiquetas de Docker Hub; la de Debian, que se añadió en la fase F10, el 2026-11-23.
 
 | Servicio del Compose | Imagen base | Última actualización de la etiqueta |
 |---|---|---|
@@ -103,7 +105,8 @@ Todas las imágenes base del laboratorio están publicadas en Docker Hub para `l
 | `superset`, `superset-init` | `apache/superset:6.1.0-py312` | 2026-09-21 |
 | `rustfs` | `rustfs/rustfs:1.0.6` | 2026-11-15 |
 | `iceberg-rest` | `apache/iceberg-rest-fixture:1.10.1` | 2025-12-22 |
-| `duckdb` (perfil `tools`) | `duckdb/duckdb:1.5.6` | 2026-09-29 |
+| `duckdb` (perfil `tools`), de donde se copia el binario | `duckdb/duckdb:1.5.6` | 2026-09-29 |
+| `duckdb` (perfil `tools`), imagen final | `debian:trixie-20261104-slim` | 2026-11-05 |
 
 Los componentes que son librerías no tienen imagen propia: se instalan durante el build de la imagen que los aloja.
 
@@ -119,7 +122,7 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Python 3.12, instalado con `uv` | Imagen de Spark | PyPI (`uv`) y builds de CPython que descarga `uv` desde GitHub |
 | DuckDB 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y extensiones `httpfs`, `iceberg` y `avro` | Imagen de Superset | PyPI y repositorio de extensiones de DuckDB |
 
-Los jobs one-shot (`volumes-init`, `rustfs-init`, `iceberg-init` y `airflow-init`) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
+Los seis jobs one-shot (`volumes-init`, `rustfs-init`, `iceberg-init`, `flink-cdc-submit`, `airflow-init` y `superset-init`) reutilizan alguna de las imágenes anteriores; no añaden imágenes nuevas al laboratorio.
 
 ## 4. 🗺️ Diagrama de Arquitectura
 
@@ -246,9 +249,6 @@ postgresql-19-cdc-duckdb/
 |   |-- config/
 |   `-- data/
 |
-|-- rustfs/
-|   `-- data/
-|
 |-- pyspark/
 |   |-- Dockerfile
 |   |-- jobs/
@@ -270,6 +270,7 @@ postgresql-19-cdc-duckdb/
 |
 |-- duckdb/
 |   |-- Dockerfile
+|   |-- entrypoint.sh
 |   `-- init/
 |
 `-- superset/
@@ -293,14 +294,16 @@ Notas sobre la estructura:
 - `pyspark/reference/` contiene los datos de referencia versionados que Silver usa para enriquecer catálogos (nombres de idioma, códigos de país, descripción de ratings): seis archivos CSV (sección 24).
 - `pyspark/conf/` contiene `spark-defaults.conf`, con el catálogo Iceberg y la memoria de cada job, y `log4j2.properties`, el perfil de registro por defecto de Spark con un aviso silenciado (sección 19). `pyspark/conf/`, `pyspark/jobs/` y `pyspark/reference/` se montan en solo lectura en `spark-master` y `spark-worker`; la imagen no copia ninguno.
 - `pyspark/jobs/` contiene los dos jobs de transformación, el de mantenimiento (sección 38) y un job corto por cada tarea `validate_*` del DAG (sección 18).
+- No hay directorio de pruebas para los jobs: sus comprobaciones son las tareas `validate_*` de cada corrida del DAG (decisión 73).
 - `airflow/config/` y `airflow/plugins/` siguen la estructura de la imagen oficial de Airflow y quedan vacíos: la configuración va por variables de entorno y no hay plugins. `iceberg/config/` también está vacío y hoy no tiene uso.
 - `postgresql/scripts/` contiene `load_dev_data.sql`, que carga los 20 CSV para desarrollar sin esperar al simulador. Se ejecuta a mano y no forma parte del arranque (sección 39).
 - `superset/config/` contiene `superset_config.py`, con el hook de conexión de DuckDB (sección 35). No guarda dashboards: los crea quien usa el laboratorio.
 - `duckdb/init/` contiene el SQL de inicialización de DuckDB en dos archivos, `attach_lakehouse.sql` y `gold_views.sql` (sección 34). Se monta en solo lectura en Superset, en el contenedor de línea de comandos y en el simulador, que solo usa el primero. DuckDB no guarda datos propios, por eso no hay `duckdb/data/`.
+- `duckdb/entrypoint.sh` es el arranque de la línea de comandos opcional: ejecuta `attach_lakehouse.sql` con las credenciales del entorno y abre la consola (sección 34).
 
 ### Regla de persistencia
 
-Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. Hay una excepción: los datos de RustFS van en el volumen con nombre `rustfs-data`, que vive en el disco de Docker y no en `rustfs/data/` (sección 15, decisión 67). La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/`, `pyspark/conf/` y `pyspark/reference/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
+Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. Hay una excepción: los datos de RustFS van en el volumen con nombre `rustfs-data`, que vive en el disco de Docker. RustFS no tiene directorio propio en el repositorio (sección 15, decisiones 67 y 69). La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/`, `pyspark/conf/` y `pyspark/reference/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
 
 Ejemplos:
 
@@ -1274,7 +1277,7 @@ Airflow gobernará el procesamiento analítico por lotes: los jobs PySpark de Si
 
 Pipeline lógico (DAG `elastiflix_medallion`):
 
-![DAG de Airflow: validate_bronze, bronze_to_silver, validate_silver, silver_to_gold, validate_gold e iceberg_maintenance, con los jobs PySpark y las capas Iceberg que tocan](diagrams/airflow-medallion-dag.svg)
+![DAG de Airflow: validate_bronze, bronze_to_silver, validate_silver, silver_to_gold, validate_gold e iceberg_maintenance, la tarea mark_run_failed que solo corre si alguna falló, y los jobs PySpark y las capas Iceberg que tocan](diagrams/airflow-medallion-dag.svg)
 
 > 🔍 **Cómo leerlo:** la fila superior es el DAG, de izquierda a derecha. Cada tarea de transformación lanza un job PySpark (fila central) que lee una capa y escribe la siguiente (fila inferior). Cada `validate_*` consulta la capa de su mismo nombre. `iceberg_maintenance` corre siempre al final, aunque falle una validación.
 >
@@ -2352,7 +2355,7 @@ Gold será la fuente de verdad para las visualizaciones.
 - **La base de datos no viene registrada.** La conecta quien usa el laboratorio, desde la interfaz, con la URI SQLAlchemy `duckdb:///:memory:` (guía al final de esta sección). `superset-init` no la registra.
 - Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB y, de `gold_views.sql`, solo las vistas cuya tabla existe en `lake.gold` según `information_schema.tables`. DuckDB 1.5.6 sí lista ahí las tablas de un catálogo Iceberg adjunto y, con `lake.gold` vacío, la conexión abre sin vistas y sin errores (actividades F10-01 y F10-16 del plan). Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
 - **Datasets sobre vistas, en el esquema `memory.main`.** Cada dataset se define como tabla física sobre la vista `<producto>` que el hook crea en la base en memoria (sección 34). La interfaz nombra cada esquema con su catálogo delante: el de las vistas aparece como `memory.main` y los del lakehouse como `lake.gold`, `lake.silver` y `lake.bronze`. En SQL basta con escribir `main.<producto>`.
-- **Por qué vistas, y qué se sabe hoy.** La validación 7 encontró que Superset no leía las columnas de una tabla Iceberg adjunta, porque el inspector de SQLAlchemy devolvía una sola columna sin tipo, y de ahí salieron las vistas. En el laboratorio ya construido eso no se reprodujo: en la actividad F10-20 un dataset físico sobre `lake.gold.financial_performance` trajo sus 18 columnas con tipo y su consulta de gráfico funcionó. Tampoco se reprodujo el fallo que la validación 7 atribuía al nombre `memory.main`. Las vistas se mantienen porque son el camino que se siguió de principio a fin en la interfaz; si conviene retirarlas está anotado como duda en la sección 6 del plan. Queda además el dataset virtual con `SELECT * FROM lake.gold.<producto>`: la validación 7 vio que ahí Superset no reconoce el tipo de las columnas `DECIMAL`, y no se volvió a probar. SQL Lab puede consultar `lake.gold.<producto>` directamente.
+- **Por qué vistas, y qué se sabe hoy.** La validación 7 encontró que Superset no leía las columnas de una tabla Iceberg adjunta, porque el inspector de SQLAlchemy devolvía una sola columna sin tipo, y de ahí salieron las vistas. En el laboratorio ya construido eso no se reprodujo: en la actividad F10-20 un dataset físico sobre `lake.gold.financial_performance` trajo sus 18 columnas con tipo y su consulta de gráfico funcionó. Tampoco se reprodujo el fallo que la validación 7 atribuía al nombre `memory.main`. Las vistas se mantienen porque son el camino que se siguió de principio a fin en la interfaz (decisión 68). Queda además el dataset virtual con `SELECT * FROM lake.gold.<producto>`: la validación 7 vio que ahí Superset no reconoce el tipo de las columnas `DECIMAL`, y no se volvió a probar. SQL Lab puede consultar `lake.gold.<producto>` directamente.
 - **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`), de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. La validación 7 lo midió: la inicialización cuesta unos 40 ms y cada vista añade entre 5 y 9 ms, frente a los 7 ms de la consulta en sí. De extremo a extremo, una consulta por la API de Superset tarda unos 150 ms en secuencia y hasta 440 ms en el percentil 95 con ocho consultas simultáneas y cuatro workers. Es aceptable para el laboratorio; no hace falta el archivo DuckDB de solo lectura que se había previsto como alternativa.
 - Cada worker de Superset tiene su propio DuckDB en memoria. No comparten archivo, así que no hay bloqueos entre procesos.
 - Metadatos de Superset en `metadata-db` (base `superset`).
@@ -2663,7 +2666,7 @@ Reglas:
 - Airflow y Superset no esperan a Spark ni a que Gold tenga datos; solo las corridas del DAG y los datasets los necesitan.
 - Ningún servicio se reinicia solo (sección 39): tras un reinicio del equipo, este orden se recorre de nuevo con `docker compose up -d`.
 - **Flink espera a `postgresql`.** `flink-jobmanager` declara esa dependencia porque así lo dibuja el diagrama. Flink no la necesita para arrancar, solo el pipeline; le cuesta empezar unos 40 s más tarde, sin retrasar el envío del pipeline, que ya esperaba a PostgreSQL.
-- **Arranque completo, medido en la fase F11.** Desde un laboratorio vuelto a cero y con las seis imágenes ya construidas, `docker compose up -d --build` termina con código 0 en 97 s. En segundos desde el primer contenedor: `postgresql`, `metadata-db` y `rustfs` a 0; el catálogo a 7; Spark a 9; Flink a 41; el pipeline enviado a 57; el simulador a 58; Airflow a 67 y Superset a 90. La primera corrida del DAG empieza sola y termina en 4 min 37 s, con Silver y Gold creados.
+- **Arranque completo, medido en la fase F11.** Desde un laboratorio vuelto a cero y con las imágenes ya construidas, `docker compose up -d --build` termina con código 0 en 97 s. En segundos desde el primer contenedor: `postgresql`, `metadata-db` y `rustfs` a 0; el catálogo a 7; Spark a 9; Flink a 41; el pipeline enviado a 57; el simulador a 58; Airflow a 67 y Superset a 90. La primera corrida del DAG empieza sola y termina en 4 min 37 s, con Silver y Gold creados.
 - **Repetir el comando no cambia nada.** Con todo en marcha, `docker compose up -d` tarda 23 s y no recrea ningún contenedor. Los seis jobs one-shot vuelven a ejecutarse y terminan con código 0: el bucket, los namespaces, el pipeline y los dos administradores ya existen. Sigue habiendo un solo job de Flink, un slot de replicación y un usuario en cada base de metadatos.
 - **Detener y volver a levantar.** `docker compose down` (7 s) y `docker compose up -d` (40 s): el pipeline se reanuda desde su último checkpoint con un job nuevo, el simulador sigue con la película pendiente siguiente sin repetir altas, el DAG lanza su corrida a su hora y Superset conserva lo creado. Con el simulador en pausa para poder comparar, PostgreSQL y Bronze coincidieron en las 20 tablas. Se detuvo entre dos corridas del DAG; pararlo en mitad de una no se probó.
 
@@ -2709,6 +2712,87 @@ Una demostración completa deberá poder mostrar:
 14. DuckDB consulta Gold.
 15. En Superset se conecta la base DuckDB y se crea un gráfico sobre un producto Gold (guía de la sección 35); el gráfico refleja los cambios tras la siguiente corrida.
 
+### Guía de la demostración
+
+Recorre los quince pasos de arriba con el laboratorio en marcha. Lleva unos 25 minutos, casi todos de espera a dos corridas del DAG. Los comandos se lanzan desde la raíz del repositorio; en Git Bash hay que anteponer `MSYS_NO_PATHCONV=1` a los que empiezan por `docker compose exec` o `docker compose --profile`. Las direcciones y las cuentas están en la sección 45.4.
+
+**Antes de empezar.** Para enseñarlo desde el principio, el laboratorio se vuelve a cero (sección 39) y se levanta con `docker compose up -d --build`. Si ya lleva tiempo en marcha, la guía vale igual: solo cambian las cifras.
+
+**1. El arranque (pasos 1 a 3)**
+
+```bash
+docker compose ps -a
+```
+
+Se ven 13 servicios en `Up` y seis jobs de preparación en `Exited (0)`. En Flink, `http://127.0.0.1:8081`, el job `elastiflix-postgres-to-bronze` está en `RUNNING`: es el pipeline de CDC, y nadie lo lanzó a mano.
+
+**2. El simulador escribe en PostgreSQL (pasos 4 y 5)**
+
+```bash
+docker compose logs -f --tail 5 java-simulator
+```
+
+Cada línea `TX` es una transacción real: un `INSERT` de una película con todas sus relaciones, un `UPDATE` o un `DELETE`. Se sale con `Ctrl-C`. El número de películas crece si se repite esta consulta:
+
+```bash
+docker compose exec postgresql psql -U postgres -d elastiflix -c "SELECT count(*) FROM catalog.movie"
+```
+
+La misma actividad se ve y se maneja desde la consola del simulador, con `docker compose attach java-simulator` y cualquier tecla (sección 9.3).
+
+**3. Los cambios llegan a Bronze (pasos 6 a 9)**
+
+```bash
+docker compose --profile tools run --rm duckdb -c "SELECT cdc_op_type, count(*) AS filas FROM lake.bronze.movie GROUP BY ALL ORDER BY 1"
+```
+
+Bronze guarda el último estado de cada fila y la operación que lo dejó así: `+I` para las insertadas, `+U` para las modificadas y `-D` para las borradas, que no desaparecen: quedan como tombstones. Las cifras cambian de una ejecución a la siguiente, porque Flink escribe cada pocos segundos.
+
+**4. Airflow construye Silver y Gold (pasos 10 a 13)**
+
+En Airflow, `http://127.0.0.1:8080`, el DAG `elastiflix_medallion` está activo y tiene una corrida cada 10 minutos. Cada una tarda entre 4 y 5 minutos; sus seis tareas se ven en la vista de cuadrícula. Cuando una termina en `success`:
+
+```bash
+docker compose --profile tools run --rm duckdb -c "SELECT count(*) FILTER (WHERE is_current) AS vigentes, count(*) FILTER (WHERE NOT is_current) AS cerradas, max(version_number) AS version_mas_alta FROM lake.silver.dim_movie"
+```
+
+Silver guarda el historial: las versiones vigentes, las cerradas por un cambio o un borrado, y películas que ya van por su segunda o tercera versión.
+
+```bash
+docker compose --profile tools run --rm duckdb -c "SELECT count(*) AS peliculas, max(gold_processed_at) AS carga FROM lake.gold.movie_current_overview"
+```
+
+Gold tiene solo las películas vivas, y `carga` es el instante de la corrida que lo dejó así.
+
+**5. Superset consulta Gold (pasos 14 y 15)**
+
+Se sigue la guía de la sección 35: conectar la base, registrar `movie_current_overview` como dataset y crear un gráfico de barras, por ejemplo con `primary_genre` en el eje y `COUNT` de `movie_id` como métrica. Conviene añadirlo a un dashboard.
+
+**6. Seguir un cambio de punta a punta**
+
+Se elige un cambio reciente del simulador que se vea bien, por ejemplo un cambio de título:
+
+```bash
+docker compose logs --tail 500 java-simulator | grep "title:" | tail -3
+```
+
+Cada línea dice el `movie_id` y el título antes y después. Con ese identificador, aquí `174288`, se mira cada capa:
+
+```bash
+docker compose exec postgresql psql -U postgres -d elastiflix -c "SELECT movie_id, title FROM catalog.movie WHERE movie_id = 174288"
+docker compose --profile tools run --rm duckdb -c "SELECT title, cdc_op_type FROM lake.bronze.movie WHERE movie_id = 174288"
+docker compose --profile tools run --rm duckdb -c "SELECT title, version_number, is_current, effective_from, effective_to FROM lake.silver.dim_movie WHERE movie_id = 174288 ORDER BY version_number"
+docker compose --profile tools run --rm duckdb -c "SELECT title, gold_processed_at FROM lake.gold.movie_current_overview WHERE movie_id = 174288"
+```
+
+PostgreSQL y Bronze ya tienen el título nuevo. Silver y Gold conservan el antiguo hasta la corrida siguiente del DAG. Cuando esa corrida termina, las dos últimas consultas cambian: Silver tiene dos versiones, la antigua cerrada en el instante del cambio y la nueva vigente, y Gold muestra el título nuevo. En Superset basta con recargar el dashboard; la misma película se consulta en SQL Lab con `SELECT title FROM main.movie_current_overview WHERE movie_id = 174288`.
+
+Para provocar el cambio en vez de esperarlo, la consola del simulador tiene la tecla `M`, que lanza una operación a mano sobre la película que se elija.
+
+**7. Cerrar**
+
+`docker compose down` detiene el laboratorio sin perder nada; `docker compose up -d` lo deja donde estaba.
+
 ### Comprobado en la fase F11
 
 Los quince pasos se recorrieron con el laboratorio vuelto a cero, y tres cambios del simulador se siguieron por todas las capas. En cada uno se miró el estado antes y después de la corrida del DAG de las 21:36:49 UTC:
@@ -2721,7 +2805,7 @@ Los quince pasos se recorrieron con el laboratorio vuelto a cero, y tres cambios
 
 El gráfico creado con la guía de la sección 35 pasó de 111 a 1,528 películas al recargar el dashboard. Entre un cambio y su aparición en Superset pasan como mucho 15 minutos: hasta 10 de espera a la corrida siguiente y 5 de la corrida.
 
-Lo que no se siguió en esta fase: un UPDATE descriptivo, que abre una versión nueva en `dim_movie`; ese camino se comprobó en la fase F7. Un cambio intermedio que se deshace o se borra antes de la corrida siguiente no deja versión propia en Silver, porque cada corrida lee el último estado de Bronze.
+El UPDATE descriptivo, que abre una versión nueva en `dim_movie`, se siguió en la fase F12 al probar la guía de arriba: el cambio de título de la película 174288, a las 22:05:25, dejó en Silver la versión 1 cerrada en ese instante y la versión 2 vigente, y el título nuevo en Gold y en Superset tras la corrida de las 22:06:50. Un cambio intermedio que se deshace o se borra antes de la corrida siguiente no deja versión propia en Silver, porque cada corrida lee el último estado de Bronze.
 
 ## 43. 🚀 Trabajo siguiente
 
@@ -2737,7 +2821,7 @@ El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/co
 
 > Versión interactiva: [`diagrams/end-to-end-change-path.html`](diagrams/end-to-end-change-path.html) · Fuente editable: [`diagrams/end-to-end-change-path.json`](diagrams/end-to-end-change-path.json).
 
-Comprobado en la fase F11 sobre un laboratorio vuelto a cero en el equipo de desarrollo, con las imágenes ya construidas (sección 42). Falta repetirlo desde un clon limpio del repositorio, que es la actividad F12-06 del plan.
+Comprobado dos veces. En la fase F11, sobre un laboratorio vuelto a cero en el equipo de desarrollo (sección 42). Y en la actividad F12-06 del plan, desde un clon limpio del repositorio en otra carpeta y otra unidad, siguiendo solo el README: copiar `.env.example`, construir las cinco imágenes sin caché (2 min 37 s) y `docker compose up -d --build` (102 s, código 0). La primera corrida del DAG terminó bien a los 6 minutos, y un INSERT, un UPDATE y un DELETE del simulador llegaron a Superset tras la segunda. El clon se extrajo con finales de línea LF aunque el equipo tiene `core.autocrlf=true`, y el laboratorio no dejó en él ningún archivo sin ignorar. Límites de esa prueba: se hizo en el mismo equipo, con las imágenes base ya descargadas, y la base y el dataset de Superset se registraron por su API, no por la interfaz.
 
 El diseño debe ser comprensible desde la estructura de directorios y mantener una separación clara de responsabilidades entre ingestión, CDC, almacenamiento, catálogo, transformación, orquestación, serving y visualización.
 

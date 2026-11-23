@@ -11,8 +11,6 @@ flink/data/*
 !flink/data/.gitkeep
 iceberg/data/*
 !iceberg/data/.gitkeep
-rustfs/data/*
-!rustfs/data/.gitkeep
 superset/data/*
 !superset/data/.gitkeep
 

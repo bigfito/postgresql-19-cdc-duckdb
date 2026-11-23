@@ -95,7 +95,7 @@
       "title": "Superset",
       "items": [
         "No consulta PostgreSQL, Flink ni Bronze",
-        "Cada dataset es una vista main.<producto>",
+        "Cada dataset es una vista memory.main.<producto>",
         "Cada consulta abre un DuckDB en memoria nuevo"
       ]
     },
