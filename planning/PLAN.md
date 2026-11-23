@@ -14,20 +14,20 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
 |---|---|---:|---:|---:|---|
-| F0 | Diseño y validaciones previas | 21 | 20 | 95 % | 🔄 En curso |
+| F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 7 | 0 | 0 % | ⏳ Pendiente |
 | F3 | PostgreSQL operacional | 14 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 6 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 16 | 0 | 0 % | ⏳ Pendiente |
-| F6 | Event Simulator | 36 | 0 | 0 % | ⏳ Pendiente |
+| F6 | Event Simulator | 39 | 0 | 0 % | ⏳ Pendiente |
 | F7 | Spark y capa Silver | 33 | 0 | 0 % | ⏳ Pendiente |
 | F8 | Capa Gold | 11 | 0 | 0 % | ⏳ Pendiente |
 | F9 | Orquestación con Airflow | 17 | 0 | 0 % | ⏳ Pendiente |
 | F10 | DuckDB y Superset | 14 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 11 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **202** | **29** | **14 %** | 🔄 En curso |
+| | **Global** | **205** | **30** | **15 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -114,7 +114,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [x] **F0-12** Decidir cómo reconciliar Bronze si se pierden los checkpoints. _(decisión 27)_
 - [x] **F0-13** Decidir el origen de `effective_from`. _(decisión 26)_
 - [x] **F0-14** Ejecutar la validación 10: consola Lanterna dentro del contenedor. _(validaciones, parte 2)_
-- [ ] **F0-15** Ejecutar la validación 11: DuckDB JDBC lee Bronze desde Java 25. _(validaciones, parte 2)_
+- [x] **F0-15** Ejecutar la validación 11: DuckDB JDBC lee Bronze desde Java 25. _(validaciones, parte 2)_
 - [x] **F0-16** Ejecutar la validación 12: inicio de sesión del administrador de Airflow. _(validaciones, parte 2)_
 - [x] **F0-17** Decidir el gestor de autenticación de Airflow. _(decisión 30)_
 - [x] **F0-18** Decidir si DuckDB usa una clave de RustFS de solo lectura. _(decisión 28)_
@@ -223,7 +223,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-06** Insertar catálogos y entidades la primera vez que se necesitan. _(diseño §9.5)_
 - [ ] **F6-07** Implementar el UPDATE descriptivo. _(RF-03)_
 - [ ] **F6-08** Implementar el UPDATE de medidas. _(RF-03)_
-- [ ] **F6-09** Implementar el UPDATE de relaciones. _(RF-03)_
+- [ ] **F6-09** Implementar el UPDATE de relaciones, que actualiza también `updated_at` de la película. _(RF-03 y diseño §9.5)_
 - [ ] **F6-10** Implementar el DELETE de una película. _(RF-03)_
 - [ ] **F6-11** Implementar la reinserción de una película borrada. _(RF-03)_
 - [ ] **F6-12** Elegir la siguiente operación según los pesos y la semilla. _(RF-04 y RF-05)_
@@ -243,10 +243,13 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
 - [ ] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
 - [ ] **F6-25** Implementar el diálogo de operación manual. _(RF-08)_
-- [ ] **F6-26** Implementar el seguimiento del cambio hasta Bronze. _(RF-09)_
+- [ ] **F6-26** Implementar el seguimiento del cambio hasta Bronze, con el instante de referencia truncado. _(RF-09 y diseño §9.3)_
+- [ ] **F6-37** Abrir DuckDB en un hilo propio, con hilos y memoria limitados, y reabrirlo si una consulta falla. _(diseño §9.8)_
+- [ ] **F6-38** Marcar como demorada la transacción que no llega a Bronze en 120 segundos. _(diseño §9.3)_
 - [ ] **F6-27** Escribir pruebas unitarias de la lectura de CSV. _(diseño §9.1)_
 - [ ] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
-- [ ] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator`. _(diseño §45.2)_
+- [ ] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator` y las opciones de la JVM. _(diseño §9.8 y §45.2)_
+- [ ] **F6-39** Instalar las extensiones de DuckDB durante el build de la imagen. _(diseño §34)_
 - [ ] **F6-30** Añadir `java-simulator` al Compose, después de `flink-cdc-submit`. _(diseño §40)_
 - [ ] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
 - [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.2)_
@@ -410,6 +413,7 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | F0-15 | Responsable y agentes | Validación 11 superada con ajustes al diseño; decisiones 33 y 34. Fase F0 terminada. Se cierra el riesgo R6 |
 | 2026-11-22 | Riesgos | Agente | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |
 | 2026-11-22 | F0-14 | Agente | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
 | 2026-11-22 | F1-04 a F1-09 | Responsable, agente y GrokBot | Dataset regenerado recibido, validado, cargado en PostgreSQL 19 y confirmado como definitivo. Fase F1 terminada |
@@ -437,7 +441,6 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 |---|---|---|---|---|
 | R3 | Todo el stack junto no cabe en la memoria prevista | Declarar el límite de cada servicio al añadirlo | Detener el simulador o Superset mientras corre el DAG | F11-09 supera 15 GB |
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
-| R6 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | Ejecutar F0-15 antes de empezar el seguimiento en F6 | Usar la alternativa de la validación 11 | F0-15 falla |
 | R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
 
 ### Riesgos cerrados
@@ -447,4 +450,5 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 | R1 | La consola Lanterna no funciona a través de `docker compose attach` | 2026-11-22 | La validación 10 pasó desde una terminal de Linux y otra de Windows (F0-14) |
 | R2 | El dataset regenerado llega tarde o no cumple | 2026-11-22 | El dataset regenerado se recibió, se validó y quedó como definitivo (F1-04 a F1-09) |
 | R4 | Una decisión abierta de F0 frena una fase del camino más largo | 2026-11-22 | No queda ninguna decisión abierta |
+| R6 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | 2026-11-22 | La validación 11 pasó: adjunta el catálogo, lee `bronze.movie` y detecta los cambios (F0-15) |
 | R7 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | 2026-11-22 | Apache Commons CSV 1.14.1 lee los 20 CSV desde Java 25 con el mismo contenido, celda por celda, que una lectura de referencia |

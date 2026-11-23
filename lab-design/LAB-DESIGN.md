@@ -503,7 +503,13 @@ Teclas:
 
 La operación se ejecuta como una transacción normal, aparece en la lista marcada como manual y queda en el log. Funciona también con la simulación en pausa, que es el modo previsto para una demostración: pausar, lanzar un cambio y seguirlo hasta Bronze, Silver y Superset.
 
-**Seguimiento aguas abajo (RF-09).** La columna `Bronze` de cada transacción pasa de «pendiente» a «✓» con el tiempo transcurrido cuando el cambio aparece en `bronze.movie`: la fila con ese `movie_id` y un `cdc_op_ts` igual o posterior al de la transacción, o el tombstone si fue un DELETE. El simulador lo comprueba con DuckDB embebido y el mismo SQL de inicialización que usa Superset (sección 34), consultando por lotes las transacciones pendientes cada pocos segundos. El retraso esperable es del orden del intervalo de checkpoint de Flink, 30 s.
+**Seguimiento aguas abajo (RF-09).** La columna `Bronze` de cada transacción pasa de «pendiente» a «✓», con el tiempo transcurrido, cuando el cambio aparece en `bronze.movie`: la fila con ese `movie_id` y un `cdc_op_ts` igual o posterior al instante de referencia de la transacción, o el tombstone si fue un DELETE. El simulador lo comprueba con DuckDB embebido y el mismo SQL de inicialización que usa Superset (sección 34). Reglas, comprobadas en la validación 11:
+
+- **Instante de referencia.** Es `floor(extract(epoch FROM now()) * 1000)`, leído en PostgreSQL dentro de la propia transacción. Nunca un valor redondeado: `cdc_op_ts` es el instante del commit truncado a milisegundos y cae en el mismo milisegundo que el inicio de la transacción en cerca de un 30 % de los casos, de modo que un umbral redondeado hacia arriba deja algunas transacciones pendientes para siempre.
+- **Consulta.** Cada 5 segundos, una sola consulta por lote con las transacciones pendientes: `SELECT movie_id, cdc_op_type, cdc_op_ts FROM lake.bronze.movie WHERE movie_id IN (…)`. Cuesta entre 10 y 60 ms, según los deletes acumulados desde la última compactación, y una petición al catálogo.
+- **Retraso esperable.** Entre 1 y 35 segundos, según en qué momento del intervalo de checkpoint de Flink caiga el commit.
+- **Todas las operaciones se siguen en `bronze.movie`.** Por eso el UPDATE de relaciones actualiza también `updated_at` de la película (sección 9.5): sin eso no tocaría `movie` y nunca saldría de «pendiente».
+- **Demora.** Si una transacción no aparece en 120 segundos, cuatro checkpoints, se marca «demorada» y la cabecera avisa de que Bronze no avanza. Se sigue comprobando: si el cambio llega después, pasa a «✓» con su tiempo real.
 
 ### 9.4 Modo sin interfaz
 
@@ -516,7 +522,7 @@ El contenedor tiene terminal aunque nadie esté conectado, así que el simulador
 - **Alta perezosa de catálogos y entidades.** Ninguna tabla se precarga. Una fila de `movie_status`, `content_rating`, `original_language`, `enrichment_field`, `genre`, `keyword`, `person`, `production_company`, `production_country`, `spoken_language` o `collection` se inserta la primera vez que una película la necesita, dentro de la transacción de esa película. El simulador recuerda qué claves ya insertó.
 - **Identificadores del archivo.** Toda fila se inserta con la clave que trae el CSV, también en las cinco tablas de clave sustituta (sección 8.4).
 - **Datos inconsistentes.** Si una película falla por una clave duplicada o una referencia inexistente, el simulador revierte su transacción, lo registra con nivel `ERROR` y continúa con la siguiente. No intenta corregir el dato.
-- **Tipos de UPDATE.** El simulador alterna tres clases, para ejercitar los tres caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`) y de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`.
+- **Tipos de UPDATE.** El simulador alterna tres clases, para ejercitar los tres caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`) y de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`. El UPDATE de relaciones no cambia ninguna columna de `movie`, pero actualiza igualmente su `updated_at` en la misma transacción: así el cambio deja rastro en la película, el seguimiento aguas abajo lo ve y Silver tiene de dónde tomar la fecha del nuevo conteo.
 - **DELETE.** Siempre sobre `movie`; las relaciones caen por `ON DELETE CASCADE`.
 - **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando UPDATE y DELETE, y puede volver a insertar una película borrada con los datos de los archivos. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, pasa a `TERMINADO` al agotar `movie.csv`, pero sigue aceptando operaciones manuales.
 - **Reproducibilidad.** La semilla gobierna la secuencia automática. Una operación manual o un cambio de pesos la altera a partir de ese punto; ambos quedan en el log para poder reconstruir lo ocurrido.
@@ -535,6 +541,10 @@ Valores iniciales, por variables de entorno. Los cuatro primeros se pueden cambi
 | `SIMULATOR_CONTINUOUS` | Seguir generando cambios al agotar `movie.csv` |
 | `SIMULATOR_AUTOSTART` | Empezar a simular al arrancar (`true` por defecto) o esperar en pausa |
 | `SIMULATOR_TRACK_BRONZE` | Activar el seguimiento aguas abajo (`true` por defecto) |
+| `SIMULATOR_TRACK_INTERVAL_MS` | Intervalo de sondeo de Bronze (5000 por defecto) |
+| `SIMULATOR_TRACK_LATE_MS` | Tiempo tras el que una transacción pendiente se marca «demorada» (120000 por defecto) |
+| `SIMULATOR_DUCKDB_THREADS` | Hilos de DuckDB (2 por defecto) |
+| `SIMULATOR_DUCKDB_MEMORY_LIMIT` | Memoria de DuckDB (`128MB` por defecto) |
 
 Los pesos no forman parte de ninguna restricción del modelo.
 
@@ -581,9 +591,16 @@ En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: t
 - **Logs.** Con la interfaz abierta, `docker compose logs` recibe también las secuencias de dibujo, cerca de 1 KB por segundo, y deja de ser legible. El servicio limita el tamaño de su log en el Compose (`logging`, con `max-size`) y las líneas de transacción del RF-11 se escriben además en un archivo.
 - **Memoria.** Con los 512 MB del contenedor, la JVM toma por defecto un heap máximo de la cuarta parte, unos 123 MB, y los 20 CSV cargados como texto ocupan 98 MB. La imagen fija el heap de forma explícita con `-XX:MaxRAMPercentage`, dejando sitio para la memoria nativa de DuckDB.
 
-El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
+Cómo se usa DuckDB dentro del simulador, comprobado en la validación 11:
 
-> ⚠️ **Por validar antes de implementar.** Falta probar que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figura como validación 11 en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md), y su ejecución está en el plan (F0-15).
+- **Una conexión de larga vida, con un hilo dueño.** Un hilo dedicado abre la conexión y ejecuta todas las consultas; los demás hilos se las piden a través de un ejecutor de un solo hilo. Esa conexión ve cada snapshot nuevo de Iceberg sin reconectar.
+- **Reapertura ante un fallo.** Si una consulta falla, la conexión se cierra y el siguiente sondeo abre otra; inicializarla cuesta unos 40 ms. Cubre el arranque antes de que exista `bronze`: una conexión que adjuntó el catálogo sin ese namespace no llega a verlo nunca.
+- **Límites.** La conexión se abre con `threads=2` y `memory_limit=128MB`. Por defecto DuckDB toma todos los núcleos del host y el 80 % de la memoria del contenedor, que sumado al heap de Java supera los 512 MB.
+- **Acceso nativo.** La JVM arranca con `--enable-native-access=ALL-UNNAMED`. Sin esa opción, Java 25 avisa en cada arranque y una versión futura bloqueará la carga de la librería.
+- **`/tmp` escribible y ejecutable.** El driver extrae ahí su librería nativa, de 60 MB. Si el contenedor fuese de solo lectura, `/tmp` iría en un tmpfs con `exec`. Nada más necesita escritura.
+- **Tamaño.** El JAR sin clasificador incluye las librerías de cuatro plataformas (85 MB). El clasificador de la plataforma, `linux_amd64` o `linux_arm64`, pesa 21 MB.
+
+El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
 
 ## 10. 🐘 PostgreSQL 19
 
@@ -1850,7 +1867,7 @@ no necesitan crear una nueva versión de `dim_movie`; generan un nuevo snapshot 
 
 ### UPDATE de relaciones
 
-Añadir o quitar un género, una keyword o un miembro del reparto:
+Añadir o quitar un género, una keyword o un miembro del reparto. El simulador actualiza también `updated_at` de la película (sección 9.5), y de ahí sale la fecha del snapshot:
 
 1. cerrar la fila de bridge que desapareció (`effective_to`, `is_current = false`);
 2. insertar la fila de bridge nueva;
@@ -1982,6 +1999,7 @@ Reglas:
 - **Credenciales por variables de entorno.** `${AWS_ACCESS_KEY_ID}` y `${AWS_SECRET_ACCESS_KEY}` se sustituyen justo antes de ejecutar el archivo; no hay claves escritas en él.
 - **Vistas en la base en memoria, una por producto Gold.** Son obligatorias para los datasets de Superset (sección 35). Se crean en este script porque una base en memoria no conserva nada entre conexiones.
 - DuckDB nunca escribe en el lakehouse. Superset rechaza cualquier DDL o DML sobre esta base, que es su comportamiento por defecto.
+- **El simulador usa este mismo archivo, sin las vistas de Gold.** En su imagen las extensiones se instalan durante el build con el propio driver JDBC, en la misma ruta. No se usa la opción `MAX_TABLE_STALENESS` del `ATTACH`: ahorra la petición al catálogo de cada consulta, pero retrasa la visibilidad de un cambio hasta ese intervalo.
 - Superset solo consulta el namespace `gold`.
 - El archivo no lleva `;` dentro de comentarios: quien lo ejecuta descarta las líneas de comentario y parte el resto por `;`.
 
@@ -2365,5 +2383,5 @@ Este documento describe el diseño vigente. Aquel explica por qué es así y qu�
 | Pérdida de checkpoints | Falla si se repite el snapshot sobre Bronze. Se resuelve reconstruyendo Bronze (sección 38): comprobado |
 | Validación 12, inicio de sesión en Airflow | Superada |
 | Validación 10, consola Lanterna con `docker compose attach` | Superada, con ajustes al diseño |
-| Validación 11, DuckDB JDBC desde Java 25 | Pendiente |
+| Validación 11, DuckDB JDBC desde Java 25 | Superada, con ajustes al diseño |
 | Decisiones abiertas | Ninguna |

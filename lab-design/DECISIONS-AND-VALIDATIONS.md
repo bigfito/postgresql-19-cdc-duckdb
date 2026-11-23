@@ -52,6 +52,8 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 30 | Airflow autentica con el gestor de Flask AppBuilder; `airflow-init` crea el administrador con `airflow users create` | La contraseña queda cifrada en `metadata-db`, como en Superset. El gestor simple la guarda en texto plano en un archivo que habría que compartir entre contenedores | 18, 45.4 | Validación 12; Revisión 6 |
 | 31 | El dataset definitivo es el regenerado: mismas tablas, filas y catálogos que el primero, con medidas correlacionadas como en un catálogo real y textos y nombres legibles | El primero cumplía el formato, pero sus medidas crecían con `movie_id` y solo tenía 847 títulos distintos, lo que habría dejado los dashboards sin sentido | 8 | Validación del dataset regenerado; Revisión 6 |
 | 32 | El simulador arranca en modo de líneas y abre la interfaz con la primera tecla; atrapa `Ctrl-C` y repinta la pantalla completa cada 2 segundos | El contenedor tiene terminal aunque nadie esté conectado; `Ctrl-C` sin atrapar detiene el contenedor; quien se reconecta ve la pantalla a medias | 9.4, 9.8 | Validación 10; Revisión 6 |
+| 33 | El UPDATE de relaciones actualiza también `updated_at` de la película | Sin eso no toca `movie`, el seguimiento aguas abajo no lo ve nunca y Silver no tiene fecha para el nuevo conteo | 9.3, 9.5, 31 | Validación 11; Revisión 6 |
+| 34 | El seguimiento usa una conexión DuckDB de larga vida con un hilo dueño, `threads=2` y `memory_limit=128MB`; el instante de referencia se toma con `floor`; sondea cada 5 s y avisa a los 120 s | La conexión ve los snapshots nuevos sin reconectar; los valores por defecto de DuckDB no caben en el contenedor; un umbral redondeado pierde transacciones; una parada de Flink debe distinguirse de un retraso normal | 9.3, 9.6, 9.8 | Validación 11; Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -100,7 +102,10 @@ No se utilizará:
 - reconciliar Bronze por fecha tras perder los checkpoints: conserva los tombstones, pero exige registrar cuándo empezó el snapshot y añade un job de reconciliación;
 - una clave de RustFS de solo lectura para DuckDB;
 - un estilo de flecha propio para la carga JDBC y la consulta SQL en el diagrama de linaje;
-- el gestor de autenticación simple de Airflow 3.
+- el gestor de autenticación simple de Airflow 3;
+- consultar la tabla de relación, o marcar la transacción como no seguible, para seguir un UPDATE de relaciones;
+- la opción `MAX_TABLE_STALENESS` al adjuntar el catálogo desde el simulador;
+- probar el simulador con el catálogo o RustFS caídos: el laboratorio corre en un entorno local controlado y no se contempla que un servicio deje de responder.
 
 ## 2. Validaciones
 
@@ -148,7 +153,7 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve primeras pruebas se han ejecutado y superado. Las pruebas 10, 11 y 12 se añadieron en la Revisión 5; la 10 y la 12 se han superado y la 11 está pendiente. Abajo están los resultados y lo que cada una dejó sin cubrir.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve primeras pruebas se han ejecutado y superado. Las pruebas 10, 11 y 12 se añadieron en la Revisión 5; las tres se han superado. Abajo están los resultados y lo que cada una dejó sin cubrir.
 
 ### Resultados
 
@@ -171,7 +176,7 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | Lectura de los CSV con Commons CSV | 2026-11-22 | ✅ Superada: los 20 archivos se leen igual que con una lectura de referencia |
 | 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
 | 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
-| 11 | — | ⏳ Pendiente |
+| 11 | 2026-11-22 | ✅ Superada, con ajustes al diseño y dos decisiones nuevas |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -534,6 +539,40 @@ Ajustes que deja en el diseño (secciones 9.4 y 9.8, decisión 32): la interfaz 
 - **De dónde salió cada dato.** El uso de `DefaultTerminalFactory`, `TerminalScreen`, `doResizeIfNecessary` y `pollInput`, de la documentación de Lanterna (Context7). `CtrlCBehaviour.TRAP` y todo el comportamiento con Docker, de la prueba.
 - **Lo que no cubre:** teclas pulsadas por una persona en un teclado de Windows (desde Windows solo se envió `Ctrl-C`; el resto de teclas se probó desde Linux); Windows Terminal y `cmd.exe` como aplicaciones, porque la terminal de Windows usada fue la del panel de la aplicación de escritorio de Claude; los diálogos de pesos y de operación manual, que piden texto; el parpadeo que pueda percibirse con el refresco completo; y la arquitectura `arm64`.
 
+#### Validación 11: DuckDB JDBC lee Bronze desde Java 25
+
+La ejecutó un agente con el modelo Opus 5.5; sus cifras se contrastaron después con los registros de las pruebas, y la imagen se volvió a ejecutar de forma independiente (carga sin red, permisos y sistema de archivos de solo lectura).
+
+Entorno: el de la validación de volumen (PostgreSQL 19, Flink CDC, RustFS y el catálogo REST, con las 20 tablas y el dataset completo), en una red de Compose sin salida a Internet, más una sonda Java 25 con `org.duckdb:duckdb_jdbc:1.5.6.0`, compilada con Maven 3.10.0 y ejecutada en `eclipse-temurin:25.0.5.1_2-jre` con el usuario `simulator` y 512 MB.
+
+| Comprobación | Resultado |
+|---|---|
+| Artefacto | Existe en Maven Central. El JAR sin clasificador pesa 85 MB y lleva las librerías de cuatro plataformas; hay JAR por plataforma de 21 MB |
+| Extensiones en el build | `httpfs`, `iceberg` y `avro` instaladas con un `INSTALL` desde el propio driver, en `/opt/duckdb_extensions/v1.5.6/linux_amd64/`, propiedad de root y de solo lectura para `simulator`. Cargan sin red |
+| Directorios con escritura | Solo `/tmp`, donde el driver extrae su librería nativa de 60 MB. Con el sistema de archivos de solo lectura hace falta un tmpfs con `exec`; con `noexec` falla al cargarla |
+| Adjuntar y leer | El SQL de la sección 34, sin las vistas de Gold, funciona tal cual. JDBC ve `cdc_op_type` como `VARCHAR` y `cdc_op_ts` como `BIGINT` |
+| Seguimiento de INSERT, UPDATE, DELETE y reinserción | Los 12 cambios de tres rondas se detectaron. Del commit a verlo en Bronze: entre 21.5 y 31.3 s, mediana 25.6 s |
+| Seguimiento con UPDATE continuos (299 en 5 minutos) | 299 de 299 detectados; retraso entre 1.2 y 35.2 s, mediana 18.8 s |
+| Instante de referencia redondeado en lugar de truncado | **2 de 298 transacciones no se detectan nunca.** `cdc_op_ts` coincide con el milisegundo de inicio de la transacción en un 29 % de los casos |
+| Frescura de una conexión de larga vida | Ve cada cambio a la vez que una conexión nueva (diferencia mediana de 29 ms). Cada consulta hace una petición al catálogo y no relee archivos si no hay snapshot nuevo |
+| `MAX_TABLE_STALENESS '2 minutes'` | Ninguna petición al catálogo, pero el cambio se ve a los 120 s en lugar de a los 8 s |
+| Conexión adjuntada antes de que exista `bronze` | **No llega a verlo:** siguió fallando 150 s después de que Flink lo creara. Una conexión nueva lee bien |
+| Inicializar una conexión | 42 ms de mediana; la primera del proceso, unos 430 ms |
+| Consulta de seguimiento recién hecho el snapshot | Unos 10 ms, sea una película o un lote de 200. La tabla completa, 11 ms |
+| Consulta de seguimiento tras unos 620 cambios sin compactar | Entre 30 y 50 ms; tras unos 900, entre 60 y 80 ms |
+| Valores por defecto de DuckDB en el contenedor | 32 hilos y 410 MB de límite de memoria, que con el heap de Java supera los 512 MB |
+| Con `threads=2` y `memory_limit=128MB` | Tiempos casi iguales; unos 150 MB de memoria residente y 17 hilos en lugar de 47 |
+| Concurrencia | Un ejecutor de un hilo dueño de la conexión: 20 de 20 consultas correctas, sin bloquear al hilo que dibuja |
+| Java 25 | Sin `--enable-native-access=ALL-UNNAMED` avisa en cada arranque de que la carga nativa se bloqueará en una versión futura; con la opción, arranque limpio |
+| Tabla ausente | Error inmediato (1 ms) y claro, sin colgar el hilo |
+| Solo lectura | Con el seguimiento parado y sin cambios en PostgreSQL, el bucket y el catálogo quedaron idénticos; una consulta hace un único `GET` al catálogo |
+
+Decisiones que deja (33 y 34): el UPDATE de relaciones actualiza `updated_at` de la película; el instante de referencia se toma con `floor`; conexión de larga vida con un hilo dueño y límites de hilos y memoria; sondeo cada 5 s y aviso de demora a los 120 s.
+
+- **De dónde salió cada dato.** La sintaxis del `ATTACH`, la caché de archivos y los ajustes `threads` y `memory_limit`, de la documentación de DuckDB (Context7). La opción `MAX_TABLE_STALENESS` y el uso del cliente Java, de la documentación en línea de DuckDB 1.5. El artefacto, de Maven Central. Todas las cifras, de la prueba.
+- **Lo que no cubre:** el simulador con el catálogo o RustFS caídos, que se descartó por decisión, porque el laboratorio corre en un entorno local controlado; `ATTACH … READ_ONLY`; una tabla Bronze borrada y recreada con la conexión abierta, que es el caso de la reconstrucción de Bronze; una prueba de horas (la más larga duró 10 minutos); y la arquitectura `arm64`.
+- **Un resultado sin explicar del todo:** en la primera prueba larga, con el instante redondeado, quedaron 11 de 597 UPDATE sin detectar y no se registró cuáles. La prueba dedicada reprodujo el mismo efecto del redondeo, pero para esa corrida no está demostrado.
+
 #### Validación 12: inicio de sesión del administrador de Airflow
 
 Entorno: `apache/airflow:3.4.0-python3.12` sin modificar, con `metadata-db` en `postgres:19.0`, un `airflow-init` que migra la base y crea el administrador, y el `api-server` publicado en `127.0.0.1`. Se ejecutó dos veces, una por gestor de autenticación, con el mismo usuario y la misma contraseña de prueba.
@@ -571,6 +610,8 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Pérdida de checkpoints | Hacía falta reconciliar, sin forma elegida | Bronze se reconstruye; `flink-cdc-submit` se detiene si no hay checkpoint y Bronze ya tiene tablas; Silver cierra las claves ausentes. Comprobado | 14, 19, 31, 38 |
 | Diagramas de arquitectura y de orden de arranque | Sin la consulta del simulador a Bronze ni el job `volumes-init` | Los incluyen | 4, 40 |
 | Clave de RustFS | Una sola, con la de solo lectura como deseable sin comprobar | Una sola, por decisión | 45.3 |
+| Seguimiento aguas abajo | Regla sin detalle: «`cdc_op_ts` igual o posterior», sondeo «cada pocos segundos» | Instante de referencia truncado, sondeo cada 5 s, aviso de demora a los 120 s y conexión DuckDB de larga vida con límites | 9.3, 9.6, 9.8, 34 |
+| UPDATE de relaciones | No tocaba la tabla `movie` | Actualiza también `updated_at` de la película | 9.5, 31 |
 | Memoria del simulador | Sin indicación sobre el heap | La JVM fija su heap de forma explícita | 9.8 |
 | Interfaz del simulador | Se abría al conectarse con `docker compose attach`; sin TTY no dibujaba | Arranca en modo de líneas y se abre con una tecla; atrapa `Ctrl-C`; refresco completo cada 2 s; log del servicio limitado | 9.1, 9.4, 9.8 |
 | Autenticación de Airflow | Mecanismo por validar | Gestor de Flask AppBuilder; el administrador se crea con `airflow users create` | 18, 45.4 |
