@@ -41,7 +41,7 @@ COMMENT ON TABLE catalog.genre IS
 
 -- Palabra clave. El nombre no es único: el dataset trae nombres compartidos
 -- por dos identificadores (sección 8.6). El simulador la renombra en el UPDATE
--- de catálogo.
+-- de catálogo. Una keyword se llama 'none': es un texto, no una ausencia.
 CREATE TABLE catalog.keyword (
     keyword_id bigint NOT NULL,
     name       text   NOT NULL,

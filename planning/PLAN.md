@@ -17,7 +17,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
-| F3 | PostgreSQL operacional | 15 | 4 | 27 % | 🔄 En curso |
+| F3 | PostgreSQL operacional | 15 | 9 | 60 % | 🔄 En curso |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **43** | **19 %** | 🔄 En curso |
+| | **Global** | **222** | **48** | **22 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -169,11 +169,11 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [x] **F3-02** Escribir el DDL de las 7 entidades compartidas. _(diseño §12)_
 - [x] **F3-03** Escribir el DDL de `movie` y `movie_collection`. _(diseño §12)_
 - [x] **F3-04** Escribir el DDL de las 6 tablas de relación y de `movie_enrichment`. _(diseño §12)_
-- [ ] **F3-05** Revisar el DDL con las observaciones de la validación del dataset. _(validaciones, parte 2)_
-- [ ] **F3-06** Crear el rol `elastiflix_app`. _(diseño §45.3)_
-- [ ] **F3-07** Crear el rol `elastiflix_cdc`. _(diseño §45.3)_
-- [ ] **F3-08** Tomar las contraseñas de los roles desde variables de entorno. _(diseño §45.5)_
-- [ ] **F3-09** Configurar `REPLICA IDENTITY FULL` en las 20 tablas. _(diseño §10)_
+- [x] **F3-05** Revisar el DDL con las observaciones de la validación del dataset. _(validaciones, parte 2)_
+- [x] **F3-06** Crear el rol `elastiflix_app`. _(diseño §45.3)_
+- [x] **F3-07** Crear el rol `elastiflix_cdc`. _(diseño §45.3)_
+- [x] **F3-08** Tomar las contraseñas de los roles desde variables de entorno. _(diseño §45.5)_
+- [x] **F3-09** Configurar `REPLICA IDENTITY FULL` en las 20 tablas. _(diseño §10)_
 - [ ] **F3-10** Crear la publicación `elastiflix_pub`. _(diseño §10)_
 - [ ] **F3-11** Añadir el servicio `postgresql` al Compose con sus parámetros de replicación. _(diseño §10)_
 - [ ] **F3-12** Añadir el healthcheck de `postgresql`. _(diseño §40)_
@@ -446,6 +446,11 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F3-09 | Agente | F3 60 % · Global 22 % | `postgresql/init/08-replica-identity.sql` aplica `REPLICA IDENTITY FULL` a las 20 tablas y termina con una comprobación que detiene la inicialización si alguna tabla de `catalog` queda sin ella. Probado con decodificación lógica: un UPDATE y un DELETE de `movie` llevan las 25 columnas, y los 62 borrados en cascada llevan su fila completa |
+| 2026-11-22 | F3-08 | Agente | F3 53 % · Global 21 % | `postgresql/init/07-role-passwords.sh` pone la contraseña a `elastiflix_app` y `elastiflix_cdc` desde `ELASTIFLIX_APP_PASSWORD` y `ELASTIFLIX_CDC_PASSWORD`, como variables de `psql`. Probado: quedan en `scram-sha-256`, cada cuenta entra desde la red solo con la suya, no aparecen en el log y, si falta una variable, la inicialización se detiene con un mensaje |
+| 2026-11-22 | F3-07 | Agente | F3 47 % · Global 21 % | El mismo archivo crea `elastiflix_cdc` con `REPLICATION` y `SELECT` en las 20 tablas, sin superusuario. Probado con `wal_level=logical`: lee, crea y borra un slot lógico con `pgoutput`; no puede modificar datos ni crear publicaciones |
+| 2026-11-22 | F3-06 | Agente | F3 40 % · Global 20 % | `postgresql/init/06-roles.sql` crea `elastiflix_app`, sin contraseña todavía (F3-08), con `SELECT`, `INSERT`, `UPDATE` y `DELETE` en las 20 tablas. Probado: carga los 20 CSV, actualiza y borra; no puede vaciar, crear ni alterar tablas, ni usar slots; desde la red se le rechaza |
+| 2026-11-22 | F3-05 | Agente | F3 33 % · Global 20 % | Repasadas las seis observaciones de la validación del dataset y sus defectos intencionales contra el DDL, con el dataset cargado en PostgreSQL 19.0: ninguna pide cambios. La keyword `none` se guarda como texto, los 666 títulos en alfabeto no latino entran en UTF8, y conviven los 18 pares de compañías «X» / «X Ltd.» y los nombres compartidos de keyword y colección. Solo se añade un comentario sobre `none` |
 | 2026-11-22 | F3-04 | Agente | F3 27 % · Global 19 % | `postgresql/init/05-relations.sql` con las 6 tablas de relación y `movie_enrichment`: clave compuesta, posición única desde 1 y `ON DELETE CASCADE` solo hacia `movie`. Con las 20 tablas cargan los 20 CSV (438,925 filas, igual que los archivos); borrar una película elimina sus 62 filas de relación y deja intactas las entidades compartidas |
 | 2026-11-22 | F3-03 | Agente | F3 20 % · Global 19 % | `postgresql/init/04-movie.sql` con `movie` (tres claves foráneas a catálogos, las diez reglas de la sección 12.2 como `CHECK` e índice único parcial en `imdb_id`) y `movie_collection`. En un PostgreSQL 19.0 desechable cargan sus CSV (6,899 y 1,934 filas) y cada regla rechaza su caso inválido |
 | 2026-11-22 | Plan | Responsable y agente | — | El avance no se estaba reportando al terminar cada actividad: el tablero lo registraba, pero el script solo imprimía el global y ninguna regla pedía comunicarlo. `update_progress.py` gana `--done`, que marca, registra en la bitácora e imprime el avance de la fase y el global; la bitácora gana la columna «Avance» y la regla 6 obliga a reportarlo |
