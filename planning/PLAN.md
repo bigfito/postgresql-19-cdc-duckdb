@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: ✅ Terminado.** Las 222 actividades están hechas y la versión final lleva la etiqueta `v1.0.0`. No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
+**Estado global: ✅ Terminado.** Las 222 actividades están hechas. La etiqueta `v1.0.0` cerró el plan y la `v1.0.1`, la vigente, añade la licencia. No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -446,6 +446,7 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | Publicación | Responsable y agente | — | Etiqueta `v1.0.1`, pedida por la persona responsable: es la `v1.0.0` más la licencia Apache 2.0 y las notas de publicación. No cambia el código ni cómo se ejecuta el laboratorio. La `v1.0.0` no se mueve |
 | 2026-11-23 | Publicación | Responsable y agente | — | El repositorio y su wiki pasan a ser públicos, por decisión de la persona responsable, después de la etiqueta `v1.0.0`. Antes del cambio se revisó el historial: ningún correo personal, ningún `.env` versionado, ninguna clave escrita en el código y ninguna ruta personal. Se añade la licencia Apache 2.0, elegida por la persona responsable; su texto coincide con el oficial. La etiqueta `v1.0.0` es anterior y no incluye el archivo `LICENSE` |
 | 2026-11-23 | F12 | Agente | F12 100 % · Global 100 % | Fase terminada, y con ella el plan: 222 de 222 actividades. Su criterio de cierre está comprobado: un clon limpio del repositorio levantó el laboratorio siguiendo solo el README (F12-06). Antes de la etiqueta, un revisor independiente contrastó toda la documentación y los diagramas con el código, y se corrigieron sus 35 hallazgos. Fuera del plan se escribió y publicó el wiki para lectores de negocio, con doce páginas. Quedan abiertos los riesgos R5, R8, R10 y R12, que describen límites conocidos del laboratorio, no trabajo pendiente. Sin probar: Linux y equipos `arm64`, la memoria con el dataset completo cargado, y detener el laboratorio en mitad de una corrida del DAG |
 | 2026-11-23 | F12-07 | Agente | F12 100 % · Global 100 % | Versión final publicada con la etiqueta de Git v1.0.0, anotada, sobre el commit de cierre que registra esta actividad y deja el README en su estado final. La etiqueta se publica en GitHub junto con main. La pidió la persona responsable, que eligió el nombre |

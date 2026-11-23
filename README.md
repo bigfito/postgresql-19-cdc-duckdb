@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> ✅ **Laboratorio terminado: versión `v1.0.0`.** Las 13 fases del [plan de trabajo](planning/PLAN.md) están cerradas. El laboratorio está completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Se comprobó también desde un clon limpio, siguiendo solo este README.
+> ✅ **Laboratorio terminado: versión `v1.0.1`.** La `v1.0.0` cerró el plan; la `v1.0.1` añade la licencia. Las 13 fases del [plan de trabajo](planning/PLAN.md) están cerradas. El laboratorio está completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Se comprobó también desde un clon limpio, siguiendo solo este README.
 
 | Elemento | Estado |
 |---|---|
