@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="generator" content="archify 3.3.0">
   <meta name="archify-reader-contract" content="declared-wide-v1">
-  <title>DAG elastiflix_medallion: Bronze → Silver → Gold → Superset · Diagrama</title>
+  <title>DAG elastiflix_medallion: Bronze → Silver → Gold · Diagrama</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -6115,7 +6115,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="PLANO / REV 01"
            data-preset-badge-editorial="EDITORIAL / NOTA DE CAMPO">
         <div class="pulse-dot"></div>
-        <h1>DAG elastiflix_medallion: Bronze → Silver → Gold → Superset</h1>
+        <h1>DAG elastiflix_medallion: Bronze → Silver → Gold</h1>
       </div>
     </div>
 
@@ -6126,8 +6126,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 858 652" data-reader-fit="width-first" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
-        <title id="archify-diagram-title">DAG elastiflix_medallion: Bronze → Silver → Gold → Superset</title>
+      <svg viewBox="0 0 861 528" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+        <title id="archify-diagram-title">DAG elastiflix_medallion: Bronze → Silver → Gold</title>
         <desc id="archify-diagram-description">Un diagrama de flujo de trabajo generado por Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -6173,17 +6173,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="802" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="805" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / Airflow 3.4</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="802" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="805" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="198" class="t-muted" font-size="10" font-weight="600">02 / Spark 4.1.4</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="802" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="805" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="322" class="t-muted" font-size="10" font-weight="600">03 / Iceberg</text>
-
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="424" width="802" height="104" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="446" class="t-muted" font-size="10" font-weight="600">04 / Superset 6.1</text>
 
         <!-- Phase headers -->
 
@@ -6192,18 +6189,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
         <!-- Edge paths -->
-        <path data-edge-from="bronze" data-edge-to="jobSilver" data-edge-label="lee estado" data-edge-key="0" data-edge-id="read-bronze" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="142,367;221,367;221,269" d="M 142 367 L 213 367 Q 221 367 221 359 L 221 269" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="silver" data-edge-to="jobGold" data-edge-label="lee vigentes" data-edge-key="1" data-edge-id="read-silver" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="360,341;360,243;430,243" d="M 360 341 L 360 251 Q 360 243 368 243 L 430 243" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="runGold" data-edge-to="jobGold" data-edge-label="spark-submit" data-edge-key="2" data-edge-id="submit-gold" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="486,145;486,217" d="M 486 145 L 486 217" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="runSilver" data-edge-to="jobSilver" data-edge-label="spark-submit" data-edge-key="3" data-edge-id="submit-silver" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="228,145;228,217" d="M 228 145 L 228 217" class="a-dashed" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="bronze" data-edge-to="jobSilver" data-edge-label="lee estado" data-edge-key="0" data-edge-id="read-bronze" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="142,367;221,367;221,269" d="M 142 367 L 213 367 Q 221 367 221 359 L 221 269" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="silver" data-edge-to="jobGold" data-edge-label="lee vigentes" data-edge-key="1" data-edge-id="read-silver" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="360,341;360,243;430,243" d="M 360 341 L 360 251 Q 360 243 368 243 L 430 243" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="runGold" data-edge-to="jobGold" data-edge-label="spark-submit" data-edge-key="2" data-edge-id="submit-gold" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="486,145;486,217" d="M 486 145 L 486 217" class="a-dashed" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="runSilver" data-edge-to="jobSilver" data-edge-label="spark-submit" data-edge-key="3" data-edge-id="submit-silver" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="228,145;228,217" d="M 228 145 L 228 217" class="a-dashed" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="validateBronze" data-edge-to="runSilver" data-edge-key="4" data-edge-id="t1" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="144,119;176,119" d="M 144 119 L 176 119" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="runSilver" data-edge-to="validateSilver" data-edge-key="5" data-edge-id="t2" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="280,119;312,119" d="M 280 119 L 312 119" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="validateSilver" data-edge-to="runGold" data-edge-key="6" data-edge-id="t3" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="408,119;440,119" d="M 408 119 L 440 119" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="runGold" data-edge-to="validateGold" data-edge-key="7" data-edge-id="t4" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="532,119;564,119" d="M 532 119 L 564 119" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="validateGold" data-edge-to="supersetImport" data-edge-key="8" data-edge-id="t5" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="656,119;679,119;679,449;726,449;726,465" d="M 656 119 L 671 119 Q 679 119 679 127 L 679 441 Q 679 449 687 449 L 718 449 Q 726 449 726 457 L 726 465" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="supersetImport" data-edge-to="maintenance" data-edge-label="all_done" data-edge-key="9" data-edge-id="t6" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="750,465;750,145" d="M 750 465 L 750 145" class="a-dashed" data-animate="edge" style="--step:5" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="jobGold" data-edge-to="gold" data-edge-label="overwrite" data-edge-key="10" data-edge-id="write-gold" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="542,243;610,243;610,341" d="M 542 243 L 602 243 Q 610 243 610 251 L 610 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="jobSilver" data-edge-to="silver" data-edge-label="MERGE" data-edge-key="11" data-edge-id="write-silver" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="290,243;336,243;336,341" d="M 290 243 L 328 243 Q 336 243 336 251 L 336 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="validateGold" data-edge-to="maintenance" data-edge-label="all_done" data-edge-key="8" data-edge-id="t5" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="656,119;712.4,119" d="M 656 119 L 712.4 119" class="a-dashed" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="jobGold" data-edge-to="gold" data-edge-label="overwrite" data-edge-key="9" data-edge-id="write-gold" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="542,243;610,243;610,341" d="M 542 243 L 602 243 Q 610 243 610 251 L 610 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="jobSilver" data-edge-to="silver" data-edge-label="MERGE" data-edge-key="10" data-edge-id="write-silver" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="290,243;336,243;336,341" d="M 290 243 L 328 243 Q 336 243 336 251 L 336 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
 
         <!-- Nodes -->
         <g id="node-validateBronze" data-node-id="validateBronze" data-node-label="validate_bronze" tabindex="0" role="button" aria-label="Enfocar validate_bronze, tablas y job de Flink, Airflow 3.4" aria-pressed="false" data-node-kind="security" data-node-sublabel="tablas y job de Flink" data-node-context="Airflow 3.4">
@@ -6266,13 +6262,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-maintenance" data-node-id="maintenance" data-node-label="iceberg_maintenance" tabindex="0" role="button" aria-label="Enfocar iceberg_maintenance, siempre al final, Airflow 3.4" aria-pressed="false" data-node-kind="backend" data-node-sublabel="siempre al final" data-node-context="Airflow 3.4">
           <title>iceberg_maintenance · siempre al final · Airflow 3.4</title>
-          <rect x="688" y="93" width="124" height="52" rx="8" class="c-mask"/>
-          <rect x="688" y="93" width="124" height="52" rx="8" class="c-backend" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(694 99) scale(0.6875)">
+          <rect x="712.4" y="93" width="124" height="52" rx="8" class="c-mask"/>
+          <rect x="712.4" y="93" width="124" height="52" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(718.4 99) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="750" y="124.2" class="t-primary" font-size="10.1" font-weight="600" text-anchor="middle">iceberg_maintenance</text>
-          <text data-detail="context" x="750" y="138.9" class="t-muted" font-size="8" text-anchor="middle">siempre al final</text>
+          <text data-node-label="" data-detail-anchor="" x="774.4" y="124.2" class="t-primary" font-size="10.1" font-weight="600" text-anchor="middle">iceberg_maintenance</text>
+          <text data-detail="context" x="774.4" y="138.9" class="t-muted" font-size="8" text-anchor="middle">siempre al final</text>
         </g>
 
         <g id="node-jobSilver" data-node-id="jobSilver" data-node-label="bronze_to_silver.py" tabindex="0" role="button" aria-label="Enfocar bronze_to_silver.py, dims, hechos, bridges, Spark 4.1.4" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="dims, hechos, bridges" data-node-context="Spark 4.1.4">
@@ -6339,20 +6335,6 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text data-detail="context" x="610" y="379" class="t-muted" font-size="8" text-anchor="middle">serving BI</text>
         </g>
 
-        <g id="node-supersetImport" data-node-id="supersetImport" data-node-label="superset_import" tabindex="0" role="button" aria-label="Enfocar superset_import, tarea del DAG: importa dashboards, Superset 6.1" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="tarea del DAG: importa dashboards" data-node-context="Superset 6.1">
-          <title>superset_import · tarea del DAG: importa dashboards · Superset 6.1</title>
-          <rect x="666" y="465" width="168" height="52" rx="8" class="c-mask"/>
-          <rect x="666" y="465" width="168" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(672 471) scale(0.6875)">
-            <rect x="2" y="3" width="12" height="10" rx="2"/>
-            <path d="M2 6.5h12"/>
-            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
-            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="750" y="486" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">superset_import</text>
-          <text data-detail="context" x="750" y="503" class="t-muted" font-size="8" text-anchor="middle">tarea del DAG: importa dashboards</text>
-        </g>
-
         <!-- Edge labels -->
         <g data-detail="context" data-edge-from="bronze" data-edge-to="jobSilver" data-edge-label="lee estado" data-edge-key="0" data-edge-id="read-bronze">
           <rect x="152.5" y="347" width="58" height="14" rx="3" class="c-mask"/>
@@ -6374,42 +6356,37 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
 
-
-        <g data-detail="context" data-edge-from="supersetImport" data-edge-to="maintenance" data-edge-label="all_done" data-edge-key="9" data-edge-id="t6">
-          <rect x="725.8" y="295" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="750" y="305" class="t-edge-dashed" font-size="8" text-anchor="middle">all_done</text>
+        <g data-detail="context" data-edge-from="validateGold" data-edge-to="maintenance" data-edge-label="all_done" data-edge-key="8" data-edge-id="t5">
+          <rect x="660" y="99" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="684.2" y="109" class="t-edge-dashed" font-size="8" text-anchor="middle">all_done</text>
         </g>
-        <g data-detail="context" data-edge-from="jobGold" data-edge-to="gold" data-edge-label="overwrite" data-edge-key="10" data-edge-id="write-gold">
+        <g data-detail="context" data-edge-from="jobGold" data-edge-to="gold" data-edge-label="overwrite" data-edge-key="9" data-edge-id="write-gold">
           <rect x="549.4" y="223" width="53.199999999999996" height="14" rx="3" class="c-mask"/>
           <text x="576" y="233" class="t-muted" font-size="8" text-anchor="middle">overwrite</text>
         </g>
-        <g data-detail="context" data-edge-from="jobSilver" data-edge-to="silver" data-edge-label="MERGE" data-edge-key="11" data-edge-id="write-silver">
+        <g data-detail="context" data-edge-from="jobSilver" data-edge-to="silver" data-edge-label="MERGE" data-edge-key="10" data-edge-id="write-silver">
           <rect x="296" y="223" width="34" height="14" rx="3" class="c-mask"/>
           <text x="313" y="233" class="t-muted" font-size="8" text-anchor="middle">MERGE</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="20" y="552" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Tarea Airflow sobre Superset" data-legend-x="20" data-legend-baseline="572" data-legend-width="174">
-            <rect x="20" y="564" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="42" y="572" class="t-muted" font-size="7.5" font-weight="500">Tarea Airflow sobre Superset</text>
+          <text x="20" y="428" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Tarea Airflow (spark-submit)" data-legend-x="20" data-legend-baseline="448" data-legend-width="174">
+            <rect x="20" y="440" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="42" y="448" class="t-muted" font-size="7.5" font-weight="500">Tarea Airflow (spark-submit)</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Tarea Airflow (spark-submit)" data-legend-x="201" data-legend-baseline="572" data-legend-width="174">
-            <rect x="201" y="564" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="223" y="572" class="t-muted" font-size="7.5" font-weight="500">Tarea Airflow (spark-submit)</text>
+          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Validación de datos" data-legend-x="201" data-legend-baseline="448" data-legend-width="132">
+            <rect x="201" y="440" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
+            <text x="223" y="448" class="t-muted" font-size="7.5" font-weight="500">Validación de datos</text>
           </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Validación de datos" data-legend-x="382" data-legend-baseline="572" data-legend-width="132">
-            <rect x="382" y="564" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="404" y="572" class="t-muted" font-size="7.5" font-weight="500">Validación de datos</text>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Job PySpark" data-legend-x="340" data-legend-baseline="448" data-legend-width="95">
+            <rect x="340" y="440" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
+            <text x="362" y="448" class="t-muted" font-size="7.5" font-weight="500">Job PySpark</text>
           </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Job PySpark" data-legend-x="521" data-legend-baseline="572" data-legend-width="95">
-            <rect x="521" y="564" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
-            <text x="543" y="572" class="t-muted" font-size="7.5" font-weight="500">Job PySpark</text>
-          </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Capa Iceberg" data-legend-x="623" data-legend-baseline="572" data-legend-width="99">
-            <rect x="623" y="564" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="645" y="572" class="t-muted" font-size="7.5" font-weight="500">Capa Iceberg</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Capa Iceberg" data-legend-x="442" data-legend-baseline="448" data-legend-width="99">
+            <rect x="442" y="440" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="464" y="448" class="t-muted" font-size="7.5" font-weight="500">Capa Iceberg</text>
           </g>
         </g>
       </svg>
@@ -6629,9 +6606,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Alcance de Airflow</h3>
         </div>
         <ul>
-          <li>Solo orquesta los jobs PySpark por lotes</li>
+          <li>Orquesta los jobs PySpark por lotes; no toca Superset</li>
           <li>Flink CDC corre continuo, fuera del DAG</li>
           <li>Reejecutar el DAG es idempotente</li>
+          <li>Corre cada 10 minutos y también se puede lanzar a mano</li>
         </ul>
       </div>
 
@@ -6650,12 +6628,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Dashboards</h3>
+          <h3>Superset</h3>
         </div>
         <ul>
-          <li>superset_import importa datasets y dashboards por la API de Superset</li>
-          <li>Aparecen tras la primera corrida, cuando Gold ya existe</li>
-          <li>Es idempotente: cada corrida importa el mismo paquete</li>
+          <li>No forma parte del DAG</li>
+          <li>Lee Gold a través de DuckDB en cada consulta</li>
+          <li>Los gráficos los crea quien usa el laboratorio</li>
         </ul>
       </div>
     </div>

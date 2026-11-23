@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "DAG elastiflix_medallion: Bronze → Silver → Gold → Superset",
+    "title": "DAG elastiflix_medallion: Bronze → Silver → Gold",
     "locale": "es",
     "output": "airflow-medallion-dag.html",
     "quality_profile": "showcase",
@@ -20,9 +20,6 @@
         },
         "database": {
           "label": "Capa Iceberg"
-        },
-        "frontend": {
-          "label": "Tarea Airflow sobre Superset"
         }
       }
     }
@@ -39,10 +36,6 @@
     {
       "id": "lake",
       "label": "Iceberg"
-    },
-    {
-      "id": "bi",
-      "label": "Superset 6.1"
     }
   ],
   "mainPath": [
@@ -51,7 +44,6 @@
     "validateSilver",
     "runGold",
     "validateGold",
-    "supersetImport",
     "maintenance"
   ],
   "nodes": [
@@ -142,14 +134,6 @@
       "type": "database",
       "label": "gold.*",
       "sublabel": "serving BI"
-    },
-    {
-      "id": "supersetImport",
-      "lane": "bi",
-      "col": 5,
-      "type": "frontend",
-      "label": "superset_import",
-      "sublabel": "tarea del DAG: importa dashboards"
     }
   ],
   "edges": [
@@ -180,12 +164,6 @@
     {
       "id": "t5",
       "from": "validateGold",
-      "to": "supersetImport",
-      "variant": "emphasis"
-    },
-    {
-      "id": "t6",
-      "from": "supersetImport",
       "to": "maintenance",
       "label": "all_done",
       "variant": "dashed"
@@ -245,9 +223,10 @@
       "dot": "emerald",
       "title": "Alcance de Airflow",
       "items": [
-        "Solo orquesta los jobs PySpark por lotes",
+        "Orquesta los jobs PySpark por lotes; no toca Superset",
         "Flink CDC corre continuo, fuera del DAG",
-        "Reejecutar el DAG es idempotente"
+        "Reejecutar el DAG es idempotente",
+        "Corre cada 10 minutos y también se puede lanzar a mano"
       ]
     },
     {
@@ -261,11 +240,11 @@
     },
     {
       "dot": "cyan",
-      "title": "Dashboards",
+      "title": "Superset",
       "items": [
-        "superset_import importa datasets y dashboards por la API de Superset",
-        "Aparecen tras la primera corrida, cuando Gold ya existe",
-        "Es idempotente: cada corrida importa el mismo paquete"
+        "No forma parte del DAG",
+        "Lee Gold a través de DuckDB en cada consulta",
+        "Los gráficos los crea quien usa el laboratorio"
       ]
     }
   ]

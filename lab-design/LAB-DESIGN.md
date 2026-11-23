@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 6 (2026-11-22):** el dataset regenerado queda como definitivo y se cierran cinco decisiones más: `effective_from` sale primero de `updated_at` (sección 21), Bronze se reconstruye si se pierden los checkpoints (secciones 14 y 38), RustFS usa una sola clave (sección 45.3), Airflow autentica con Flask AppBuilder (secciones 18 y 45.4) y la leyenda del diagrama de linaje pasa a ser genérica. Los diagramas y bocetos que estaban dibujados en texto pasan a Archify. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
+> 📝 **Revisión 6 (2026-11-22):** dataset definitivo, validaciones 10 a 12, reconstrucción de Bronze, medición de memoria con todo el stack y decisiones 26 a 65; los diagramas y bocetos que estaban dibujados en texto pasan a Archify. El detalle está en el registro de cambios de [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -28,8 +28,8 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 - 🥈 Construir Silver mediante PySpark con modelo dimensional, FACT, DIM, bridges y SCD Type 2 donde el atributo realmente cambia.
 - 🥇 Crear productos analíticos Gold materializados a partir de Silver.
 - 🦆 Consultar Gold desde DuckDB, que corre embebido en el proceso que lo usa.
-- 📊 Consumir Gold desde Apache Superset a través de DuckDB.
-- ⏱️ Orquestar `bronze_to_silver.py` y `silver_to_gold.py` mediante Apache Airflow.
+- 📊 Consumir Gold desde Apache Superset a través de DuckDB. Superset queda listo para usarse; quien usa el laboratorio conecta la fuente de datos y crea sus propias visualizaciones (guía en la sección 35).
+- ⏱️ Orquestar mediante Apache Airflow los jobs PySpark (`bronze_to_silver.py`, `silver_to_gold.py`, las validaciones y el mantenimiento).
 - 🧰 Inicializar bucket, namespaces, pipeline CDC, metadatos de Airflow y Superset mediante jobs one-shot declarados en el mismo Docker Compose.
 
 ### 2.2 Requisitos técnicos
@@ -71,7 +71,7 @@ Las versiones base recomendadas se fijan para que el laboratorio sea reproducibl
 | Proveedor Spark de Airflow | **6.3.4** | `apache-airflow-providers-apache-spark` | `SparkSubmitOperator` | Lanzar `spark-submit` desde una tarea del DAG |
 | DuckDB | **1.5.6** | paquete Python `duckdb`; `duckdb/duckdb:1.5.6` para la línea de comandos | SQL/query engine embebido | Consultar Gold con SQL sin levantar un motor de consultas aparte |
 | duckdb-engine | **0.17.0** | paquete Python `duckdb-engine` | Dialecto SQLAlchemy para Superset | Hacer que Superset trate a DuckDB como una base de datos más |
-| Apache Superset | **6.1.0** | `apache/superset:6.1.0-py312` | BI y dashboards | Presentar el resultado final: dashboards construidos sobre Gold |
+| Apache Superset | **6.1.0** | `apache/superset:6.1.0-py312` | BI y dashboards | Presentar el resultado final: los gráficos y dashboards que cada quien construye sobre Gold |
 | RustFS | **1.0.6** | `rustfs/rustfs:1.0.6` | Object storage S3-compatible | Sustituir a un servicio S3 de nube, para que todo corra en la máquina local |
 | Iceberg REST Catalog | **1.10.1** | `apache/iceberg-rest-fixture:1.10.1` | Catálogo compartido | Dar a Flink, Spark y DuckDB un único registro de tablas |
 | Docker Compose | **v2 o posterior** | — | Runtime del laboratorio | Levantar todo el laboratorio con un solo comando reproducible |
@@ -113,7 +113,7 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Iceberg 1.10.2 (`iceberg-flink-runtime-2.0`, `iceberg-aws-bundle`) | Imagen de Flink | Maven Central |
 | Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
 | JDBC 42.7.14, Commons CSV 1.14.1, Lanterna 3.1.5 y DuckDB JDBC 1.5.6.0 | JAR del simulador | Maven Central |
-| Extensiones `httpfs`, `iceberg` y `avro` de DuckDB | Imagen del simulador | Repositorio de extensiones de DuckDB |
+| Extensiones `httpfs`, `iceberg` y `avro` de DuckDB | Imágenes del simulador y del contenedor `duckdb` | Repositorio de extensiones de DuckDB |
 | PySpark 4.1.4, `pyspark-client` 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
 | Java 21 (`openjdk-21-jre-headless`) | Imagen de Airflow | Repositorio de paquetes de Debian |
 | Python 3.12, instalado con `uv` | Imagen de Spark | PyPI (`uv`) y builds de CPython que descarga `uv` desde GitHub |
@@ -125,9 +125,9 @@ Los jobs one-shot (`volumes-init`, `rustfs-init`, `iceberg-init` y `airflow-init
 
 ![Arquitectura end-to-end del laboratorio ElastiFlix: de los CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](diagrams/lab-architecture.svg)
 
-> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. La línea punteada que va del Event Simulator a Bronze no forma parte de ese camino: es la consulta de solo lectura con la que el simulador comprueba que cada cambio llegó (sección 9.3). Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha). Por legibilidad no se dibuja una flecha de cada motor hacia el catálogo: Flink, Spark y DuckDB resuelven las tablas ahí.
+> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. La línea punteada que va del Event Simulator a Bronze no forma parte de ese camino: es la consulta de solo lectura con la que el simulador comprueba que cada cambio llegó (sección 9.3). Airflow (izquierda) lanza los jobs PySpark; el diagrama muestra los dos de transformación, y el DAG completo está en la sección 18. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha). Por legibilidad no se dibuja una flecha de cada motor hacia el catálogo: Flink, Spark y DuckDB resuelven las tablas ahí.
 >
-> Versión interactiva: [`diagrams/lab-architecture.html`](diagrams/lab-architecture.html) · Fuente editable: [`diagrams/lab-architecture.json`](diagrams/lab-architecture.json). Los diagramas de este documento se generan con [Archify](https://github.com/tt-a1i/archify); ver [sección 7](#7--estructura-propuesta-del-repositorio).
+> Versión interactiva: [`diagrams/lab-architecture.html`](diagrams/lab-architecture.html) · Fuente editable: [`diagrams/lab-architecture.json`](diagrams/lab-architecture.json). Los diagramas de este documento se generan con [Archify](https://github.com/tt-a1i/archify); ver [sección 7](#7--estructura-del-repositorio).
 
 ### Flujo principal
 
@@ -183,13 +183,13 @@ Resumen de quién escribe y quién lee cada capa:
 | Capa | Escribe | Lee | Contenido |
 |---|---|---|---|
 | PostgreSQL `catalog` | Event Simulator | Flink CDC | 20 tablas normalizadas |
-| 🥉 Bronze | Flink CDC | `bronze_to_silver.py` | 20 tablas espejo + `cdc_op_type`, `cdc_op_ts` |
+| 🥉 Bronze | Flink CDC | `bronze_to_silver.py`; el simulador lee `bronze.movie` para su seguimiento | 20 tablas espejo + `cdc_op_type`, `cdc_op_ts` |
 | 🥈 Silver | `bronze_to_silver.py` | `silver_to_gold.py` | 14 dimensiones, 2 hechos, 6 bridges |
 | 🥇 Gold | `silver_to_gold.py` | DuckDB (Superset) | 7 productos analíticos |
 
 Las tres capas comparten catálogo (Iceberg REST Catalog) y almacenamiento (RustFS, `s3://warehouse/`).
 
-## 7. 📁 Estructura propuesta del repositorio
+## 7. 📁 Estructura del repositorio
 
 El directorio raíz coincide con el nombre del repositorio:
 
@@ -292,12 +292,14 @@ Notas sobre la estructura:
 - `flink/jobs/` contiene el YAML del pipeline CDC y `flink/data/` los checkpoints. Los JAR se descargan en el build, por eso no hay `flink/lib/`.
 - `pyspark/reference/` contiene los datos de referencia versionados que Silver usa para enriquecer catálogos (nombres de idioma, códigos de país, descripción de ratings).
 - `pyspark/jobs/` contiene los dos jobs de transformación, el de mantenimiento (sección 38) y un job corto por cada tarea `validate_*` del DAG (sección 18).
-- `airflow/config/` y `airflow/plugins/` siguen la estructura de la imagen oficial de Airflow y quedan vacíos: la configuración va por variables de entorno y no hay plugins. `iceberg/config/` y `postgresql/scripts/` también están vacíos y hoy no tienen uso.
+- `airflow/config/` y `airflow/plugins/` siguen la estructura de la imagen oficial de Airflow y quedan vacíos: la configuración va por variables de entorno y no hay plugins. `iceberg/config/` también está vacío y hoy no tiene uso.
+- `postgresql/scripts/` contiene `load_dev_data.sql`, que carga los 20 CSV para desarrollar sin esperar al simulador. Se ejecuta a mano y no forma parte del arranque (sección 39).
+- `superset/config/` contiene `superset_config.py`, con el hook de conexión de DuckDB (sección 35). No guarda dashboards: los crea quien usa el laboratorio.
 - `duckdb/init/` contiene el SQL de inicialización de DuckDB en dos archivos, `attach_lakehouse.sql` y `gold_views.sql` (sección 34). Se monta en solo lectura en Superset, en el contenedor de línea de comandos y en el simulador, que solo usa el primero. DuckDB no guarda datos propios, por eso no hay `duckdb/data/`.
 
 ### Regla de persistencia
 
-Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/`, `pyspark/conf/` y `superset/config/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
+Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/` y `pyspark/conf/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
 
 Ejemplos:
 
@@ -455,7 +457,7 @@ El simulador hace de aplicación transaccional: lee el dataset de `raw_data/` y 
 | RF-02 | Dar de alta las películas en el orden de `movie.csv`, cada una en una sola transacción JDBC con sus catálogos, entidades y relaciones. |
 | RF-03 | Generar también `UPDATE` y `DELETE` sobre películas ya insertadas, y reinsertar películas borradas. |
 | RF-04 | Decidir la siguiente operación con pesos configurables de INSERT, UPDATE y DELETE, y un intervalo entre transacciones. |
-| RF-05 | Ser reproducible: con la misma semilla y sin intervención manual, la secuencia de operaciones es la misma. |
+| RF-05 | Ser reproducible: con la misma semilla, sin intervención manual y partiendo de una base vacía, la secuencia de operaciones es la misma. |
 | RF-06 | **Ver la actividad en vivo:** estado de la simulación, avance sobre las 6,899 películas, contadores por tipo de operación, ritmo de transacciones y las últimas transacciones con su detalle. |
 | RF-07 | **Controlar la simulación en caliente:** iniciar, pausar y reanudar, y cambiar la velocidad y los pesos sin reiniciar. |
 | RF-08 | **Lanzar operaciones a mano:** elegir una película y provocar un INSERT, un UPDATE de un tipo concreto, un DELETE o una reinserción. |
@@ -463,6 +465,7 @@ El simulador hace de aplicación transaccional: lee el dataset de `raw_data/` y 
 | RF-10 | Funcionar también sin la interfaz abierta: arranca solo, en modo de líneas, y escribe una línea de log por transacción. Con terminal, la interfaz se abre al pulsar una tecla; sin terminal, sigue en modo de líneas. |
 | RF-11 | Registrar cada transacción, cada cambio de configuración y cada operación manual en el log, con nivel y marca de tiempo. |
 | RF-12 | Ante un dato inconsistente, revertir la transacción de esa película, registrarla con nivel `ERROR` y continuar. |
+| RF-13 | Retomar tras un reinicio: al arrancar sobre una base que ya tiene películas, continuar con la primera pendiente de `movie.csv`, sin repetir altas. |
 
 ### 9.2 Requisitos no funcionales
 
@@ -499,12 +502,14 @@ Teclas:
 | `P` | Abre el diálogo de pesos de INSERT, UPDATE y DELETE |
 | `M` | Abre el diálogo de operación manual |
 | `↑` / `↓` | Recorre la lista de transacciones; la seleccionada se muestra en Detalle |
-| `Q` | Sale de la interfaz. Pregunta si además debe detenerse el simulador |
+| `Q` | Cierra la interfaz y vuelve al modo de líneas. No detiene el simulador |
+
+Ninguna tecla detiene el simulador. Para detenerlo se usa `docker compose stop java-simulator` y, para volver a arrancarlo, `docker compose start java-simulator`: continúa donde quedó (sección 9.5).
 
 **Operación manual (`M`).** Se elige la película escribiendo su `movie_id` o parte del título, y después la operación:
 
 - INSERT de la siguiente película pendiente, o de una concreta que aún no esté en `catalog`.
-- UPDATE descriptivo, de medidas, de relaciones o de catálogo sobre una película viva.
+- UPDATE descriptivo, de medidas, de relaciones o de catálogo sobre una película viva. El de catálogo solo se ofrece si la película tiene colección o keywords.
 - DELETE de una película viva.
 - Reinserción de una película borrada.
 
@@ -529,10 +534,14 @@ El contenedor tiene terminal aunque nadie esté conectado, así que el simulador
 - **Alta perezosa de catálogos y entidades.** Ninguna tabla se precarga. Una fila de `movie_status`, `content_rating`, `original_language`, `enrichment_field`, `genre`, `keyword`, `person`, `production_company`, `production_country`, `spoken_language` o `collection` se inserta la primera vez que una película la necesita, dentro de la transacción de esa película. El simulador recuerda qué claves ya insertó.
 - **Identificadores del archivo.** Toda fila se inserta con la clave que trae el CSV, también en las cinco tablas de clave sustituta (sección 8.4).
 - **Datos inconsistentes.** Si una película falla por una clave duplicada o una referencia inexistente, el simulador revierte su transacción, lo registra con nivel `ERROR` y continúa con la siguiente. No intenta corregir el dato.
-- **Tipos de UPDATE.** El simulador alterna cuatro clases, para ejercitar los cuatro caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`), de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL) y de catálogo (renombrar la colección de la película o una de sus keywords, añadiendo un sufijo al nombre actual). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`. El UPDATE de relaciones no cambia ninguna columna de `movie`, pero actualiza igualmente su `updated_at` en la misma transacción, y lo mismo hace el UPDATE de catálogo: así el cambio deja rastro en la película, el seguimiento aguas abajo lo ve y Silver tiene de dónde tomar la fecha del nuevo conteo.
+- **Tipos de UPDATE.** Hay cuatro clases, para ejercitar los cuatro caminos de Silver: descriptivo (`title`, `tagline`, `overview`, `homepage`), de medidas (`popularity`, `vote_count`, `vote_average`, `user_score`, `budget_usd`, `revenue_usd`), de relaciones (añadir o quitar un género o una keyword, tomados de los que ya existen en PostgreSQL) y de catálogo (renombrar la colección de la película o una de sus keywords). Todo UPDATE sobre `movie`, `collection` o `keyword` actualiza `updated_at`. El UPDATE de relaciones no cambia ninguna columna de `movie`, pero actualiza igualmente su `updated_at` en la misma transacción, y lo mismo hace el UPDATE de catálogo: así el cambio deja rastro en la película, el seguimiento aguas abajo lo ve y Silver tiene de dónde tomar la fecha del nuevo conteo.
+- **Elección del tipo de UPDATE.** La semilla elige la película entre las vivas y, después, el tipo, con la misma probabilidad entre los que esa película admite. El descriptivo, el de medidas y el de relaciones valen para cualquier película; el de catálogo, solo si tiene colección o keywords. Si tiene las dos, la semilla decide entre colección y keyword al 50 % y, entre sus keywords, con la misma probabilidad. No hay pesos por tipo de UPDATE.
+- **Renombrado.** El UPDATE de catálogo añade al nombre el sufijo ` (rev 1)`. Si el nombre ya termina en ` (rev N)`, lo sustituye por ` (rev N+1)`: el sufijo no se acumula. El número se lee del nombre que hay en PostgreSQL, así que no depende de la memoria del simulador.
 - **DELETE.** Siempre sobre `movie`; las relaciones caen por `ON DELETE CASCADE`.
-- **Modo continuo.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando UPDATE y DELETE, y puede volver a insertar una película borrada con los datos de los archivos. Silver trata esa reinserción como una reactivación (sección 31). Con `false`, pasa a `TERMINADO` al agotar `movie.csv`, pero sigue aceptando operaciones manuales.
-- **Reproducibilidad.** La semilla gobierna la secuencia automática. Una operación manual o un cambio de pesos la altera a partir de ese punto; ambos quedan en el log para poder reconstruir lo ocurrido.
+- **Operación sin candidatas.** Si los pesos piden un UPDATE o un DELETE y no hay ninguna película viva, se ejecuta un INSERT.
+- **Modo continuo y reinserción.** Con `SIMULATOR_CONTINUOUS=true`, al agotar `movie.csv` el simulador sigue generando operaciones. Cuando los pesos piden un INSERT y ya no quedan películas pendientes, reinserta una película borrada, elegida con la semilla, con los datos de los archivos; si no hay ninguna borrada, ejecuta un UPDATE. Mientras queden películas pendientes, la reinserción solo se hace a mano. Silver trata la reinserción como una reactivación (sección 31). Con `false`, pasa a `TERMINADO` al agotar `movie.csv`, pero sigue aceptando operaciones manuales.
+- **Arranque sobre una base con datos (RF-13).** Al arrancar, el simulador lee de PostgreSQL los `movie_id` de `catalog.movie` y las claves de las once tablas de catálogos y entidades, y las da por insertadas. Continúa con la película siguiente a la última de `movie.csv` que encuentra en la base: las posteriores quedan pendientes, y las anteriores que faltan cuentan como borradas, disponibles para reinsertarse. Así, detener y volver a arrancar el contenedor no repite altas, y sobre una base cargada con el dataset completo (sección 39) el simulador entra directamente en modo continuo. El avance parte de las películas presentes; los contadores de operaciones empiezan en cero en cada arranque. Una película que falló por un dato inconsistente (RF-12) cuenta también como borrada: si se elige para reinsertarla, vuelve a fallar y el simulador continúa.
+- **Reproducibilidad.** La semilla gobierna la secuencia automática. Una operación manual o un cambio de pesos la altera a partir de ese punto; ambos quedan en el log para poder reconstruir lo ocurrido. La secuencia se repite cuando se parte de una base vacía y la ejecución es continua: tras un reinicio el simulador sigue con la misma semilla, pero no reproduce la secuencia de la ejecución anterior.
 
 ### 9.6 Configuración
 
@@ -554,6 +563,8 @@ Valores iniciales, por variables de entorno. Los cuatro primeros se pueden cambi
 | `SIMULATOR_DUCKDB_MEMORY_LIMIT` | Memoria de DuckDB (`128MB` por defecto) |
 
 Los pesos no forman parte de ninguna restricción del modelo.
+
+Además, el simulador recibe las variables que comparte con otros servicios (sección 45.5): `ELASTIFLIX_APP_PASSWORD` para conectarse a PostgreSQL como `elastiflix_app`, y `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION` para que DuckDB lea Bronze. El SQL de inicialización lo toma de `duckdb/init/`, montado en solo lectura.
 
 ### 9.7 Semántica transaccional
 
@@ -596,7 +607,7 @@ En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: t
 - **Tamaño.** La interfaz sigue los cambios de tamaño de la ventana. Por debajo del tamaño mínimo muestra un aviso en lugar de la pantalla.
 - **Arranque.** Sin nadie conectado, Lanterna tarda unos 5 segundos en inicializar la terminal, porque espera una respuesta de tamaño que no llega, y supone 80×24. Se ajusta sola cuando alguien se conecta.
 - **Logs.** Con la interfaz abierta, `docker compose logs` recibe también las secuencias de dibujo, cerca de 1 KB por segundo, y deja de ser legible. El servicio limita el tamaño de su log en el Compose (`logging`, con `max-size`) y las líneas del RF-11 se escriben además en `/tmp/simulator.log` dentro del contenedor, que se lee con `docker compose exec java-simulator tail -f /tmp/simulator.log`. Se pierde al recrear el contenedor; el laboratorio no lo necesita persistente.
-- **Memoria.** Con los 512 MB del contenedor, la JVM toma por defecto un heap máximo de la cuarta parte, unos 123 MB, y los 20 CSV cargados como texto ocupan 98 MB. La imagen fija el heap de forma explícita con `-XX:MaxRAMPercentage`, dejando sitio para la memoria nativa de DuckDB.
+- **Memoria.** Con los 512 MB del contenedor, la JVM toma por defecto un heap máximo de la cuarta parte, unos 123 MB, y los 20 CSV cargados como texto ocupan 98 MB. La imagen fija el heap de forma explícita con `-XX:MaxRAMPercentage=40` (unos 205 MB), dejando sitio para los 128 MB de DuckDB y el resto de la memoria nativa.
 - **SQL de inicialización.** Lee `duckdb/init/attach_lakehouse.sql`, montado en solo lectura; no usa `gold_views.sql`.
 
 Cómo se usa DuckDB dentro del simulador, comprobado en la validación 11:
@@ -634,7 +645,7 @@ max_wal_senders > 0
 max_slot_wal_keep_size = 2GB
 ```
 
-`max_slot_wal_keep_size` acota el WAL que el slot puede retener si Flink está detenido; sin él, un Flink caído llena el disco del host.
+`max_slot_wal_keep_size` acota el WAL que el slot puede retener si Flink está detenido; sin él, un Flink caído llena el disco del host. A cambio, si Flink está parado el tiempo suficiente, PostgreSQL invalida el slot y el pipeline ya no puede reanudar desde su checkpoint; ese caso se trata como una pérdida de checkpoints (sección 38).
 
 Objetos de replicación, creados en `postgresql/init/`:
 
@@ -865,6 +876,8 @@ created_at  timestamptz NOT NULL
 ```
 
 La unicidad es técnica por nombre exacto del dataset. No implica que sea posible resolver homónimos reales.
+
+Solo las tablas que el simulador modifica (`movie`, `collection` y `keyword`) llevan `created_at` y `updated_at`. `person` lleva únicamente `created_at`, que nadie usa aguas abajo; el resto de entidades y catálogos no lleva ninguna de las dos, y Silver toma para ellas `cdc_op_ts` (sección 21).
 
 ### 12.10 `movie_cast`
 
@@ -1122,7 +1135,7 @@ Puntos que conviene no pasar por alto:
 - **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía, como muestra el borrador; la validación 2 confirmó que funciona.
 - **Credenciales S3.** El borrador no lleva claves. `S3FileIO` las toma de las variables de entorno `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`, que deben declararse tanto en `flink-jobmanager` como en `flink-taskmanager`. Así las credenciales viven en `.env` y no en el YAML del pipeline.
 - **Dependencias en la imagen de Flink.** Las que lista la guía oficial para Flink 2.2.1: la distribución de Flink CDC 3.7.0 para Flink 2.2, los conectores `flink-cdc-pipeline-connector-postgres` y `flink-cdc-pipeline-connector-iceberg` (`3.7.0-2.2`) en `$FLINK_CDC_HOME/lib`, y en `$FLINK_HOME/lib` el `iceberg-flink-runtime-2.0`, Hadoop client API y runtime 3.3.6 y Commons Logging 1.2. La guía usa Iceberg 1.10.1; este laboratorio toma el último parche de esa línea, 1.10.2, y añade `iceberg-aws-bundle` 1.10.2 para `S3FileIO`. Hadoop se mantiene en la 3.3.6 que indica la guía aunque exista la 3.5.0, porque forma parte del conjunto probado con el conector. El conector PostgreSQL ya incluye su driver JDBC.
-- **Reinicio.** Si cae el TaskManager, el job se recupera solo desde su último checkpoint. Si se reinicia el JobManager, el job se pierde: el clúster standalone no tiene alta disponibilidad y arranca sin jobs. Hay que reenviar el pipeline con `--from-savepoint` apuntando al último checkpoint retenido; así retoma sin repetir el snapshot y entrega lo que cambió mientras estuvo parado. El slot de replicación permanece en PostgreSQL entre tanto.
+- **Reinicio.** Si cae el TaskManager, el job se recupera solo desde su último checkpoint. Si se reinicia el JobManager, el job se pierde: el clúster standalone no tiene alta disponibilidad y arranca sin jobs. Hay que reenviar el pipeline con `--from-savepoint` apuntando al último checkpoint retenido; así retoma sin repetir el snapshot y entrega lo que cambió mientras estuvo parado. No ocurre solo: basta con repetir `docker compose up`, que vuelve a ejecutar `flink-cdc-submit`, y este reanuda desde el checkpoint (punto siguiente). El slot de replicación permanece en PostgreSQL entre tanto.
 - **Checkpoints retenidos y compartidos.** Para que ese reenvío sea posible, los checkpoints se guardan en `flink/data/`, montado en la misma ruta en el JobManager y en el TaskManager, con `execution.checkpointing.dir: file:///opt/flink/state/checkpoints` y `execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION`. Flink corre como usuario `flink`: el directorio debe pertenecerle antes de arrancar.
 - **`flink-cdc-submit` idempotente de verdad.** El job one-shot sigue esta regla cada vez que se ejecuta:
   1. Consulta la API REST de Flink. Si ya hay un job en ejecución con el nombre del pipeline, termina sin hacer nada.
@@ -1187,7 +1200,7 @@ DuckDB será cliente del catálogo, no propietario exclusivo de este.
 - **Configuración.** La imagen traduce variables `CATALOG_*` a propiedades del catálogo. Las que usa el quickstart oficial de Iceberg son `CATALOG_WAREHOUSE=s3://warehouse/`, `CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO`, `CATALOG_S3_ENDPOINT=http://rustfs:9000` y `CATALOG_S3_PATH__STYLE__ACCESS=true`, además de las credenciales `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`.
 - **Persistencia.** La imagen trae `CATALOG_URI=jdbc:sqlite:/tmp/iceberg_catalog.db`: el catálogo es un archivo dentro del contenedor. Sobrevive a un reinicio, pero se pierde al recrear el contenedor (`docker compose down` o un cambio en el servicio), y entonces las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se fija `CATALOG_URI=jdbc:sqlite:/catalog/iceberg_catalog.db` y se monta `./iceberg/data` en `/catalog`. La validación 4 confirmó que así las tablas sobreviven a la recreación del contenedor, también con el directorio en una unidad NTFS de Windows.
 - **Healthcheck.** La imagen ya declara uno (`curl` contra `/v1/config`); el Compose puede usar `condition: service_healthy` sin definirlo.
-- El job one-shot `iceberg-init` crea los namespaces `bronze`, `silver` y `gold`.
+- El job one-shot `iceberg-init` crea los namespaces `bronze`, `silver` y `gold` con `POST /v1/namespaces` contra el catálogo, desde la imagen de RustFS, que trae `curl`, igual que `rustfs-init`. Si un namespace ya existe, la respuesta `409` cuenta como éxito, así que el job es idempotente.
 - Sin autenticación: el catálogo solo es alcanzable dentro de la red del Compose y, desde la propia máquina, en `127.0.0.1`.
 - Alternativas si la imagen de referencia se queda corta: Lakekeeper o Apache Polaris. Cambiar de catálogo no altera el resto del diseño porque todos los motores hablan el protocolo REST.
 
@@ -1199,7 +1212,7 @@ Réplica relacional `as-is` del sistema operacional PostgreSQL.
 
 No se realiza modelado dimensional en esta capa.
 
-Inventario aproximado:
+Inventario:
 
 ```text
 bronze.movie
@@ -1248,13 +1261,13 @@ Formato: Iceberg v2. Flink escribe los cambios como deletes de igualdad más ins
 
 ## 18. ⏱️ Apache Airflow
 
-Airflow gobernará exclusivamente el procesamiento analítico PySpark.
+Airflow gobernará el procesamiento analítico por lotes: los jobs PySpark de Silver, Gold, validación y mantenimiento. No toca Superset.
 
 Pipeline lógico (DAG `elastiflix_medallion`):
 
-![DAG de Airflow: validate_bronze, bronze_to_silver, validate_silver, silver_to_gold, validate_gold, superset_import e iceberg_maintenance, con los jobs PySpark y las capas Iceberg que tocan](diagrams/airflow-medallion-dag.svg)
+![DAG de Airflow: validate_bronze, bronze_to_silver, validate_silver, silver_to_gold, validate_gold e iceberg_maintenance, con los jobs PySpark y las capas Iceberg que tocan](diagrams/airflow-medallion-dag.svg)
 
-> 🔍 **Cómo leerlo:** la fila superior es el DAG, de izquierda a derecha. Cada tarea de transformación lanza un job PySpark (fila central) que lee una capa y escribe la siguiente (fila inferior). Cada `validate_*` consulta la capa de su mismo nombre. `superset_import` (abajo) importa los dashboards, y `iceberg_maintenance` corre siempre al final, aunque falle una validación.
+> 🔍 **Cómo leerlo:** la fila superior es el DAG, de izquierda a derecha. Cada tarea de transformación lanza un job PySpark (fila central) que lee una capa y escribe la siguiente (fila inferior). Cada `validate_*` consulta la capa de su mismo nombre. `iceberg_maintenance` corre siempre al final, aunque falle una validación.
 >
 > Versión interactiva: [`diagrams/airflow-medallion-dag.html`](diagrams/airflow-medallion-dag.html) · Fuente editable: [`diagrams/airflow-medallion-dag.json`](diagrams/airflow-medallion-dag.json).
 
@@ -1267,8 +1280,7 @@ Tareas:
 | `validate_silver` | Una sola versión vigente por business key, rangos SCD2 sin solapes, sin SK huérfanas | El DAG se detiene; Gold conserva su último estado |
 | `silver_to_gold` | `SparkSubmitOperator` sobre `silver_to_gold.py` | Se reintenta; Gold se recarga completo |
 | `validate_gold` | Conteos mínimos y columnas clave sin nulos | El DAG queda en error; Superset sigue mostrando la carga anterior |
-| `superset_import` | Importa los datasets y dashboards de `superset/config/` por la API REST de Superset | El DAG queda en error; los dashboards ya importados siguen igual |
-| `iceberg_maintenance` | Compacta Bronze y expira snapshots antiguos. Corre siempre al final, aunque falle una tarea anterior (`trigger_rule = all_done`) | No bloquea la corrida siguiente |
+| `iceberg_maintenance` | Compacta Bronze y expira los snapshots antiguos de Bronze, Silver y Gold, conservando los 5 últimos de cada tabla. Corre siempre al final, aunque falle una tarea anterior (`trigger_rule = all_done`), y omite las tablas que todavía no existen | No bloquea la corrida siguiente |
 
 Si una validación falla, las tareas siguientes no corren, salvo `iceberg_maintenance`. Las validaciones son jobs PySpark cortos con aserciones, uno por tarea (`validate_bronze.py`, `validate_silver.py` y `validate_gold.py` en `pyspark/jobs/`), lanzados con `SparkSubmitOperator` como las transformaciones. No se añade un framework de calidad de datos.
 
@@ -1288,9 +1300,9 @@ Airflow no gobernará cada evento CDC.
 - **Entre servicios de Airflow 3.** Todos comparten `AIRFLOW__API_AUTH__JWT_SECRET`, y el scheduler alcanza la API de ejecución con `AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-apiserver:8080/execution/`.
 - `LocalExecutor`. Servicios de Airflow 3: `airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor`, más el job one-shot `airflow-init` (migra la base y crea el usuario administrador).
 - **Autenticación.** El gestor basado en Flask AppBuilder, con `AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager` en todos los servicios de Airflow. Su proveedor ya viene en la imagen oficial; no hay que instalarlo. `airflow db migrate` crea también sus tablas.
-- **Lo que necesita `superset_import`.** `superset/config/` se monta en solo lectura en los contenedores de Airflow, y las tareas reciben `SUPERSET_ADMIN_USER` y `SUPERSET_ADMIN_PASSWORD` para usar la API REST de Superset.
 - Metadatos en `metadata-db` (base `airflow`).
-- Programación: el DAG se dispara a mano durante la demostración y, opcionalmente, cada 10 minutos. `max_active_runs = 1` para que dos corridas no escriban Silver a la vez.
+- **Programación.** El DAG corre cada 10 minutos (`schedule=timedelta(minutes=10)`) y queda activo desde que se crea (`is_paused_upon_creation=False`; por defecto Airflow crea los DAG en pausa). Lleva `catchup=False`, que en Airflow 3 ya es el valor por defecto, y `max_active_runs=1`, para que dos corridas no escriban Silver a la vez. También se puede lanzar a mano en cualquier momento. La duración de una corrida completa no se ha medido; en las validaciones, el `MERGE` de `dim_movie` tardó unos 10 s y el mantenimiento de las 20 tablas de Bronze, 62 s. Si una corrida se alarga más de 10 minutos, la siguiente espera en lugar de solaparse.
+- **Primera corrida.** Con un `schedule` de tipo `timedelta` y sin `catchup`, Airflow crea una corrida en cuanto el DAG queda activo. Si Bronze todavía no tiene sus 20 tablas, esa corrida falla en `validate_bronze` sin consecuencias, y la siguiente llega 10 minutos después. Gold existe desde la primera corrida que termina bien; hasta entonces Superset no tiene nada que mostrar.
 
 ## 19. ⚡ Job PySpark #1: Bronze → Silver
 
@@ -1634,7 +1646,7 @@ Precisiones del grain:
 - `record_hash` se calcula sobre las medidas, los conteos y las claves de negocio de las dimensiones relacionadas (`movie_id`, el `collection_id` de la colección y los códigos de las dimensiones Tipo 1), no sobre las claves sustitutas: `movie_sk` y `collection_sk` cambian con cada versión de su dimensión SCD2. Solo se inserta una fila nueva cuando ese hash difiere del último snapshot de la película. Reejecutar el job sin cambios en Bronze no añade filas.
 - Un cambio en las relaciones de la película (por ejemplo, un género menos) altera un conteo y por tanto genera snapshot.
 - Un cambio solo descriptivo (título, tagline) crea una versión nueva en `dim_movie` pero no un snapshot.
-- `movie_sk` apunta a la versión de `dim_movie` vigente en `snapshot_at`. `snapshot_at` es el `source_updated_at` del estado observado, no la hora del job.
+- `movie_sk` apunta a la versión de `dim_movie` vigente en `snapshot_at`. `snapshot_at` es el `source_updated_at` del estado observado, no la hora del job. La excepción es el snapshot de un borrado detectado por ausencia, que toma el timestamp lógico de la corrida (sección 31).
 - Como Bronze entrega el último estado, entre dos corridas se registra como máximo un snapshot por película (sección 17).
 
 Campos:
@@ -1790,21 +1802,40 @@ columnas de auditoría
 ```text
 enrichment_code_sk
 code
-source_family
 source_system
+source_family
 source_date_text
 currency_code
 currency_year
+qualifier
+quality_status
 columnas de auditoría
 ```
 
-Permitirá interpretar códigos como:
+Tipo 1, con una fila por cada valor distinto de `movie_enrichment.code`. El código original se conserva en `code`; las demás columnas se derivan de él con estas reglas, en orden:
 
-```text
-wikipedia_infobox_fx:EUR:2003
-```
+1. El código se separa en el primer `:`. Lo que va antes es la base; lo que va después, el sufijo, que puede no existir.
+2. Si la base termina en `_AAAA-MM-DD`, esa fecha pasa a `source_date_text` y se quita de la base.
+3. `source_family` es la base resultante, y `source_system`, su texto hasta el primer `_`, o la base entera si no tiene ninguno.
+4. Si `source_family` es `wikipedia_infobox_fx`, el sufijo tiene la forma `<MONEDA>:<AÑO>`: las tres letras mayúsculas van a `currency_code` y los cuatro dígitos a `currency_year`.
+5. En cualquier otra familia, el sufijo va tal cual a `qualifier`.
+6. `quality_status` es `ok`. Es `unmapped` si `source_system` no es uno de los cuatro conocidos (`tmdb`, `wikipedia`, `wikidata` y `unverified`) o si el sufijo de `wikipedia_infobox_fx` no tiene la forma esperada.
 
-sin perder el código original.
+Las columnas que no aplican a un código, o que no se pudieron derivar, quedan en `NULL`. No hace falta archivo de referencia. El dataset trae 77 códigos distintos, de 11 familias:
+
+| Código en el dataset | `source_system` | `source_family` | Otras columnas |
+|---|---|---|---|
+| `tmdb_api_2026-10-22` | `tmdb` | `tmdb_api` | `source_date_text = 2026-10-22` |
+| `tmdb_api_fallback_doc_vote_average` | `tmdb` | `tmdb_api_fallback_doc_vote_average` | — |
+| `tmdb_metadata_summary` | `tmdb` | `tmdb_metadata_summary` | — |
+| `tmdb_overview` | `tmdb` | `tmdb_overview` | — |
+| `tmdb_overview_translated:zh-CN` | `tmdb` | `tmdb_overview_translated` | `qualifier = zh-CN` |
+| `unverified` | `unverified` | `unverified` | — |
+| `wikidata` | `wikidata` | `wikidata` | — |
+| `wikipedia_infobox` | `wikipedia` | `wikipedia_infobox` | — |
+| `wikipedia_infobox_fx:<MONEDA>:<AÑO>` (66 códigos, 12 monedas) | `wikipedia` | `wikipedia_infobox_fx` | `currency_code` y `currency_year` |
+| `wikipedia_infobox_range_midpoint` | `wikipedia` | `wikipedia_infobox_range_midpoint` | — |
+| `wikipedia_plot_2026-11-12` y `wikipedia_plot_2026-11-13` | `wikipedia` | `wikipedia_plot` | `source_date_text` con su fecha |
 
 ### `fact_movie_enrichment`
 
@@ -1874,8 +1905,8 @@ popularity
 vote_count
 vote_average
 user_score
-budget
-revenue
+budget_usd
+revenue_usd
 ```
 
 no necesitan crear una nueva versión de `dim_movie`; generan un nuevo snapshot cuando cambia el `record_hash` del hecho (sección 27).
@@ -1903,7 +1934,7 @@ Silver detecta el borrado por el tombstone de Bronze (`cdc_op_type = '-D'`) o, t
 
 1. cerrar la versión vigente de `dim_movie`;
 2. cerrar bridges activos de esa película;
-3. insertar un snapshot con `is_deleted = true`;
+3. insertar un snapshot con `is_deleted = true`, cuyo `snapshot_at` es el `cdc_op_ts` del tombstone o, si el borrado se detectó por ausencia, el timestamp lógico de la corrida (`dag_run.run_after`), el mismo que recibe `effective_to` (sección 21);
 4. conservar el historial.
 
 Las entidades compartidas (`dim_person`, `dim_genre`, etc.) no se cierran: siguen existiendo en PostgreSQL.
@@ -2028,6 +2059,7 @@ Reglas:
 - DuckDB nunca escribe en el lakehouse. Superset rechaza cualquier DDL o DML sobre esta base, que es su comportamiento por defecto.
 - **El simulador usa solo `attach_lakehouse.sql`.** En su imagen las extensiones se instalan durante el build con el propio driver JDBC, en la misma ruta. No se usa la opción `MAX_TABLE_STALENESS` del `ATTACH`: ahorra la petición al catálogo de cada consulta, pero retrasa la visibilidad de un cambio hasta ese intervalo.
 - **Nadie copia estos archivos en su imagen.** `duckdb/init/` se monta en solo lectura en cada contenedor que lo usa; así hay una sola copia.
+- **En el contenedor de línea de comandos**, `gold_views.sql` se ejecuta a mano y solo cuando Gold ya existe; al abrirse, ese contenedor ejecuta únicamente `attach_lakehouse.sql`.
 - Superset solo consulta el namespace `gold`.
 - Los archivos no llevan `;` dentro de comentarios: quien los ejecuta descarta las líneas de comentario y parte el resto por `;`.
 
@@ -2050,14 +2082,56 @@ Gold será la fuente de verdad para las visualizaciones.
 - Imagen propia basada en `apache/superset:6.1.0-py312`, con `duckdb` 1.5.6, `duckdb-engine` 0.17.0, `psycopg2-binary` y las extensiones de DuckDB preinstaladas. Se usa la variante `-py312` porque la etiqueta `6.1.0` a secas trae Python 3.10, ya sin soporte.
 - La imagen base de la serie 6.1 es mínima: no trae ningún driver, tampoco el de PostgreSQL que Superset necesita para sus propios metadatos. Por eso `psycopg2-binary` forma parte de la imagen. Los paquetes se instalan en el entorno virtual `/app/.venv` con `uv pip install`.
 - Superset 6.1.0 limita DuckDB a `duckdb<2,>=1.4.2`. Subir a DuckDB 2.x requiere antes una versión de Superset que lo admita.
-- La base de datos se registra con la URI SQLAlchemy `duckdb:///:memory:`.
-- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB y, de `gold_views.sql`, solo las vistas cuya tabla existe en `lake.gold` según `information_schema.tables`. Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
+- **La base de datos no viene registrada.** La conecta quien usa el laboratorio, desde la interfaz, con la URI SQLAlchemy `duckdb:///:memory:` (guía al final de esta sección). `superset-init` no la registra.
+- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB y, de `gold_views.sql`, solo las vistas cuya tabla existe en `lake.gold` según `information_schema.tables`. Que DuckDB 1.5.6 liste ahí las tablas de un catálogo Iceberg adjunto no está comprobado; lo cubre la actividad F10-16 del plan. Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
 - **Datasets sobre vistas, en el esquema `main`.** Superset no consigue leer las columnas de una tabla Iceberg adjunta: el inspector de SQLAlchemy devuelve una sola columna sin tipo, y sin columnas no se puede construir un gráfico. Sí las lee de las vistas de la base en memoria que crea el script de inicialización (sección 34). Cada dataset se define como tabla física `main.<producto>`. La alternativa, que también funciona, es un dataset virtual con `SELECT * FROM lake.gold.<producto>`, pero ahí Superset no reconoce el tipo de las columnas `DECIMAL`. SQL Lab puede consultar `lake.gold.<producto>` directamente.
 - **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`), de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. La validación 7 lo midió: la inicialización cuesta unos 40 ms y cada vista añade entre 5 y 9 ms, frente a los 7 ms de la consulta en sí. De extremo a extremo, una consulta por la API de Superset tarda unos 150 ms en secuencia y hasta 440 ms en el percentil 95 con ocho consultas simultáneas y cuatro workers. Es aceptable para el laboratorio; no hace falta el archivo DuckDB de solo lectura que se había previsto como alternativa.
 - Cada worker de Superset tiene su propio DuckDB en memoria. No comparten archivo, así que no hay bloqueos entre procesos.
 - Metadatos de Superset en `metadata-db` (base `superset`).
-- El job one-shot `superset-init` migra la base, crea el usuario administrador y registra la base de datos DuckDB.
-- **Datasets y dashboards.** Se exportan a `superset/config/` y los importa la tarea `superset_import` del DAG (sección 18), por la API REST de Superset, en cada corrida. La importación es idempotente. Así aparecen tras la primera corrida del DAG, cuando Gold ya tiene datos, sin depender del orden de arranque.
+- El job one-shot `superset-init` migra la base (`superset db upgrade`), crea el usuario administrador (`superset fab create-admin`) y carga los roles y permisos (`superset init`), como en la validación 7. Debe poder repetirse sin fallar; que `create-admin` lo tolere con el usuario ya creado no está comprobado, y lo cubre la actividad F11-07 del plan.
+- **Sin datasets ni dashboards de fábrica.** El laboratorio entrega Superset listo para usar, pero vacío: los datasets, los gráficos y los dashboards los diseña quien lo usa. No se versiona ni se importa ningún paquete, y el DAG de Airflow no toca Superset. Conectar la base y crear gráficos es uso del laboratorio, no preparación: `docker compose up` deja todo lo necesario en marcha.
+
+### Guía: conectar Gold y crear una visualización
+
+Los pasos siguen la guía oficial de Superset «Creating Your First Dashboard» (Context7). Los nombres de menús y botones son los de la interfaz en inglés y pueden variar un poco en la versión 6.1.0. Todavía no se han ejecutado en el laboratorio: la validación 7 registró la base por línea de comandos y consultó por la API. Los comprueba la actividad F10-20 del plan, que además corrige esta guía con lo que difiera.
+
+**Antes de empezar**
+
+- El laboratorio está levantado y al menos una corrida del DAG `elastiflix_medallion` terminó bien; se ve en Airflow, `http://127.0.0.1:8080`. Hasta entonces Gold no existe y Superset no tiene nada que ofrecer.
+- Se entra a Superset en `http://127.0.0.1:8088` con el administrador definido en `.env` (`SUPERSET_ADMIN_USER` y `SUPERSET_ADMIN_PASSWORD`, sección 45.4).
+
+**1. Conectar la fuente de datos**
+
+1. En el menú **+** de arriba a la derecha, elegir **Data** y después **Connect database**.
+2. Elegir **DuckDB** en la lista de bases soportadas. Si no aparece, elegir **Other**.
+3. Si se abre un formulario con varios campos, pulsar el enlace que permite conectar con una cadena SQLAlchemy.
+4. Escribir un nombre, por ejemplo `ElastiFlix Gold`, y como **SQLAlchemy URI**: `duckdb:///:memory:`.
+5. Pulsar **Test connection** y, si responde bien, **Connect**.
+
+La URI no lleva servidor, usuario ni contraseña: DuckDB corre dentro de Superset. El acceso al catálogo Iceberg y a RustFS lo pone el hook de conexión, que en cada conexión adjunta el lakehouse y crea una vista por cada producto Gold existente (sección 34).
+
+**2. Registrar un producto Gold como dataset**
+
+1. Ir a **Datasets** y pulsar **+ Dataset**.
+2. Elegir en **Database** la base recién conectada, en **Schema** `main` y en **Table** uno de los productos de la sección 33, por ejemplo `genre_performance`.
+3. Confirmar con el botón que crea el dataset.
+
+El esquema tiene que ser `main`. Las mismas tablas existen como `lake.gold.<producto>`, pero Superset no lee sus columnas desde ahí y el gráfico fallaría (validación 7). Si `main` aparece vacío, todavía no ha terminado bien ninguna corrida del DAG.
+
+**3. Crear una visualización**
+
+1. Abrir el dataset desde la lista **Datasets**: se abre la pantalla de exploración.
+2. Elegir el tipo de gráfico, por ejemplo **Table** o **Bar Chart**.
+3. Poner una columna descriptiva en la agrupación (**Dimensions**, **Group by** o **X-axis**, según el tipo de gráfico) y una medida en **Metrics**, por ejemplo `COUNT(*)` o la suma de una columna numérica.
+4. Pulsar el botón que ejecuta la consulta (**Create chart**, **Update chart** o **Run query**). Si el gráfico sale vacío, revisar el filtro de tiempo y dejarlo en **No filter**.
+5. Pulsar **Save**, dar un nombre al gráfico y, si se quiere, elegir en **Add to dashboard** un dashboard nuevo o uno existente.
+
+**Qué esperar después**
+
+- **Los datos se actualizan solos.** Gold se recarga completo en cada corrida del DAG, cada 10 minutos, y cada consulta de Superset lee el estado vigente. Basta con refrescar el gráfico o el dashboard; si Superset devuelve un resultado guardado, se fuerza con **Force refresh**.
+- **Lo creado se conserva.** La conexión, los datasets, los gráficos y los dashboards quedan en `metadata-db` (base `superset`) y sobreviven a detener y volver a levantar el laboratorio. Se pierden con la vuelta a cero (sección 39).
+- **SQL Lab** permite consultar con SQL tanto `main.<producto>` como `lake.gold.<producto>`.
+- **Solo lectura.** Superset rechaza cualquier sentencia que modifique datos sobre esta base (sección 34).
 
 ## 36. Calidad de datos
 
@@ -2097,7 +2171,9 @@ Los cambios fila a fila, SCD2 y MERGE pueden generar archivos adicionales. El ma
 |---|---|---|
 | 🥉 Bronze | Un commit por checkpoint de Flink y por tabla, con deletes de igualdad | **Desde el inicio**: compactación (`rewrite_data_files`) y expiración de snapshots en la tarea `iceberg_maintenance` |
 | 🥈 Silver | Archivos reescritos por cada MERGE | Expiración de snapshots; compactación solo si se observa degradación |
-| 🥇 Gold | Un snapshot por recarga completa | Expiración de snapshots, conservando los últimos |
+| 🥇 Gold | Un snapshot por recarga completa | Expiración de snapshots, conservando los 5 últimos |
+
+Las tres capas las trata la tarea `iceberg_maintenance` (sección 18); `silver_to_gold.py` no expira snapshots por su cuenta.
 
 Bronze no puede esperar: con un checkpoint cada 30 s y 20 tablas, en una hora de demostración se generan miles de archivos pequeños, y cada lectura de Spark debe aplicar los deletes acumulados.
 
@@ -2136,11 +2212,13 @@ Cuando se pierden los checkpoints de Flink, repetir el snapshot sobre las tablas
 Qué implica:
 
 - **Se pierden los tombstones acumulados en Bronze.** El historial de Silver no se toca.
-- **Los borrados ocurridos durante la parada llegan a Silver por ausencia.** En la corrida siguiente, `bronze_to_silver` cierra toda versión vigente cuya clave ya no está en Bronze, igual que con un tombstone. Como la fecha real del borrado ya no se conoce, `effective_to` es el timestamp lógico de esa corrida (sección 21).
+- **Los borrados ocurridos durante la parada llegan a Silver por ausencia.** En la corrida siguiente, `bronze_to_silver` cierra toda versión vigente cuya clave ya no está en Bronze, igual que con un tombstone. Como la fecha real del borrado ya no se conoce, `effective_to` y el `snapshot_at` del snapshot de borrado son el timestamp lógico de esa corrida (secciones 21 y 31).
 - **No aparecen versiones nuevas por la recarga.** Todas las filas vuelven con `cdc_op_type = '+I'` y un `cdc_op_ts` nuevo, pero su contenido y su `updated_at` no cambian, así que el hash de atributos coincide con el de la versión vigente.
 - **El paso 1 no es opcional.** Con el DAG activo, una corrida que encuentre Bronze vacío o incompleto cerraría versiones de filas que siguen existiendo.
 
-Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto. Mientras las tablas no existen, `bronze_to_silver` falla con «tabla no encontrada» en lugar de cerrar versiones; eso no sustituye al paso 1, porque no cubre el intervalo en que unas tablas ya se recrearon y otras no.
+Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto.
+
+**Slot de replicación invalidado.** Si PostgreSQL invalida el slot `elastiflix_cdc` porque Flink estuvo parado más de lo que permite `max_slot_wal_keep_size` (sección 10), el pipeline no puede reanudar desde su checkpoint. Se aplica el mismo procedimiento, con dos pasos más antes del paso 3: borrar el slot (`pg_drop_replication_slot`) y borrar los checkpoints retenidos de `flink/data/`, para que `flink-cdc-submit` haga un envío nuevo. No se ha probado. Mientras las tablas no existen, `bronze_to_silver` falla con «tabla no encontrada» en lugar de cerrar versiones; eso no sustituye al paso 1, porque no cubre el intervalo en que unas tablas ya se recrearon y otras no.
 
 ## 39. 🐳 Docker Compose
 
@@ -2176,7 +2254,7 @@ rustfs-init        crea el bucket warehouse
 iceberg-init       crea los namespaces bronze, silver y gold
 flink-cdc-submit   envía el pipeline PostgreSQL -> Bronze
 airflow-init       migra la base de Airflow y crea el administrador
-superset-init      migra la base de Superset, crea el administrador y registra DuckDB
+superset-init      migra la base de Superset y crea el administrador
 ```
 
 Opcional, bajo el perfil `tools`:
@@ -2188,6 +2266,8 @@ duckdb             línea de comandos para explorar Gold
 Todos se declaran en el mismo `docker-compose.yml`. Las credenciales del laboratorio se leen de `.env`; el repositorio versiona `.env.example`. El inventario de cuentas y variables está en la sección 45.
 
 `java-simulator` declara `tty: true` y `stdin_open: true`, para poder abrir su interfaz con `docker compose attach java-simulator`.
+
+**Ningún servicio declara `restart`.** Tras reiniciar el equipo o Docker Desktop, los contenedores quedan detenidos y el laboratorio se vuelve a levantar con `docker compose up -d`: los jobs one-shot se repiten sin efecto, `flink-cdc-submit` reanuda el pipeline desde su último checkpoint (sección 14) y el simulador continúa con la primera película pendiente (sección 9.5). Con reinicio automático, Flink volvería sin su job y nadie lo reenviaría: la captura quedaría parada sin aviso.
 
 ### Aislamiento frente a otros proyectos del host
 
@@ -2237,6 +2317,26 @@ Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB
 - **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso.
 - Si el host tiene menos de 16 GB, se puede detener el simulador o Superset mientras corre el DAG.
 
+### Datos de desarrollo
+
+Las fases F3 a F5 y F7 a F10 del plan se construyen antes de que exista el simulador, o en paralelo con él. Para trabajar con el volumen real, el dataset completo se carga de una vez:
+
+- `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` de `psql`, en el orden de sus claves foráneas, con la cuenta `elastiflix_app`.
+- Se ejecuta a mano, desde un contenedor temporal de la imagen de PostgreSQL que monta `raw_data/` y `postgresql/scripts/` en solo lectura. El servicio `postgresql` no monta ninguno de los dos, y ningún servicio ni job del Compose ejecuta el script.
+- Flink CDC lleva esas filas a Bronze: en el snapshot inicial si se cargan antes de enviar el pipeline, que es lo que se probó en la validación de volumen, o como cambios en streaming si el pipeline ya corre.
+- Es solo para desarrollar. El laboratorio terminado arranca con las tablas vacías y es el simulador quien las llena (sección 9.5).
+- Las comprobaciones del simulador (fase F6) se hacen sobre una base vacía: antes se vuelve a cero, y desde ese momento los datos los pone el simulador, también para lo que quede de F7 a F10.
+
+### Vuelta a cero
+
+Para dejar el laboratorio como recién clonado, sin perder las imágenes construidas ni el `.env`:
+
+1. `docker compose down`, que detiene y elimina los contenedores y la red.
+2. Vaciar los directorios de datos, conservando su `.gitkeep`: `postgresql/data/`, `metadata-db/data/`, `flink/data/`, `iceberg/data/`, `rustfs/data/`, `superset/data/` y `airflow/logs/`.
+3. `docker compose up -d`.
+
+Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laboratorio incoherente: un catálogo que apunta a archivos que ya no están en RustFS, o checkpoints de Flink que remiten a un slot de replicación que ya no existe. Se usa antes de la prueba de extremo a extremo (fase F11) y cada vez que haga falta repetir la demostración desde el principio. El procedimiento no se ha probado como tal; lo comprueba la actividad F11-12 del plan.
+
 ## 40. Orden de dependencias esperado
 
 ![Orden de arranque de los servicios de Docker Compose en cuatro carriles: operacional y CDC, almacenamiento y catálogo, batch y orquestación, y consumo](diagrams/compose-startup-order.svg)
@@ -2253,6 +2353,7 @@ Reglas:
 - El simulador arranca cuando `flink-cdc-submit` ha terminado, es decir, con el pipeline en `RUNNING` (sección 14). En el primer arranque las tablas de PostgreSQL están vacías (sección 9.5), así que el snapshot inicial es inmediato y las primeras inserciones ya llegan por streaming.
 - Spark arranca después de `iceberg-init`, para que sus jobs encuentren los namespaces.
 - Airflow y Superset no esperan a Spark ni a que Gold tenga datos; solo las corridas del DAG y los datasets los necesitan.
+- Ningún servicio se reinicia solo (sección 39): tras un reinicio del equipo, este orden se recorre de nuevo con `docker compose up -d`.
 
 ## 41. Separación de responsabilidades
 
@@ -2267,11 +2368,11 @@ Reglas:
 | Iceberg Silver | Warehouse dimensional histórico |
 | PySpark #2 | Construcción de productos analíticos |
 | Iceberg Gold | Serving layer materializada |
-| Airflow | Orquestación de jobs PySpark |
+| Airflow | Orquestación de los jobs PySpark |
 | Iceberg REST Catalog | Catálogo lakehouse compartido |
 | RustFS | Object storage S3-compatible |
 | DuckDB | Motor SQL analítico, embebido en Superset y en el simulador |
-| Superset | Dashboards y visualización |
+| Superset | Visualización: gráficos y dashboards que crea quien usa el laboratorio |
 | `metadata-db` | Metadatos de Airflow y Superset |
 | Jobs one-shot | Preparación de bucket, namespaces, pipeline CDC y metadatos |
 | Docker Compose | Runtime reproducible del laboratorio |
@@ -2289,12 +2390,12 @@ Una demostración completa deberá poder mostrar:
 7. Bronze se actualiza en Iceberg/RustFS.
 8. Java genera UPDATE y DELETE posteriores.
 9. Los cambios se reflejan mediante CDC.
-10. Airflow ejecuta `bronze_to_silver`.
+10. Airflow, que lanza el DAG cada 10 minutos, ejecuta `bronze_to_silver`.
 11. Silver crea/actualiza dimensiones SCD2, hechos y bridges.
 12. Airflow ejecuta `silver_to_gold`.
 13. Gold materializa datasets analíticos.
 14. DuckDB consulta Gold.
-15. Superset refleja los resultados en dashboards.
+15. En Superset se conecta la base DuckDB y se crea un gráfico sobre un producto Gold (guía de la sección 35); el gráfico refleja los cambios tras la siguiente corrida.
 
 ## 43. 🚀 Trabajo siguiente
 
@@ -2390,7 +2491,7 @@ Todas las credenciales salen de `.env`, que no se versiona. El repositorio inclu
 | `SUPERSET_DB_PASSWORD` | Cuenta `superset` en `metadata-db` |
 | `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY` | Clave de RustFS; se exponen a los clientes como `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` |
 | `AIRFLOW_ADMIN_USER`, `AIRFLOW_ADMIN_PASSWORD` | Administrador de Airflow |
-| `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD` | Administrador de Superset; también los usa la tarea `superset_import` del DAG |
+| `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD` | Administrador de Superset |
 | `AIRFLOW_JWT_SECRET`, `AIRFLOW_API_SECRET_KEY`, `AIRFLOW_FERNET_KEY` | Secretos internos de Airflow |
 | `SUPERSET_SECRET_KEY` | Secreto interno de Superset |
 

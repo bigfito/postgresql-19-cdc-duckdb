@@ -164,7 +164,7 @@
       "col": 1,
       "type": "messagebus",
       "label": "superset-init",
-      "sublabel": "BD, admin y datasource"
+      "sublabel": "BD y administrador"
     },
     {
       "id": "superset",
@@ -315,7 +315,8 @@
       "items": [
         "Airflow y Superset arrancan sin esperar a Spark ni a Gold",
         "Solo las corridas del DAG y los datasets los necesitan",
-        "Todo vive en un único docker-compose.yml"
+        "Todo vive en un único docker-compose.yml",
+        "Ningún servicio se reinicia solo: tras un reinicio se repite docker compose up"
       ]
     }
   ]

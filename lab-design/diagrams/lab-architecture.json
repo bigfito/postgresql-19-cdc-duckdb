@@ -386,7 +386,7 @@
       "dot": "emerald",
       "title": "Procesamiento por lotes",
       "items": [
-        "Airflow solo orquesta los dos jobs PySpark",
+        "Airflow orquesta los jobs PySpark",
         "Silver: SCD2 por comparación de estado",
         "Gold: recarga completa en cada corrida"
       ]
@@ -397,7 +397,7 @@
       "items": [
         "Flink, Spark y DuckDB resuelven las tres capas en el catálogo REST",
         "Los archivos Parquet y la metadata viven en RustFS",
-        "DuckDB corre dentro de Superset (duckdb-engine)"
+        "DuckDB corre dentro de Superset (duckdb-engine) y del simulador"
       ]
     }
   ]

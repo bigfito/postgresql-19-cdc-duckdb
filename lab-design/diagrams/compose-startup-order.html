@@ -6126,7 +6126,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1092 652" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
+      <svg viewBox="0 0 1080 652" data-layout-contract="readable-v2" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-node-ui="">
         <title id="archify-diagram-title">Docker Compose: orden de arranque y jobs de inicialización</title>
         <desc id="archify-diagram-description">Un diagrama de flujo de trabajo generado por Archify.</desc>
         <!-- Definitions -->
@@ -6173,16 +6173,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1036" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1024" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="74" class="t-muted" font-size="10" font-weight="600">01 / Operacional y CDC</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="1036" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="1024" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="198" class="t-muted" font-size="10" font-weight="600">02 / Almacenamiento y catálogo</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="1036" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="1024" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="322" class="t-muted" font-size="10" font-weight="600">03 / Batch y orquestación</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="424" width="1036" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-3" x="40" y="424" width="1024" height="104" rx="10" class="c-lane" stroke-width="1"/>
         <text x="54" y="446" class="t-muted" font-size="10" font-weight="600">04 / Consumo</text>
 
         <!-- Phase headers -->
@@ -6192,22 +6192,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 
         <!-- Edge paths -->
-        <path data-edge-from="rustfs" data-edge-to="rustfsInit" data-edge-label="healthy" data-edge-key="0" data-edge-id="e1" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="452.4,243;512.8,243" d="M 452.4 243 L 512.8 243" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="icebergInit" data-edge-to="spark" data-edge-label="completó" data-edge-key="1" data-edge-id="e10" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="862.8,269;862.8,341" d="M 862.8 269 L 862.8 341" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="rustfs" data-edge-to="rustfsInit" data-edge-label="healthy" data-edge-key="0" data-edge-id="e1" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="452.4,243;504.79999999999995,243" d="M 452.4 243 L 504.79999999999995 243" class="a-emphasis" data-animate="edge" style="--step:0" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="icebergInit" data-edge-to="spark" data-edge-label="completó" data-edge-key="1" data-edge-id="e10" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="850.8,269;850.8,341" d="M 850.8 269 L 850.8 341" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="metadataDb" data-edge-to="supersetInit" data-edge-label="healthy" data-edge-key="2" data-edge-id="e12" data-composition-routing="workflow-v2-auto" data-edge-role="branch" data-composition-points="406.4,393;406.4,465" d="M 406.4 393 L 406.4 465" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="supersetInit" data-edge-to="superset" data-edge-label="completó" data-edge-key="3" data-edge-id="e13" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="458.4,491;514.8,491" d="M 458.4 491 L 514.8 491" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="rustfsInit" data-edge-to="icebergRest" data-edge-label="completó" data-edge-key="4" data-edge-id="e2" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="612.8,243;671.1999999999999,243" d="M 612.8 243 L 671.1999999999999 243" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="icebergRest" data-edge-to="icebergInit" data-edge-label="healthy" data-edge-key="5" data-edge-id="e3" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="763.1999999999999,243;814.8,243" d="M 763.1999999999999 243 L 814.8 243" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="icebergInit" data-edge-to="cdcSubmit" data-edge-label="completó" data-edge-key="6" data-edge-id="e4" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="862.8,217;862.8,145" d="M 862.8 217 L 862.8 145" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="supersetInit" data-edge-to="superset" data-edge-label="completó" data-edge-key="3" data-edge-id="e13" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="452.4,491;508.79999999999995,491" d="M 452.4 491 L 508.79999999999995 491" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="rustfsInit" data-edge-to="icebergRest" data-edge-label="completó" data-edge-key="4" data-edge-id="e2" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="604.8,243;661.1999999999999,243" d="M 604.8 243 L 661.1999999999999 243" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="icebergRest" data-edge-to="icebergInit" data-edge-label="healthy" data-edge-key="5" data-edge-id="e3" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="753.1999999999999,243;804.8,243" d="M 753.1999999999999 243 L 804.8 243" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="icebergInit" data-edge-to="cdcSubmit" data-edge-label="completó" data-edge-key="6" data-edge-id="e4" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="850.8,217;850.8,145" d="M 850.8 217 L 850.8 145" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="postgres" data-edge-to="flink" data-edge-label="healthy" data-edge-key="7" data-edge-id="e5" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="288,119;344.4,119" d="M 288 119 L 344.4 119" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="flink" data-edge-to="cdcSubmit" data-edge-label="healthy" data-edge-key="8" data-edge-id="e6" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="468.4,119;810.8,119" d="M 468.4 119 L 810.8 119" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="cdcSubmit" data-edge-to="simulator" data-edge-label="completó" data-edge-key="9" data-edge-id="e7" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="914.8,119;971.1999999999999,119" d="M 914.8 119 L 971.1999999999999 119" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="metadataDb" data-edge-to="airflowInit" data-edge-label="healthy" data-edge-key="10" data-edge-id="e8" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="452.4,367;512.8,367" d="M 452.4 367 L 512.8 367" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="airflowInit" data-edge-to="airflow" data-edge-label="completó" data-edge-key="11" data-edge-id="e9" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="612.8,367;669.1999999999999,367" d="M 612.8 367 L 669.1999999999999 367" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="flink" data-edge-to="cdcSubmit" data-edge-label="healthy" data-edge-key="8" data-edge-id="e6" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="468.4,119;798.8,119" d="M 468.4 119 L 798.8 119" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="cdcSubmit" data-edge-to="simulator" data-edge-label="completó" data-edge-key="9" data-edge-id="e7" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="902.8,119;959.1999999999999,119" d="M 902.8 119 L 959.1999999999999 119" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="metadataDb" data-edge-to="airflowInit" data-edge-label="healthy" data-edge-key="10" data-edge-id="e8" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="452.4,367;504.79999999999995,367" d="M 452.4 367 L 504.79999999999995 367" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="airflowInit" data-edge-to="airflow" data-edge-label="completó" data-edge-key="11" data-edge-id="e9" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="604.8,367;661.1999999999999,367" d="M 604.8 367 L 661.1999999999999 367" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="volumesInit" data-edge-to="rustfs" data-edge-label="completó" data-edge-key="12" data-edge-id="v1" data-composition-routing="workflow-v2-auto" data-edge-role="" data-composition-points="304,243;360.4,243" d="M 304 243 L 360.4 243" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="volumesInit" data-edge-to="flink" data-edge-label="completó" data-edge-key="13" data-edge-id="v2" data-edge-role="branch" data-composition-points="242,217;242,166;406.4,166;406.4,145" d="M 242 217 L 242 174 Q 242 166 250 166 L 398.4 166 Q 406.4 166 406.4 158 L 406.4 145" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="volumesInit" data-edge-to="airflowInit" data-edge-label="completó" data-edge-key="14" data-edge-id="v3" data-edge-role="branch" data-composition-points="249,269;249,290;562.8,290;562.8,341" d="M 249 269 L 249 282 Q 249 290 257 290 L 554.8 290 Q 562.8 290 562.8 298 L 562.8 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="volumesInit" data-edge-to="supersetInit" data-edge-label="completó" data-edge-key="15" data-edge-id="v4" data-edge-role="branch" data-composition-points="235,269;235,491;354.4,491" d="M 235 269 L 235 483 Q 235 491 243 491 L 354.4 491" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="volumesInit" data-edge-to="airflowInit" data-edge-label="completó" data-edge-key="14" data-edge-id="v3" data-edge-role="branch" data-composition-points="249,269;249,290;554.8,290;554.8,341" d="M 249 269 L 249 282 Q 249 290 257 290 L 546.8 290 Q 554.8 290 554.8 298 L 554.8 341" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="volumesInit" data-edge-to="supersetInit" data-edge-label="completó" data-edge-key="15" data-edge-id="v4" data-edge-role="branch" data-composition-points="235,269;235,491;360.4,491" d="M 235 269 L 235 483 Q 235 491 243 491 L 360.4 491" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.4" marker-end="url(#arrowhead)"/>
 
         <!-- Nodes -->
         <g id="node-postgres" data-node-id="postgres" data-node-label="postgresql" tabindex="0" role="button" aria-label="Enfocar postgresql, DDL + publicación, Operacional y CDC" aria-pressed="false" data-node-kind="database" data-node-sublabel="DDL + publicación" data-node-context="Operacional y CDC">
@@ -6235,27 +6235,27 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-cdcSubmit" data-node-id="cdcSubmit" data-node-label="flink-cdc-submit" tabindex="0" role="button" aria-label="Enfocar flink-cdc-submit, envía pipeline YAML, Operacional y CDC" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="envía pipeline YAML" data-node-context="Operacional y CDC">
           <title>flink-cdc-submit · envía pipeline YAML · Operacional y CDC</title>
-          <rect x="810.8" y="93" width="104" height="52" rx="8" class="c-mask"/>
-          <rect x="810.8" y="93" width="104" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(816.8 99) scale(0.6875)">
+          <rect x="798.8" y="93" width="104" height="52" rx="8" class="c-mask"/>
+          <rect x="798.8" y="93" width="104" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(804.8 99) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="862.8" y="124" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">flink-cdc-submit</text>
-          <text data-detail="context" x="862.8" y="138.6" class="t-muted" font-size="8" text-anchor="middle">envía pipeline YAML</text>
+          <text data-node-label="" data-detail-anchor="" x="850.8" y="124" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">flink-cdc-submit</text>
+          <text data-detail="context" x="850.8" y="138.6" class="t-muted" font-size="8" text-anchor="middle">envía pipeline YAML</text>
         </g>
 
         <g id="node-simulator" data-node-id="simulator" data-node-label="java-simulator" tabindex="0" role="button" aria-label="Enfocar java-simulator, empieza a emitir, Operacional y CDC" aria-pressed="false" data-node-kind="backend" data-node-sublabel="empieza a emitir" data-node-context="Operacional y CDC">
           <title>java-simulator · empieza a emitir · Operacional y CDC</title>
-          <rect x="971.1999999999999" y="93" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="971.1999999999999" y="93" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(977.1999999999999 99) scale(0.6875)">
+          <rect x="959.1999999999999" y="93" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="959.1999999999999" y="93" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(965.1999999999999 99) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="1017.1999999999999" y="124" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">java-simulator</text>
-          <text data-detail="context" x="1017.1999999999999" y="138.6" class="t-muted" font-size="8" text-anchor="middle">empieza a emitir</text>
+          <text data-node-label="" data-detail-anchor="" x="1005.1999999999999" y="124" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">java-simulator</text>
+          <text data-detail="context" x="1005.1999999999999" y="138.6" class="t-muted" font-size="8" text-anchor="middle">empieza a emitir</text>
         </g>
 
         <g id="node-volumesInit" data-node-id="volumesInit" data-node-label="volumes-init" tabindex="0" role="button" aria-label="Enfocar volumes-init, propiedad de directorios, Almacenamiento y catálogo" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="propiedad de directorios" data-node-context="Almacenamiento y catálogo">
@@ -6286,41 +6286,41 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-rustfsInit" data-node-id="rustfsInit" data-node-label="rustfs-init" tabindex="0" role="button" aria-label="Enfocar rustfs-init, crea bucket warehouse, Almacenamiento y catálogo" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="crea bucket warehouse" data-node-context="Almacenamiento y catálogo">
           <title>rustfs-init · crea bucket warehouse · Almacenamiento y catálogo</title>
-          <rect x="512.8" y="217" width="100" height="52" rx="8" class="c-mask"/>
-          <rect x="512.8" y="217" width="100" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(518.8 223) scale(0.6875)">
+          <rect x="504.79999999999995" y="217" width="100" height="52" rx="8" class="c-mask"/>
+          <rect x="504.79999999999995" y="217" width="100" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(510.79999999999995 223) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="568.0999999999999" y="238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">rustfs-init</text>
-          <text data-detail="context" x="562.8" y="255" class="t-muted" font-size="7.3" text-anchor="middle">crea bucket warehouse</text>
+          <text data-node-label="" data-detail-anchor="" x="560.0999999999999" y="238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">rustfs-init</text>
+          <text data-detail="context" x="554.8" y="255" class="t-muted" font-size="7.3" text-anchor="middle">crea bucket warehouse</text>
         </g>
 
         <g id="node-icebergRest" data-node-id="icebergRest" data-node-label="iceberg-rest" tabindex="0" role="button" aria-label="Enfocar iceberg-rest, catálogo :8181, Almacenamiento y catálogo" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="catálogo :8181" data-node-context="Almacenamiento y catálogo">
           <title>iceberg-rest · catálogo :8181 · Almacenamiento y catálogo</title>
-          <rect x="671.1999999999999" y="217" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="671.1999999999999" y="217" width="92" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(677.1999999999999 223) scale(0.6875)">
+          <rect x="661.1999999999999" y="217" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="661.1999999999999" y="217" width="92" height="52" rx="8" class="c-cloud" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(667.1999999999999 223) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="717.1999999999999" y="249.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">iceberg-rest</text>
-          <text data-detail="context" x="717.1999999999999" y="264.1" class="t-muted" font-size="8" text-anchor="middle">catálogo :8181</text>
+          <text data-node-label="" data-detail-anchor="" x="707.1999999999999" y="249.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">iceberg-rest</text>
+          <text data-detail="context" x="707.1999999999999" y="264.1" class="t-muted" font-size="8" text-anchor="middle">catálogo :8181</text>
         </g>
 
         <g id="node-icebergInit" data-node-id="icebergInit" data-node-label="iceberg-init" tabindex="0" role="button" aria-label="Enfocar iceberg-init, bronze, silver, gold, Almacenamiento y catálogo" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="bronze, silver, gold" data-node-context="Almacenamiento y catálogo">
           <title>iceberg-init · bronze, silver, gold · Almacenamiento y catálogo</title>
-          <rect x="814.8" y="217" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="814.8" y="217" width="96" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(820.8 223) scale(0.6875)">
+          <rect x="804.8" y="217" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="804.8" y="217" width="92" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(810.8 223) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="862.8" y="249.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">iceberg-init</text>
-          <text data-detail="context" x="862.8" y="263.3" class="t-muted" font-size="7.3" text-anchor="middle">bronze, silver, gold</text>
+          <text data-node-label="" data-detail-anchor="" x="850.8" y="249.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">iceberg-init</text>
+          <text data-detail="context" x="850.8" y="262.9" class="t-muted" font-size="7" text-anchor="middle">bronze, silver, gold</text>
         </g>
 
         <g id="node-metadataDb" data-node-id="metadataDb" data-node-label="metadata-db" tabindex="0" role="button" aria-label="Enfocar metadata-db, airflow + superset, Batch y orquestación" aria-pressed="false" data-node-kind="database" data-node-sublabel="airflow + superset" data-node-context="Batch y orquestación">
@@ -6337,116 +6337,116 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <g id="node-airflowInit" data-node-id="airflowInit" data-node-label="airflow-init" tabindex="0" role="button" aria-label="Enfocar airflow-init, migra BD y crea admin, Batch y orquestación" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="migra BD y crea admin" data-node-context="Batch y orquestación">
           <title>airflow-init · migra BD y crea admin · Batch y orquestación</title>
-          <rect x="512.8" y="341" width="100" height="52" rx="8" class="c-mask"/>
-          <rect x="512.8" y="341" width="100" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(518.8 347) scale(0.6875)">
+          <rect x="504.79999999999995" y="341" width="100" height="52" rx="8" class="c-mask"/>
+          <rect x="504.79999999999995" y="341" width="100" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(510.79999999999995 347) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="562.8" y="373.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">airflow-init</text>
-          <text data-detail="context" x="562.8" y="387.3" class="t-muted" font-size="7.3" text-anchor="middle">migra BD y crea admin</text>
+          <text data-node-label="" data-detail-anchor="" x="554.8" y="373.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">airflow-init</text>
+          <text data-detail="context" x="554.8" y="387.3" class="t-muted" font-size="7.3" text-anchor="middle">migra BD y crea admin</text>
         </g>
 
         <g id="node-airflow" data-node-id="airflow" data-node-label="airflow" tabindex="0" role="button" aria-label="Enfocar airflow, api, scheduler, dags, Batch y orquestación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="api, scheduler, dags" data-node-context="Batch y orquestación">
           <title>airflow · api, scheduler, dags · Batch y orquestación</title>
-          <rect x="669.1999999999999" y="341" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="669.1999999999999" y="341" width="96" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(675.1999999999999 347) scale(0.6875)">
+          <rect x="661.1999999999999" y="341" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="661.1999999999999" y="341" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(667.1999999999999 347) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="717.1999999999999" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">airflow</text>
-          <text data-detail="context" x="717.1999999999999" y="379" class="t-muted" font-size="7.3" text-anchor="middle">api, scheduler, dags</text>
+          <text data-node-label="" data-detail-anchor="" x="707.1999999999999" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">airflow</text>
+          <text data-detail="context" x="707.1999999999999" y="379" class="t-muted" font-size="7" text-anchor="middle">api, scheduler, dags</text>
         </g>
 
         <g id="node-spark" data-node-id="spark" data-node-label="spark" tabindex="0" role="button" aria-label="Enfocar spark, master + worker, Batch y orquestación" aria-pressed="false" data-node-kind="backend" data-node-sublabel="master + worker" data-node-context="Batch y orquestación">
           <title>spark · master + worker · Batch y orquestación</title>
-          <rect x="816.8" y="341" width="92" height="52" rx="8" class="c-mask"/>
-          <rect x="816.8" y="341" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(822.8 347) scale(0.6875)">
+          <rect x="804.8" y="341" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="804.8" y="341" width="92" height="52" rx="8" class="c-backend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(810.8 347) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="862.8" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">spark</text>
-          <text data-detail="context" x="862.8" y="379" class="t-muted" font-size="8" text-anchor="middle">master + worker</text>
+          <text data-node-label="" data-detail-anchor="" x="850.8" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">spark</text>
+          <text data-detail="context" x="850.8" y="379" class="t-muted" font-size="8" text-anchor="middle">master + worker</text>
         </g>
 
-        <g id="node-supersetInit" data-node-id="supersetInit" data-node-label="superset-init" tabindex="0" role="button" aria-label="Enfocar superset-init, BD, admin y datasource, Consumo" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="BD, admin y datasource" data-node-context="Consumo">
-          <title>superset-init · BD, admin y datasource · Consumo</title>
-          <rect x="354.4" y="465" width="104" height="52" rx="8" class="c-mask"/>
-          <rect x="354.4" y="465" width="104" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(360.4 471) scale(0.6875)">
+        <g id="node-supersetInit" data-node-id="supersetInit" data-node-label="superset-init" tabindex="0" role="button" aria-label="Enfocar superset-init, BD y administrador, Consumo" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="BD y administrador" data-node-context="Consumo">
+          <title>superset-init · BD y administrador · Consumo</title>
+          <rect x="360.4" y="465" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="360.4" y="465" width="92" height="52" rx="8" class="c-messagebus" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(366.4 471) scale(0.6875)">
             <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
             <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
             <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
             <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="406.4" y="497.2" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">superset-init</text>
-          <text data-detail="context" x="406.4" y="511.2" class="t-muted" font-size="7.2" text-anchor="middle">BD, admin y datasource</text>
+          <text data-node-label="" data-detail-anchor="" x="406.4" y="496.9" class="t-primary" font-size="10.7" font-weight="600" text-anchor="middle">superset-init</text>
+          <text data-detail="context" x="406.4" y="511.4" class="t-muted" font-size="7.7" text-anchor="middle">BD y administrador</text>
         </g>
 
         <g id="node-superset" data-node-id="superset" data-node-label="superset" tabindex="0" role="button" aria-label="Enfocar superset, UI + DuckDB embebido, Consumo" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="UI + DuckDB embebido" data-node-context="Consumo">
           <title>superset · UI + DuckDB embebido · Consumo</title>
-          <rect x="514.8" y="465" width="96" height="52" rx="8" class="c-mask"/>
-          <rect x="514.8" y="465" width="96" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(520.8 471) scale(0.6875)">
+          <rect x="508.79999999999995" y="465" width="92" height="52" rx="8" class="c-mask"/>
+          <rect x="508.79999999999995" y="465" width="92" height="52" rx="8" class="c-frontend" data-animate="node" style="--step:12" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(514.8 471) scale(0.6875)">
             <rect x="2" y="3" width="12" height="10" rx="2"/>
             <path d="M2 6.5h12"/>
             <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
             <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="562.8" y="486" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">superset</text>
-          <text data-detail="context" x="562.8" y="503" class="t-muted" font-size="7.3" text-anchor="middle">UI + DuckDB embebido</text>
+          <text data-node-label="" data-detail-anchor="" x="554.8" y="486" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">superset</text>
+          <text data-detail="context" x="554.8" y="503" class="t-muted" font-size="7" text-anchor="middle">UI + DuckDB embebido</text>
         </g>
 
         <!-- Edge labels -->
         <g data-detail="context" data-edge-from="rustfs" data-edge-to="rustfsInit" data-edge-label="healthy" data-edge-key="0" data-edge-id="e1">
-          <rect x="460.79999999999995" y="223" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="482.59999999999997" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">healthy</text>
+          <rect x="456.79999999999995" y="223" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="478.59999999999997" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="icebergInit" data-edge-to="spark" data-edge-label="completó" data-edge-key="1" data-edge-id="e10">
-          <rect x="838.5999999999999" y="295" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="862.8" y="305" class="t-muted" font-size="8" text-anchor="middle">completó</text>
+          <rect x="826.5999999999999" y="295" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="850.8" y="305" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="metadataDb" data-edge-to="supersetInit" data-edge-label="healthy" data-edge-key="2" data-edge-id="e12">
           <rect x="384.59999999999997" y="419" width="43.6" height="14" rx="3" class="c-mask"/>
           <text x="406.4" y="429" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="supersetInit" data-edge-to="superset" data-edge-label="completó" data-edge-key="3" data-edge-id="e13">
-          <rect x="462.4" y="471" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="486.59999999999997" y="481" class="t-muted" font-size="8" text-anchor="middle">completó</text>
+          <rect x="456.4" y="471" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="480.59999999999997" y="481" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="rustfsInit" data-edge-to="icebergRest" data-edge-label="completó" data-edge-key="4" data-edge-id="e2">
-          <rect x="617.8" y="223" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="642" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
+          <rect x="608.8" y="223" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="633" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="icebergRest" data-edge-to="icebergInit" data-edge-label="healthy" data-edge-key="5" data-edge-id="e3">
-          <rect x="767.2" y="223" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="789" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">healthy</text>
+          <rect x="757.2" y="223" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="779" y="233" class="t-edge-emphasis" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="icebergInit" data-edge-to="cdcSubmit" data-edge-label="completó" data-edge-key="6" data-edge-id="e4">
-          <rect x="838.5999999999999" y="171" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="862.8" y="181" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
+          <rect x="826.5999999999999" y="171" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="850.8" y="181" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="postgres" data-edge-to="flink" data-edge-label="healthy" data-edge-key="7" data-edge-id="e5">
           <rect x="294.4" y="99" width="43.6" height="14" rx="3" class="c-mask"/>
           <text x="316.2" y="109" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="flink" data-edge-to="cdcSubmit" data-edge-label="healthy" data-edge-key="8" data-edge-id="e6">
-          <rect x="617.8" y="99" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="639.5999999999999" y="109" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
+          <rect x="611.8" y="99" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="633.5999999999999" y="109" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="cdcSubmit" data-edge-to="simulator" data-edge-label="completó" data-edge-key="9" data-edge-id="e7">
-          <rect x="918.8" y="99" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="943" y="109" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
+          <rect x="906.8" y="99" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="931" y="109" class="t-edge-emphasis" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="metadataDb" data-edge-to="airflowInit" data-edge-label="healthy" data-edge-key="10" data-edge-id="e8">
-          <rect x="460.79999999999995" y="347" width="43.6" height="14" rx="3" class="c-mask"/>
-          <text x="482.59999999999997" y="357" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
+          <rect x="456.79999999999995" y="347" width="43.6" height="14" rx="3" class="c-mask"/>
+          <text x="478.59999999999997" y="357" class="t-muted" font-size="8" text-anchor="middle">healthy</text>
         </g>
         <g data-detail="context" data-edge-from="airflowInit" data-edge-to="airflow" data-edge-label="completó" data-edge-key="11" data-edge-id="e9">
-          <rect x="616.8" y="347" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="641" y="357" class="t-muted" font-size="8" text-anchor="middle">completó</text>
+          <rect x="608.8" y="347" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="633" y="357" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="volumesInit" data-edge-to="rustfs" data-edge-label="completó" data-edge-key="12" data-edge-id="v1">
           <rect x="308" y="223" width="48.4" height="14" rx="3" class="c-mask"/>
@@ -6457,12 +6457,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <text x="324.2" y="156" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="volumesInit" data-edge-to="airflowInit" data-edge-label="completó" data-edge-key="14" data-edge-id="v3">
-          <rect x="381.7" y="270" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="405.9" y="280" class="t-muted" font-size="8" text-anchor="middle">completó</text>
+          <rect x="377.7" y="270" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="401.9" y="280" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
         <g data-detail="context" data-edge-from="volumesInit" data-edge-to="supersetInit" data-edge-label="completó" data-edge-key="15" data-edge-id="v4">
-          <rect x="270.5" y="471" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="294.7" y="481" class="t-muted" font-size="8" text-anchor="middle">completó</text>
+          <rect x="273.5" y="471" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="297.7" y="481" class="t-muted" font-size="8" text-anchor="middle">completó</text>
         </g>
 
         <!-- Legend -->
@@ -6722,6 +6722,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <li>Airflow y Superset arrancan sin esperar a Spark ni a Gold</li>
           <li>Solo las corridas del DAG y los datasets los necesitan</li>
           <li>Todo vive en un único docker-compose.yml</li>
+          <li>Ningún servicio se reinicia solo: tras un reinicio se repite docker compose up</li>
         </ul>
       </div>
     </div>

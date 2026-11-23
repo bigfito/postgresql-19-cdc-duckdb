@@ -16,18 +16,18 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 |---|---|---:|---:|---:|---|
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
-| F2 | Base del proyecto | 8 | 0 | 0 % | ⏳ Pendiente |
-| F3 | PostgreSQL operacional | 14 | 0 | 0 % | ⏳ Pendiente |
+| F2 | Base del proyecto | 9 | 0 | 0 % | ⏳ Pendiente |
+| F3 | PostgreSQL operacional | 15 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
-| F6 | Event Simulator | 41 | 0 | 0 % | ⏳ Pendiente |
+| F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
 | F7 | Spark y capa Silver | 35 | 0 | 0 % | ⏳ Pendiente |
 | F8 | Capa Gold | 10 | 0 | 0 % | ⏳ Pendiente |
-| F9 | Orquestación con Airflow | 17 | 0 | 0 % | ⏳ Pendiente |
-| F10 | DuckDB y Superset | 17 | 0 | 0 % | ⏳ Pendiente |
-| F11 | Integración de extremo a extremo | 10 | 0 | 0 % | ⏳ Pendiente |
+| F9 | Orquestación con Airflow | 19 | 0 | 0 % | ⏳ Pendiente |
+| F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
+| F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **216** | **30** | **14 %** | 🔄 En curso |
+| | **Global** | **222** | **30** | **14 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -92,7 +92,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 | H1 · Bronze en vivo | F5 | Un cambio en PostgreSQL aparece en Bronze segundos después |
 | H2 · Simulador en marcha | F6 | Transacciones generadas y dirigidas desde la consola |
 | H3 · Lakehouse completo | F8 | Silver con historial y los siete productos Gold |
-| H4 · Dashboards | F10 | Los productos Gold en Superset |
+| H4 · Superset listo | F10 | Un gráfico creado a mano en Superset sobre un producto Gold |
 | H5 · Laboratorio completo | F11 | Un cambio recorre todo el camino con un único `docker compose up` |
 
 ### F0 · Diseño y validaciones previas
@@ -156,6 +156,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F2-06** Comprobar que `docker compose config` valida sin errores. _(diseño §39)_
 - [ ] **F2-07** Comprobar que `volumes-init` deja cada directorio con su usuario. _(diseño §45.2)_
 - [ ] **F2-08** Añadir `metadata-db` con las bases `airflow` y `superset`. _(diseño §45.3)_
+- [ ] **F2-09** Comprobar que `metadata-db` arranca sano con sus dos bases. _(diseño §45.3)_
 
 ### F3 · PostgreSQL operacional
 
@@ -177,7 +178,8 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F3-11** Añadir el servicio `postgresql` al Compose con sus parámetros de replicación. _(diseño §10)_
 - [ ] **F3-12** Añadir el healthcheck de `postgresql`. _(diseño §40)_
 - [ ] **F3-13** Comprobar que el esquema se crea al arrancar. _(diseño §10)_
-- [ ] **F3-14** Comprobar que los 20 CSV cargan sin errores con `COPY`. _(diseño §8.3)_
+- [ ] **F3-15** Escribir `postgresql/scripts/load_dev_data.sql`, que carga los 20 CSV para el desarrollo. _(diseño §39)_
+- [ ] **F3-14** Comprobar que los 20 CSV cargan sin errores con ese script. _(diseño §8.3 y §39)_
 
 ### F4 · Almacenamiento y catálogo
 
@@ -199,7 +201,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Objetivo:** Replicar en Bronze, de forma continua, cada cambio de PostgreSQL.
 - **Depende de:** F3, F4 y la actividad F0-12
 - **Skill:** `/solution-architect`
-- **Terminada cuando:** Las 20 tablas están en Bronze, reflejan INSERT, UPDATE y DELETE, y el pipeline se reanuda solo tras un reinicio.
+- **Terminada cuando:** Las 20 tablas están en Bronze, reflejan INSERT, UPDATE y DELETE, y el pipeline se reanuda al repetir `docker compose up` tras reiniciar Flink.
 
 - [ ] **F5-01** Escribir `flink/Dockerfile` con Flink CDC y sus JAR. _(diseño §14)_
 - [ ] **F5-02** Escribir la configuración de Flink: checkpoint de 30 s y checkpoints retenidos. _(diseño §14)_
@@ -217,7 +219,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F5-12** Comprobar un UPDATE en Bronze. _(diseño §17)_
 - [ ] **F5-13** Comprobar un DELETE en Bronze. _(diseño §17)_
 - [ ] **F5-14** Comprobar que repetir `docker compose up` no crea un segundo job. _(diseño §14)_
-- [ ] **F5-15** Comprobar que el pipeline se reanuda tras reiniciar el JobManager. _(diseño §14)_
+- [ ] **F5-15** Comprobar que, tras reiniciar el JobManager, repetir `docker compose up` reanuda el pipeline desde su checkpoint. _(diseño §14)_
 - [ ] **F5-19** Comprobar que el script de envío se detiene sin borrar nada si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
 - [ ] **F5-16** Escribir el script que elimina las tablas Bronze para reconstruirlas. _(diseño §38)_
 - [ ] **F5-20** Comprobar la reconstrucción de Bronze con el script de borrado. _(diseño §38)_
@@ -227,7 +229,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Objetivo:** Tener el simulador Java 25 generando transacciones reales, con su interfaz de consola.
 - **Depende de:** F1, F5 y las actividades F0-14 y F0-15
 - **Skill:** `/java-developer`; `/solution-architect` para el Dockerfile y el Compose
-- **Terminada cuando:** El simulador cumple los requisitos RF-01 a RF-12 y su interfaz se abre con `docker compose attach`.
+- **Terminada cuando:** El simulador cumple los requisitos RF-01 a RF-13 y su interfaz se abre con `docker compose attach`.
 
 - [ ] **F6-01** Crear el proyecto Maven con sus dependencias. _(diseño §9.8)_
 - [ ] **F6-02** Leer la configuración desde variables de entorno. _(diseño §9.6)_
@@ -235,14 +237,16 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F6-04** Conectar con PostgreSQL usando `elastiflix_app`. _(diseño §45.3)_
 - [ ] **F6-05** Dar de alta una película en una sola transacción. _(RF-02)_
 - [ ] **F6-06** Insertar catálogos y entidades la primera vez que se necesitan. _(diseño §9.5)_
+- [ ] **F6-42** Al arrancar, leer de PostgreSQL lo ya insertado y continuar con la primera película pendiente. _(RF-13 y diseño §9.5)_
 - [ ] **F6-07** Implementar el UPDATE descriptivo. _(RF-03)_
 - [ ] **F6-08** Implementar el UPDATE de medidas. _(RF-03)_
 - [ ] **F6-09** Implementar el UPDATE de relaciones, que actualiza también `updated_at` de la película. _(RF-03 y diseño §9.5)_
-- [ ] **F6-41** Implementar el UPDATE de catálogo: renombrar una colección o una keyword. _(RF-03 y diseño §9.5)_
+- [ ] **F6-41** Implementar el UPDATE de catálogo: renombrar una colección o una keyword con el sufijo `(rev N)`. _(RF-03 y diseño §9.5)_
 - [ ] **F6-10** Implementar el DELETE de una película. _(RF-03)_
 - [ ] **F6-11** Implementar la reinserción de una película borrada. _(RF-03)_
 - [ ] **F6-12** Elegir la siguiente operación según los pesos y la semilla. _(RF-04 y RF-05)_
-- [ ] **F6-13** Implementar el modo continuo. _(diseño §9.5)_
+- [ ] **F6-43** Elegir el tipo de UPDATE con la semilla, entre los que la película admite. _(diseño §9.5)_
+- [ ] **F6-13** Implementar el modo continuo, con la reinserción automática cuando ya no quedan películas pendientes. _(diseño §9.5)_
 - [ ] **F6-14** Ante un dato inconsistente: revertir, registrar y continuar. _(RF-12)_
 - [ ] **F6-15** Registrar cada transacción, cada cambio de configuración y cada operación manual, también en `/tmp/simulator.log`. _(RF-11 y diseño §9.8)_
 - [ ] **F6-16** Implementar el modo de líneas, que es como arranca el simulador. _(RF-10 y diseño §9.4)_
@@ -259,8 +263,8 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
 - [ ] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
 - [ ] **F6-25** Implementar el diálogo de operación manual. _(RF-08)_
-- [ ] **F6-26** Implementar el seguimiento del cambio hasta Bronze, con el instante de referencia truncado. _(RF-09 y diseño §9.3)_
 - [ ] **F6-37** Abrir DuckDB en un hilo propio, con hilos y memoria limitados, y reabrirlo si una consulta falla. _(diseño §9.8)_
+- [ ] **F6-26** Implementar el seguimiento del cambio hasta Bronze, con el instante de referencia truncado. _(RF-09 y diseño §9.3)_
 - [ ] **F6-38** Marcar como demorada la transacción que no llega a Bronze en 120 segundos. _(diseño §9.3)_
 - [ ] **F6-27** Escribir pruebas unitarias de la lectura de CSV. _(diseño §9.1)_
 - [ ] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
@@ -268,8 +272,10 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F6-39** Instalar las extensiones de DuckDB durante el build de la imagen. _(diseño §34)_
 - [ ] **F6-30** Añadir `java-simulator` al Compose, con `tty` y `stdin_open`, después de `flink-cdc-submit`. _(diseño §9.8 y §40)_
 - [ ] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
-- [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.2)_
+- [ ] **F6-44** Volver el laboratorio a cero antes de las comprobaciones del simulador. _(diseño §39)_
+- [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.8)_
 - [ ] **F6-32** Comprobar que la misma semilla repite la misma secuencia. _(RF-05)_
+- [ ] **F6-45** Comprobar que, tras detener y arrancar el contenedor, el simulador continúa sin repetir altas. _(RF-13)_
 
 ### F7 · Spark y capa Silver
 
@@ -347,6 +353,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F9-07** Crear el administrador de Airflow con `airflow users create`. _(diseño §45.4)_
 - [ ] **F9-08** Escribir el job `iceberg_maintenance.py`. _(diseño §38)_
 - [ ] **F9-09** Crear el DAG `elastiflix_medallion`. _(diseño §18)_
+- [ ] **F9-19** Programar el DAG cada 10 minutos, activo desde que se crea, sin `catchup` y con una sola corrida a la vez. _(diseño §18)_
 - [ ] **F9-10** Escribir `validate_bronze.py`, que comprueba las tablas y el job de Flink, y añadir su tarea. _(diseño §18)_
 - [ ] **F9-11** Añadir la tarea `bronze_to_silver`, que pasa `dag_run.run_after` al job. _(diseño §18 y §21)_
 - [ ] **F9-12** Escribir `validate_silver.py` y añadir la tarea `validate_silver`. _(diseño §18)_
@@ -356,13 +363,14 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F9-16** Comprobar una corrida completa del DAG. _(diseño §18)_
 - [ ] **F9-17** Comprobar que una validación fallida detiene el DAG, salvo el mantenimiento. _(diseño §18)_
 - [ ] **F9-18** Comprobar la reconstrucción de Bronze con el DAG pausado y reanudado después. _(diseño §38, decisión 39)_
+- [ ] **F9-20** Comprobar que el DAG empieza a correr solo, sin activarlo a mano. _(diseño §18)_
 
 ### F10 · DuckDB y Superset
 
-- **Objetivo:** Mostrar los productos Gold en dashboards.
+- **Objetivo:** Dejar Superset listo para que quien use el laboratorio conecte Gold y cree sus visualizaciones.
 - **Depende de:** F8 y F9
 - **Skill:** `/python-developer` para la configuración de Superset; `/solution-architect` para el SQL de DuckDB, el Dockerfile y el Compose
-- **Terminada cuando:** Tras la primera corrida del DAG, los dashboards aparecen solos y muestran datos de Gold.
+- **Terminada cuando:** Siguiendo la guía del diseño, se conecta la base DuckDB, se crea un dataset sobre un producto Gold y un gráfico muestra sus datos.
 
 - [ ] **F10-01** Escribir `duckdb/init/attach_lakehouse.sql` y `duckdb/init/gold_views.sql`. _(diseño §34)_
 - [ ] **F10-02** Escribir `duckdb/Dockerfile` para la línea de comandos opcional. _(diseño §34)_
@@ -371,16 +379,12 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [ ] **F10-04** Escribir `superset_config.py` con el hook de conexión, que crea solo las vistas de las tablas Gold que existen. _(diseño §35)_
 - [ ] **F10-05** Añadir el job `superset-init`: migrar la base de metadatos. _(diseño §39)_
 - [ ] **F10-06** Añadir a `superset-init` la creación del administrador. _(diseño §45.4)_
-- [ ] **F10-07** Añadir a `superset-init` el registro de la base de datos DuckDB. _(diseño §35)_
 - [ ] **F10-08** Añadir el servicio `superset` al Compose. _(diseño §39)_
-- [ ] **F10-09** Crear un dataset por producto Gold. _(diseño §35)_
-- [ ] **F10-10** Definir los dashboards y sus gráficos. _(diseño §35)_
-- [ ] **F10-11** Construir los dashboards. _(diseño §35)_
-- [ ] **F10-12** Exportar datasets y dashboards a `superset/config/`. _(diseño §35)_
-- [ ] **F10-13** Añadir al DAG la tarea `superset_import`, que importa datasets y dashboards por la API de Superset. _(diseño §18 y §35)_
-- [ ] **F10-16** Comprobar que Superset consulta sin errores antes de la primera corrida del DAG. _(diseño §34)_
+- [ ] **F10-16** Comprobar que Superset abre conexiones sin errores antes de la primera corrida del DAG y que, después, el hook crea las vistas de las tablas Gold que existen. _(diseño §34 y §35)_
 - [ ] **F10-17** Comprobar que DuckDB lee los siete productos Gold. _(diseño §34)_
-- [ ] **F10-14** Comprobar que los dashboards muestran datos. _(diseño §35)_
+- [ ] **F10-20** Seguir la guía de Superset paso a paso: conectar la base, crear un dataset sobre un producto Gold y un gráfico. _(diseño §35)_
+- [ ] **F10-21** Corregir la guía con lo que difiera en la interfaz real. _(diseño §35)_
+- [ ] **F10-14** Comprobar que el gráfico refleja un cambio tras la siguiente corrida del DAG. _(diseño §35)_
 
 ### F11 · Integración de extremo a extremo
 
@@ -391,12 +395,14 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 
 - [ ] **F11-01** Completar los healthchecks y las dependencias entre servicios. _(diseño §40)_
 - [ ] **F11-02** Comprobar que todos los servicios declaran su límite de memoria. _(diseño §39)_
+- [ ] **F11-12** Volver el laboratorio a cero con el procedimiento del diseño. _(diseño §39)_
 - [ ] **F11-03** Levantar todo desde cero con `docker compose up -d --build`. _(diseño §39)_
+- [ ] **F11-13** Conectar la base y crear un gráfico en Superset con la guía, para seguir los cambios. _(diseño §35)_
 - [ ] **F11-04** Seguir un INSERT desde el simulador hasta Superset. _(diseño §42)_
 - [ ] **F11-05** Seguir un UPDATE desde el simulador hasta Superset. _(diseño §42)_
 - [ ] **F11-06** Seguir un DELETE desde el simulador hasta Superset. _(diseño §42)_
 - [ ] **F11-07** Repetir `docker compose up` y comprobar que nada se duplica. _(diseño §40)_
-- [ ] **F11-08** Detener y volver a levantar el laboratorio, y comprobar que retoma. _(diseño §14)_
+- [ ] **F11-08** Detener y volver a levantar el laboratorio, y comprobar que el pipeline y el simulador retoman. _(diseño §9.5, §14 y §39)_
 - [ ] **F11-09** Medir la memoria usada con todo en marcha. _(diseño §39)_
 - [ ] **F11-11** Anotar los defectos encontrados y corregirlos. _(sección 6 de este plan)_
 
@@ -440,6 +446,9 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | Plan y documentación | Responsable y agente | Superset se entrega vacío: quien usa el laboratorio conecta la base y crea sus gráficos con la guía del diseño §35. Se retiran la validación 13 (F0-22), F10-07, F10-09 a F10-13, F10-18 y F10-19; F0 vuelve a estar terminada. Nuevas: F10-20, F10-21 y F11-13. Se cierra el riesgo R9 |
+| 2026-11-22 | Plan y documentación | Responsable y agente | Decididos los ocho puntos de la segunda revisión y el arranque del simulador tras un reinicio (decisiones 57 a 65). F0 se reabre con la validación 13 (F0-22), que F10 espera. Nuevas: F0-22, F3-15, F6-42 a F6-45, F9-19, F9-20, F10-19 y F11-12. Se abre el riesgo R9 |
+| 2026-11-22 | Plan y documentación | Agente | Segunda revisión de coherencia: se corrigen 23 hallazgos. Nuevas: F2-09 y F10-18; F6-37 pasa antes de F6-26. Quedan ocho puntos para decidir |
 | 2026-11-22 | Plan | Responsable y agente | Decisiones D-8 a D-16 tomadas (vigentes 48 a 56). F6 depende de F1 y F5 y F10 de F8 y F9; `metadata-db` pasa a F2 (F2-08, se retira F9-01) y la comprobación de DuckDB a F10 (F10-17, se retira F8-11). Nuevas: F6-41, F7-35 y F10-16 |
 | 2026-11-22 | Plan y documentación | Agente | Revisión de coherencia de la documentación: se corrigen los hallazgos que no dependían de una decisión y quedan nueve decisiones abiertas (D-8 a D-16). Ocho actividades nuevas: F5-17 a F5-20, F6-40, F7-34, F9-18 y F10-15 |
 | 2026-11-22 | Plan | Responsable y agente | Cada fase indica su skill. Se añade F4-07 (consola de RustFS) y se retira F11-10 (arranque en Linux): el laboratorio corre en un solo equipo. Decisiones 41 a 43 |
@@ -483,3 +492,4 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 | R4 | Una decisión abierta de F0 frena una fase del camino más largo | 2026-11-22 | No queda ninguna decisión abierta |
 | R6 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | 2026-11-22 | La validación 11 pasó: adjunta el catálogo, lee `bronze.movie` y detecta los cambios (F0-15) |
 | R7 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | 2026-11-22 | Apache Commons CSV 1.14.1 lee los 20 CSV desde Java 25 con el mismo contenido, celda por celda, que una lectura de referencia |
+| R9 | La importación de la base y los dashboards en Superset no funciona como está diseñada | 2026-11-22 | La importación se retiró del diseño: los dashboards los crea quien usa el laboratorio |

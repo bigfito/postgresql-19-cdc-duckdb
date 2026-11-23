@@ -59,7 +59,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 37 | La ruta canónica de las imágenes de una colección es el primer valor no nulo observado, y se conserva | Regla determinística y simple para las colecciones cuyas películas traen rutas distintas | 23 | Revisión 6 |
 | 38 | `flink-cdc-submit` se detiene con error, sin borrar nada, si no hay checkpoint y Bronze ya tiene tablas | Un job de arranque no debe eliminar datos por su cuenta; la reconstrucción es un procedimiento explícito | 14, 38 | Revisión 6 |
 | 39 | El DAG de Airflow se pausa mientras se reconstruye Bronze | Una corrida que lea Bronze a medio cargar cerraría versiones de filas que siguen existiendo | 38 | Revisión 6 |
-| 40 | Checkpoint de Flink cada 30 s; el mantenimiento conserva los 5 últimos snapshots | Son los valores con los que se ejecutaron todas las validaciones | 14, 38 | Revisión 6 |
+| 40 | Checkpoint de Flink cada 30 s; el mantenimiento conserva los 5 últimos snapshots de cada tabla | El checkpoint de 30 s es el de la validación de volumen y las posteriores (las validaciones 2 a 4 usaron 10 s). Los 5 snapshots son un valor elegido, con margen frente a la cadencia del DAG; las pruebas de mantenimiento conservaron solo 1 | 14, 38 | Revisión 6 |
 | 41 | El laboratorio se construye y se valida en un solo equipo `amd64`; ARM64 y Linux nativo quedan documentados como no probados | Es donde va a ejecutarse | 2.2 | Revisión 6 |
 | 42 | Cada actividad se hace con su skill: `/java-developer`, `/python-developer` o `/solution-architect`; `AGENTS.md` es la entrada común de los cinco agentes | Mismo criterio de trabajo sea cual sea el agente que tome la actividad | Plan y `AGENTS.md` | Revisión 6 |
 | 43 | No se conserva material del proyecto fuera del repositorio: cada servicio guarda su `Dockerfile` en su directorio y el Compose de la raíz los integra | Una sola fuente de verdad; los arneses de las validaciones eran desechables | 7, 39 | Revisión 6 |
@@ -67,7 +67,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 45 | Airflow usa `LocalExecutor` | Un solo equipo; no hace falta un broker ni ejecutores distribuidos | 18 | Diseño; registrada en la Revisión 6 |
 | 46 | Hadoop 3.3.6 en la imagen de Flink, aunque existe la 3.5.0 | Es la versión que lista la guía oficial de Flink CDC, parte del conjunto probado con el conector | 14 | Diseño; registrada en la Revisión 6 |
 | 47 | `max_slot_wal_keep_size = 2GB` en el PostgreSQL operacional | Acota el WAL que el slot retiene si Flink está detenido; sin él, un Flink caído llena el disco | 10 | Revisión 2 |
-| 48 | Los datasets y dashboards los importa la tarea `superset_import`, al final del DAG; las vistas de DuckDB sobre Gold solo se crean para las tablas que existen | Gold no existe hasta la primera corrida del DAG, y una vista sobre una tabla inexistente haría fallar toda conexión de Superset | 18, 34, 35 | D-8; Revisión 6 |
+| 48 | Las vistas de DuckDB sobre Gold solo se crean para las tablas que existen | Gold no existe hasta la primera corrida del DAG, y una vista sobre una tabla inexistente haría fallar toda conexión de Superset | 34, 35 | D-8; Revisión 6 |
 | 49 | `record_hash` usa las claves de negocio de las dimensiones, no las sustitutas | Un cambio descriptivo crea una versión de `dim_movie` y una `movie_sk` nueva, pero no debe crear snapshot | 27 | D-9; Revisión 6 |
 | 50 | El simulador tiene un cuarto tipo de UPDATE, de catálogo: renombra una colección o una keyword y actualiza `updated_at` de la película | Sin él, el SCD2 de `dim_collection` y `dim_keyword` no se ejercita nunca | 9.5, 31 | D-10; Revisión 6 |
 | 51 | El UPDATE de relaciones cambia géneros y keywords, no el reparto | Coherencia entre las secciones 9.5 y 31 | 9.5, 31 | D-11; Revisión 6 |
@@ -76,6 +76,15 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 54 | El SQL de DuckDB va en dos archivos de `duckdb/init/`, montados en solo lectura en Superset, el simulador y el contenedor de línea de comandos | Una sola copia; el simulador usa solo el que adjunta el catálogo | 7, 34 | D-15; Revisión 6 |
 | 55 | En el plan, F6 depende de F1 y F5, F10 de F8 y F9, `metadata-db` pasa a F2 y la comprobación de DuckDB sobre Gold pasa a F10 | Las actividades de cada fase necesitan lo que construyen esas fases | Plan | D-16; Revisión 6 |
 | 56 | El camino más largo del plan pasa a incluir F10 | F10 depende ahora de F9 | Plan | D-16; Revisión 6 |
+| 57 | Las fases anteriores al simulador se desarrollan con el dataset cargado a mano por `postgresql/scripts/load_dev_data.sql`; el diseño documenta cómo volver el laboratorio a cero | Permite avanzar con el volumen real sin esperar al simulador, y la prueba de extremo a extremo debe partir de un laboratorio limpio | 7, 39 | Segunda revisión; Revisión 6 |
+| 58 | El DAG corre cada 10 minutos, activo desde que se crea, con `catchup=False` y `max_active_runs=1`; también se puede lanzar a mano | Gold se mantiene al día sin lanzar nada a mano, y con él los gráficos que se creen en Superset | 18 | Segunda revisión; Revisión 6 |
+| 59 | Superset se entrega vacío: quien usa el laboratorio conecta la base DuckDB y crea sus datasets, gráficos y dashboards a mano, con la guía de la sección 35. No hay tarea `superset_import` ni paquete de dashboards versionado | Los dashboards los diseña el usuario final; el laboratorio lleva el dato hasta Gold y deja la herramienta lista | 18, 35 | Responsable; Revisión 6 |
+| 60 | Ningún servicio declara reinicio automático; tras reiniciar el equipo se repite `docker compose up -d` | Con reinicio automático, Flink volvería sin su job y la captura quedaría parada sin aviso | 39, 40 | Segunda revisión; Revisión 6 |
+| 61 | Al arrancar, el simulador lee de PostgreSQL lo ya insertado y continúa con la primera película pendiente (RF-13). La reproducibilidad por semilla vale para una ejecución continua desde una base vacía | Sin eso, reiniciar el contenedor repetiría las altas desde el principio y cada una fallaría por clave duplicada | 9.1, 9.5 | Segunda revisión; Revisión 6 |
+| 62 | `dim_enrichment_code` se deriva del código con reglas fijas, sin archivo de referencia; se añaden las columnas `qualifier` y `quality_status` | Las columnas existían sin regla que las llenara. Un código que no encaja queda `unmapped`, como en las demás dimensiones | 29 | Segunda revisión; Revisión 6 |
+| 63 | El tipo de UPDATE se elige con la semilla, con la misma probabilidad entre los que la película admite; el sufijo de renombrado sustituye al anterior; la reinserción automática solo ocurre cuando un INSERT ya no tiene películas pendientes | Es simple, reproducible y no añade variables de configuración | 9.5 | Segunda revisión; Revisión 6 |
+| 64 | El snapshot de un borrado detectado por ausencia lleva como fecha el timestamp lógico de la corrida | Es la fecha que ya recibe `effective_to` en ese caso; la real no se conoce | 27, 31, 38 | Segunda revisión; Revisión 6 |
+| 65 | La tecla `Q` solo cierra la interfaz; el simulador se detiene con `docker compose stop java-simulator` | Detenerlo desde la interfaz terminaría el contenedor, y es lo que se probó en la validación 10 | 9.3 | Segunda revisión; Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -88,6 +97,8 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 - **Iceberg REST Catalog 1.10.1.** Es la etiqueta versionada más reciente de `apache/iceberg-rest-fixture` en Docker Hub; las versiones 1.10.2, 1.11.0 y 1.12.0 de Iceberg no publicaron imagen. Solo `latest` es más nueva, y la política de versiones la excluye.
 - **DuckDB 1.5.6 y no 2.0.1.** Superset 6.1.0 declara `duckdb<2,>=1.4.2` en su extra `duckdb`, de modo que DuckDB 2.x queda fuera hasta que Superset lo admita. La 1.5.6 es la última versión de la serie 1.x.
 - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
+- **DuckDB JDBC 1.5.6.0 y no 2.0.1.0.** El simulador usa la misma versión de DuckDB que Superset, que no admite la 2.x.
+- **Lanterna 3.1.5.** Es la última estable; la 3.2.0 solo existe como `alpha1`.
 - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
 - **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta común a las dos: Superset publica imagen hasta `-py312` y Airflow también ofrece `-python3.12`; la imagen de Spark la instala en su build. La validación 8 reprodujo el fallo con las imágenes por defecto y confirmó la solución. Ver «Despliegue de Airflow» en la sección 18.
 - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector se comprobó en la validación 1 de la [parte 2](#2-validaciones).
@@ -96,7 +107,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 
 No queda ninguna decisión abierta.
 
-Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30, y D-5 es la 31. D-8 a D-16, abiertas en la revisión de coherencia de la documentación, son las vigentes 48 a 56. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
+Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30, y D-5 es la 31. D-8 a D-16, abiertas en la revisión de coherencia de la documentación, son las vigentes 48 a 56. Los ocho puntos que dejó la segunda revisión de coherencia, más el del arranque del simulador tras un reinicio, son las vigentes 57 a 65. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
 
 ### 1.4 Decisiones descartadas
 
@@ -129,7 +140,16 @@ No se utilizará:
 - una interfaz web o de escritorio para el simulador, en lugar de la consola;
 - consultar la tabla de relación, o marcar la transacción como no seguible, para seguir un UPDATE de relaciones;
 - la opción `MAX_TABLE_STALENESS` al adjuntar el catálogo desde el simulador;
-- probar el simulador con el catálogo o RustFS caídos: el laboratorio corre en un entorno local controlado y no se contempla que un servicio deje de responder.
+- probar el simulador con el catálogo o RustFS caídos: el laboratorio corre en un entorno local controlado y no se contempla que un servicio deje de responder;
+- poblar la base con el simulador para desarrollar las fases anteriores a él: obliga a terminar el simulador antes de Silver y alarga el camino más largo;
+- un DAG que solo se lanza a mano;
+- `restart: unless-stopped` en los servicios de larga duración, con algo que reenvíe el pipeline cuando vuelva el JobManager;
+- un archivo de referencia para descomponer los códigos de enrichment: un código nuevo quedaría sin interpretar;
+- un peso configurable por cada tipo de UPDATE;
+- no crear snapshot cuando un borrado se detecta por ausencia: Gold perdería la marca `is_deleted` de esas películas;
+- detener el simulador desde su interfaz;
+- entregar datasets y dashboards ya construidos, importados por `superset-init` o por una tarea del DAG: los diseña quien usa el laboratorio;
+- registrar la base de datos DuckDB en `superset-init`: la conecta quien usa el laboratorio, siguiendo la guía.
 
 ## 2. Validaciones
 
@@ -383,7 +403,7 @@ Lo que estas pruebas no cubren: los jobs reales `bronze_to_silver.py` y `silver_
 
 #### Validación de volumen: las 20 tablas y el dataset completo
 
-Las nueve validaciones usaron tres tablas y unas decenas de filas. Esta repite el camino PostgreSQL 19 → Flink CDC → Bronze con el esquema completo de la sección 12 y el dataset de `raw_data/`, y cubre lo que aquellas dejaron fuera: volumen, checkpoint de 30 s, checkpoints persistidos y reinicio del JobManager.
+Las validaciones 1 a 6, 8 y 9 usaron tres tablas y unas decenas de filas, y la 7, dos tablas Gold de prueba. Esta repite el camino PostgreSQL 19 → Flink CDC → Bronze con el esquema completo de la sección 12 y el dataset de `raw_data/`, y cubre lo que aquellas dejaron fuera: volumen, checkpoint de 30 s, checkpoints persistidos y reinicio del JobManager.
 
 Entorno: el de las validaciones 2 a 4, con el pipeline de la sección 14 sin cambios, checkpoint cada 30 s, checkpoints en un volumen compartido por JobManager y TaskManager, y los límites de memoria de la sección 39 (PostgreSQL 1 GB, JobManager 1 GB, TaskManager 2 GB, RustFS 1 GB, catálogo 0.5 GB). El dataset se cargó con `COPY`, solo como forma de poblar la base para la prueba. Los conteos de Bronze se leyeron con DuckDB.
 
@@ -660,11 +680,20 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
-| Dashboards de Superset | Importados por `superset-init` al arrancar | Importados por la tarea `superset_import` del DAG; vistas solo para tablas Gold existentes | 18, 34, 35 |
+| Datos de desarrollo y vuelta a cero | Sin definir; `postgresql/scripts/` sin uso | `load_dev_data.sql` carga el dataset a mano para desarrollar; procedimiento de vuelta a cero | 7, 39 |
+| Programación del DAG | A mano y, opcionalmente, cada 10 minutos | Cada 10 minutos, activo desde que se crea; también a mano | 18 |
+| Reinicio de los servicios | Sin definir | Sin reinicio automático; se repite `docker compose up -d` | 39, 40 |
+| Arranque del simulador sobre una base con datos | Sin definir | Continúa con la primera película pendiente (RF-13) | 9.1, 9.5 |
+| `dim_enrichment_code` | Columnas sin regla de derivación | Reglas fijas; columnas nuevas `qualifier` y `quality_status` | 29 |
+| Tipo de UPDATE, renombrado y reinserción | «Alterna» cuatro clases; sufijo y reinserción sin regla | Tipo elegido con la semilla; sufijo `(rev N)` que no se acumula; reinserción automática solo sin películas pendientes | 9.5 |
+| Snapshot de un borrado detectado por ausencia | Sin fecha definida | Timestamp lógico de la corrida | 27, 31, 38 |
+| Tecla `Q` del simulador | Preguntaba si detener el simulador | Solo cierra la interfaz | 9.3 |
+| Segunda revisión de coherencia | — | Se corrigieron 23 hallazgos sin decisión pendiente: alcance de Airflow, reanudación del pipeline, expiración de snapshots en las tres capas, slot de replicación invalidado, `iceberg-init`, heap del simulador y referencias menores. Los ocho puntos que quedaban se decidieron después: son las decisiones 57 a 65 | Varias |
+| Superset | `superset-init` registraba la base e importaba los dashboards al arrancar | Se entrega vacío: quien usa el laboratorio conecta la base y crea sus gráficos con la guía de la sección 35. Vistas solo para las tablas Gold existentes | 18, 34, 35 |
 | SQL de DuckDB | Un archivo con las vistas de Gold | `attach_lakehouse.sql` y `gold_views.sql`, montados en solo lectura | 7, 34 |
 | `record_hash` | Sobre las claves foráneas del hecho | Sobre las claves de negocio | 27 |
 | Tipos de UPDATE del simulador | Tres; el de relaciones incluía el reparto según la sección 31 | Cuatro, con el de catálogo; relaciones solo con géneros y keywords | 9.5, 31 |
-| Tareas del DAG | `validate_bronze` exigía actividad reciente; el mantenimiento solo si todo validaba | Tablas y job de Flink; `superset_import` nueva; mantenimiento siempre al final | 18 |
+| Tareas del DAG | `validate_bronze` exigía actividad reciente; el mantenimiento solo si todo validaba | Tablas y job de Flink; mantenimiento siempre al final | 18 |
 | Productos Gold y columnas de Silver | «Candidatos» y «propuestos» | Definitivos | 22 a 29, 33 |
 | Revisión de coherencia de la documentación | — | Se corrigieron restos de revisiones anteriores, huecos entre validaciones y diseño, y trabajo sin actividad en el plan. Los nueve puntos que pedían una decisión se cerraron como decisiones 48 a 56 | Varias |
 | Contraseña del pipeline CDC | Escrita en el YAML de ejemplo | Marcador `${ELASTIFLIX_CDC_PASSWORD}`; `flink-cdc-submit` genera la copia con el valor | 14 |
