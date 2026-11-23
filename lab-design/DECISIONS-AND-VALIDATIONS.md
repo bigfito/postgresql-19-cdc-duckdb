@@ -4,7 +4,7 @@ Este documento acompaña a [LAB-DESIGN.md](LAB-DESIGN.md). Aquel describe el dis
 
 Las secciones que se citan por número pertenecen a `LAB-DESIGN.md`.
 
-Este documento registra qué se decidió y qué se probó. Cuándo se resuelve cada decisión abierta y cuándo se ejecuta cada validación pendiente está en el [plan de trabajo](../planning/PLAN.md), fase F0.
+Este documento registra qué se decidió y qué se probó. Las decisiones abiertas y las validaciones pendientes, cuando las hay, se planifican en el [plan de trabajo](../planning/PLAN.md). Hoy no queda ninguna de las dos.
 
 | Parte | Contenido |
 |---|---|
@@ -37,7 +37,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 15 | Superset conserva el `NullPool`; no hace falta un archivo DuckDB de solo lectura | Inicializar DuckDB en cada consulta cuesta decenas de milisegundos | 35 | Validación 7 |
 | 16 | La imagen de Superset incluye `psycopg2-binary` | La imagen base de la serie 6.1 no trae ningún driver | 35 | Validación 7 |
 | 17 | La imagen de Airflow lleva Java 21, PySpark y los JAR de Iceberg; los jobs se montan también en Airflow | En modo cliente el driver corre en Airflow | 18 | Validación 8 |
-| 18 | `iceberg_maintenance` corre en cada ejecución del DAG, y Gold también expira snapshots | Bronze acumula deletes desde el primer cambio; leerlo sin compactar pasó de 1.4 s a más de 180 s | 18, 38 | Validaciones 5 y de volumen |
+| 18 | `iceberg_maintenance` corre en cada ejecución del DAG, siempre al final y aunque falle una validación (decisión 52), y Gold también expira snapshots | Bronze acumula deletes desde el primer cambio; leerlo sin compactar pasó de 1.4 s a más de 180 s | 18, 38 | Validaciones 5 y de volumen |
 | 19 | Los checkpoints de Flink se retienen en un directorio compartido por JobManager y TaskManager | El job no sobrevive a un reinicio del JobManager | 14 | Validación de volumen |
 | 20 | `flink-cdc-submit` detecta un job en ejecución y reanuda desde el checkpoint retenido | Un segundo envío repite el snapshot completo | 14 | Validación de volumen |
 | 21 | El origen de un `MERGE INTO` es una vista temporal o una tabla de trabajo, nunca un DataFrame en caché | Con caché, Spark 4.1.4 falla al planificar | 19 | Validación de Silver |
@@ -54,7 +54,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 32 | El simulador arranca en modo de líneas y abre la interfaz con la primera tecla; atrapa `Ctrl-C` y repinta la pantalla completa cada 2 segundos | El contenedor tiene terminal aunque nadie esté conectado; `Ctrl-C` sin atrapar detiene el contenedor; quien se reconecta ve la pantalla a medias | 9.4, 9.8 | Validación 10; Revisión 6 |
 | 33 | El UPDATE de relaciones actualiza también `updated_at` de la película | Sin eso no toca `movie`, el seguimiento aguas abajo no lo ve nunca y Silver no tiene fecha para el nuevo conteo | 9.3, 9.5, 31 | Validación 11; Revisión 6 |
 | 34 | El seguimiento usa una conexión DuckDB de larga vida con un hilo dueño, `threads=2` y `memory_limit=128MB`; el instante de referencia se toma con `floor`; sondea cada 5 s y avisa a los 120 s | La conexión ve los snapshots nuevos sin reconectar; los valores por defecto de DuckDB no caben en el contenedor; un umbral redondeado pierde transacciones; una parada de Flink debe distinguirse de un retraso normal | 9.3, 9.6, 9.8 | Validación 11; Revisión 6 |
-| 35 | Los 3 GB de Airflow se reparten 0.5 GB al `api-server`, 2 GB al `scheduler` y 0.5 GB al `dag-processor` | En modo cliente el driver de Spark corre dentro del scheduler, que llegó a 1.41 GB | 39 | Medición de memoria; Revisión 6 |
+| 35 | Los 3 GB de Airflow se reparten 0.5 GB a `airflow-apiserver`, 2 GB a `airflow-scheduler` y 0.5 GB a `airflow-dag-processor` | En modo cliente el driver de Spark corre dentro del scheduler, que llegó a 1.41 GB | 39 | Medición de memoria; Revisión 6 |
 | 36 | El DAG pasa a los jobs `dag_run.run_after` como timestamp de la corrida | En Airflow 3 una corrida lanzada a mano no tiene `logical_date` y la plantilla falla | 21 | Medición de memoria; Revisión 6 |
 | 37 | La ruta canónica de las imágenes de una colección es el primer valor no nulo observado, y se conserva | Regla determinística y simple para las colecciones cuyas películas traen rutas distintas | 23 | Revisión 6 |
 | 38 | `flink-cdc-submit` se detiene con error, sin borrar nada, si no hay checkpoint y Bronze ya tiene tablas | Un job de arranque no debe eliminar datos por su cuenta; la reconstrucción es un procedimiento explícito | 14, 38 | Revisión 6 |
@@ -63,6 +63,19 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 41 | El laboratorio se construye y se valida en un solo equipo `amd64`; ARM64 y Linux nativo quedan documentados como no probados | Es donde va a ejecutarse | 2.2 | Revisión 6 |
 | 42 | Cada actividad se hace con su skill: `/java-developer`, `/python-developer` o `/solution-architect`; `AGENTS.md` es la entrada común de los cinco agentes | Mismo criterio de trabajo sea cual sea el agente que tome la actividad | Plan y `AGENTS.md` | Revisión 6 |
 | 43 | No se conserva material del proyecto fuera del repositorio: cada servicio guarda su `Dockerfile` en su directorio y el Compose de la raíz los integra | Una sola fuente de verdad; los arneses de las validaciones eran desechables | 7, 39 | Revisión 6 |
+| 44 | Gold se recarga completo en cada corrida, sin `MERGE` incremental | Con unos miles de películas es más simple y deja archivos sin deletes, que es lo que mejor lee DuckDB | 32 | Revisión 2 |
+| 45 | Airflow usa `LocalExecutor` | Un solo equipo; no hace falta un broker ni ejecutores distribuidos | 18 | Diseño; registrada en la Revisión 6 |
+| 46 | Hadoop 3.3.6 en la imagen de Flink, aunque existe la 3.5.0 | Es la versión que lista la guía oficial de Flink CDC, parte del conjunto probado con el conector | 14 | Diseño; registrada en la Revisión 6 |
+| 47 | `max_slot_wal_keep_size = 2GB` en el PostgreSQL operacional | Acota el WAL que el slot retiene si Flink está detenido; sin él, un Flink caído llena el disco | 10 | Revisión 2 |
+| 48 | Los datasets y dashboards los importa la tarea `superset_import`, al final del DAG; las vistas de DuckDB sobre Gold solo se crean para las tablas que existen | Gold no existe hasta la primera corrida del DAG, y una vista sobre una tabla inexistente haría fallar toda conexión de Superset | 18, 34, 35 | D-8; Revisión 6 |
+| 49 | `record_hash` usa las claves de negocio de las dimensiones, no las sustitutas | Un cambio descriptivo crea una versión de `dim_movie` y una `movie_sk` nueva, pero no debe crear snapshot | 27 | D-9; Revisión 6 |
+| 50 | El simulador tiene un cuarto tipo de UPDATE, de catálogo: renombra una colección o una keyword y actualiza `updated_at` de la película | Sin él, el SCD2 de `dim_collection` y `dim_keyword` no se ejercita nunca | 9.5, 31 | D-10; Revisión 6 |
+| 51 | El UPDATE de relaciones cambia géneros y keywords, no el reparto | Coherencia entre las secciones 9.5 y 31 | 9.5, 31 | D-11; Revisión 6 |
+| 52 | `validate_bronze` comprueba que existen las 20 tablas y que el job de Flink está en `RUNNING`; no exige actividad reciente. `iceberg_maintenance` corre siempre al final (`trigger_rule = all_done`) | Con el simulador en pausa Bronze puede estar quieto; el mantenimiento hace más falta precisamente cuando algo falla | 18 | D-12 y D-13; Revisión 6 |
+| 53 | Los siete productos Gold y las columnas de Silver son definitivos | Se quita la redacción provisional; el plan ya los trataba así | 22 a 29, 33 | D-14; Revisión 6 |
+| 54 | El SQL de DuckDB va en dos archivos de `duckdb/init/`, montados en solo lectura en Superset, el simulador y el contenedor de línea de comandos | Una sola copia; el simulador usa solo el que adjunta el catálogo | 7, 34 | D-15; Revisión 6 |
+| 55 | En el plan, F6 depende de F1 y F5, F10 de F8 y F9, `metadata-db` pasa a F2 y la comprobación de DuckDB sobre Gold pasa a F10 | Las actividades de cada fase necesitan lo que construyen esas fases | Plan | D-16; Revisión 6 |
+| 56 | El camino más largo del plan pasa a incluir F10 | F10 depende ahora de F9 | Plan | D-16; Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -76,14 +89,14 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 - **DuckDB 1.5.6 y no 2.0.1.** Superset 6.1.0 declara `duckdb<2,>=1.4.2` en su extra `duckdb`, de modo que DuckDB 2.x queda fuera hasta que Superset lo admita. La 1.5.6 es la última versión de la serie 1.x.
 - **Superset 6.1.0 y no 7.0.0.** De la 7.0.0 solo existen candidatas (`7.0.0rc3`).
 - **Java 25 y no 27.** La 25 es la LTS vigente; 26 y 27 son versiones de soporte corto. Se fija la etiqueta exacta `25.0.5.1_2-jre` en lugar de la móvil `25-jre`.
-- **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta para la que Airflow y Superset publican imagen (`-python3.12`, `-py312`); la imagen de Spark la instala en su build. La validación 8 reprodujo el fallo con las imágenes por defecto y confirmó la solución. Ver «Despliegue de Airflow» en la sección 18.
+- **Python 3.12 en las tres imágenes que lo usan.** PySpark exige la misma versión menor de Python en el driver y en los ejecutores. El driver corre dentro de Airflow (`SparkSubmitOperator` en modo cliente) y los ejecutores dentro de Spark. Las imágenes por defecto no coinciden: `apache/airflow:3.4.0` trae Python 3.13, `apache/spark:4.1.4-…-python3-ubuntu` trae el 3.10 de Ubuntu 22.04 y `apache/superset:6.1.0` trae 3.10, que dejó de tener soporte en octubre de 2026. Se toma 3.12 porque es la versión más alta común a las dos: Superset publica imagen hasta `-py312` y Airflow también ofrece `-python3.12`; la imagen de Spark la instala en su build. La validación 8 reprodujo el fallo con las imágenes por defecto y confirmó la solución. Ver «Despliegue de Airflow» en la sección 18.
 - **PostgreSQL 19.0** se publicó el 2026-11-19, después de Flink CDC 3.7.0 (2026-10-10). Su compatibilidad con el conector se comprobó en la validación 1 de la [parte 2](#2-validaciones).
 
 ### 1.3 Decisiones abiertas
 
 No queda ninguna decisión abierta.
 
-Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30, y D-5 es la 31. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
+Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30, y D-5 es la 31. D-8 a D-16, abiertas en la revisión de coherencia de la documentación, son las vigentes 48 a 56. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
 
 ### 1.4 Decisiones descartadas
 
@@ -112,6 +125,8 @@ No se utilizará:
 - una clave de RustFS de solo lectura para DuckDB;
 - un estilo de flecha propio para la carga JDBC y la consulta SQL en el diagrama de linaje;
 - el gestor de autenticación simple de Airflow 3;
+- un `MERGE` incremental para Gold;
+- una interfaz web o de escritorio para el simulador, en lugar de la consola;
 - consultar la tabla de relación, o marcar la transacción como no seguible, para seguir un UPDATE de relaciones;
 - la opción `MAX_TABLE_STALENESS` al adjuntar el catálogo desde el simulador;
 - probar el simulador con el catálogo o RustFS caídos: el laboratorio corre en un entorno local controlado y no se contempla que un servicio deje de responder.
@@ -177,6 +192,9 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | 7 | 2026-11-22 | ✅ Superada, con tres ajustes al diseño |
 | 8 | 2026-11-22 | ✅ Superada |
 | 9 | 2026-11-22 | ✅ Superada |
+| 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
+| 11 | 2026-11-22 | ✅ Superada, con ajustes al diseño y dos decisiones nuevas |
+| 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
 | Volumen | 2026-11-22 | ✅ Superada, con dos requisitos nuevos para `flink-cdc-submit` |
 | Silver y mantenimiento | 2026-11-22 | ✅ Superadas, con una restricción en el `MERGE` |
 | Pérdida de checkpoints | 2026-11-22 | ❌ Bronze queda desalineado al repetir el snapshot. Se decidió reconstruir Bronze (decisión 27) |
@@ -184,13 +202,10 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | Dataset regenerado | 2026-11-22 | ✅ Superada, con observaciones menores; queda como dataset definitivo |
 | Lectura de los CSV con Commons CSV | 2026-11-22 | ✅ Superada: los 20 archivos se leen igual que con una lectura de referencia |
 | Memoria con todo el stack | 2026-11-22 | ✅ Superada: 7.9 GB de máximo bajo carga, sin ningún contenedor detenido por memoria |
-| 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
-| 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
-| 11 | 2026-11-22 | ✅ Superada, con ajustes al diseño y dos decisiones nuevas |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
-Entorno: `postgres:19.0` con `wal_level=logical`, y `flink:2.2.1-java21` con la distribución de Flink CDC `3.7.0-2.2`, el conector `postgres` y el sink `values`, que imprime cada evento. El bloque `source` fue el de la sección 14, sin cambios. Se usaron tres tablas del esquema `catalog` (`movie`, `genre`, `movie_genre`) que cubren todos los tipos de la sección 11, una clave `IDENTITY`, una clave compuesta y un `ON DELETE CASCADE`.
+Entorno: `postgres:19.0` con `wal_level=logical`, y `flink:2.2.1-java21` con la distribución de Flink CDC `3.7.0-2.2`, el conector `postgres` y el sink `values`, que imprime cada evento. El bloque `source` fue el de la sección 14, sin cambios. Se usaron tres tablas del esquema `catalog` (`movie`, `genre`, `movie_genre`) que cubren todos los tipos de la sección 11, una clave `IDENTITY`, una clave compuesta y un `ON DELETE CASCADE`. La clave `IDENTITY` era la del DDL de entonces; la decisión 7, en la Revisión 4, la sustituyó por claves asignadas por el dataset.
 
 | Qué se comprobó | Resultado |
 |---|---|
@@ -211,7 +226,7 @@ Entorno: `postgres:19.0` con `wal_level=logical`, y `flink:2.2.1-java21` con la 
 
 Observaciones que afectan al diseño:
 
-- **`op_ts` no vale `0` en el snapshot.** Las filas del snapshot traen el instante en que el conector las leyó. Se corrigieron las secciones 14 y 17, y la regla de `effective_from` de la sección 21 queda marcada para revisión.
+- **`op_ts` no vale `0` en el snapshot.** Las filas del snapshot traen el instante en que el conector las leyó. Se corrigieron las secciones 14 y 17, y la regla de `effective_from` de la sección 21 quedó marcada para revisión; la decisión 26 la resolvió después.
 - **Ruido esperado en los logs.** Durante el snapshot PostgreSQL registra `replication slot "elastiflix_cdc_0" does not exist`, una vez por tabla. Todo indica que el conector intenta borrar un slot auxiliar de la fase de snapshot que no llegó a crear; no se investigó más. No afecta al resultado y no debe tratarse como fallo en los healthchecks.
 
 Lo que esta prueba no cubre: las 20 tablas reales, el volumen del dataset completo y el reinicio del JobManager, porque los checkpoints se guardaron en memoria. El sink Iceberg y las columnas `cdc_op_type` y `cdc_op_ts` corresponden a las validaciones 2 y 3.
@@ -244,7 +259,7 @@ Observaciones que afectan al diseño:
 - **El catálogo no es en memoria por defecto**, sino un archivo en `/tmp` del contenedor; la conclusión sobre la persistencia no cambia (sección 16).
 - **Bronze acumula deletes desde el primer cambio.** Tras cuatro commits, `bronze.movie` tenía 5 filas (dos de ellas tombstones) repartidas en 4 archivos de datos con 11 registros, más 4 archivos de deletes de igualdad y 1 de deletes posicionales. Confirma que la compactación de la sección 38 hace falta desde el inicio.
 - **Silver debe aceptar tombstones sin fila previa.** Una clave insertada y borrada entre dos corridas llega solo como `-D`; `bronze_to_silver.py` no debe suponer que antes hubo una versión vigente.
-- **DuckDB ya lee Bronze.** El SQL de la sección 34 adjuntó el catálogo y leyó tablas con deletes de igualdad sin ajustes. Adelanta parte de la validación 6, que sigue pendiente porque se refiere a tablas Gold escritas por Spark.
+- **DuckDB ya lee Bronze.** El SQL de la sección 34 adjuntó el catálogo y leyó tablas con deletes de igualdad sin ajustes. Adelantó parte de la validación 6, que entonces seguía pendiente porque se refiere a tablas Gold escritas por Spark; se superó después.
 
 Lo que estas pruebas no cubren: las 20 tablas, el volumen real, el intervalo de checkpoint de 30 s previsto (se usó 10 s), los checkpoints persistidos en `flink/data/` y la lectura desde Spark, que es la validación 5.
 
@@ -333,7 +348,7 @@ Lo que esta prueba no cubre: la interfaz web en un navegador, la importación de
 
 #### Validaciones 8 y 9: Python de Airflow y Spark, y metadatos sobre PostgreSQL 19
 
-Entorno: `postgres:19.0` como `metadata-db`, `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, un clúster Spark standalone y los tres servicios de Airflow 3 (`api-server`, `scheduler`, `dag-processor`) con `LocalExecutor`. La imagen de Airflow parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` 4.1.4, `pyspark-client` 4.1.4, el proveedor Spark 6.3.4 y los JAR de Iceberg 1.12.0. La de Spark es la de la validación 5 más Python 3.12 instalado con `uv`. La red del Compose fue interna, sin salida a Internet.
+Entorno: `postgres:19.0` como `metadata-db`, `rustfs/rustfs:1.0.6`, `apache/iceberg-rest-fixture:1.10.1`, un clúster Spark standalone y los tres servicios de Airflow 3 (`airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor`) con `LocalExecutor`. La imagen de Airflow parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` 4.1.4, `pyspark-client` 4.1.4, el proveedor Spark 6.3.4 y los JAR de Iceberg 1.12.0. La de Spark es la de la validación 5 más Python 3.12 instalado con `uv`. La red del Compose fue interna, sin salida a Internet.
 
 Se usaron dos jobs: uno solo con la API de DataFrame y otro con una UDF de Python, una operación sobre RDD y una escritura en Iceberg.
 
@@ -357,7 +372,7 @@ Después, con Python 3.12 en los dos lados y el DAG lanzado por el scheduler:
 | UDF de Python y operación sobre RDD en los ejecutores | Corren con Python 3.12.16 |
 | Escritura y lectura de una tabla Iceberg desde el job lanzado por Airflow | Correcto, con los JAR de Iceberg en la imagen de Airflow |
 | `airflow db migrate` sobre PostgreSQL 19.0 | Correcto: 73 tablas creadas, sin errores |
-| `api-server`, `scheduler` y `dag-processor` sobre PostgreSQL 19.0 | Arrancan y operan; ningún error ni traza en sus logs durante la prueba |
+| `airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor` sobre PostgreSQL 19.0 | Arrancan y operan; ningún error ni traza en sus logs durante la prueba |
 | Sin salida a Internet | Nada intentó descargar en runtime |
 
 La validación 9 queda completa: Superset se comprobó en la validación 7 y Airflow aquí.
@@ -522,7 +537,7 @@ Entorno: una sonda Java 25 con Apache Commons CSV 1.14.1 (`CSVFormat.RFC4180` co
 
 #### Medición de memoria con todo el stack
 
-Es la primera vez que todas las piezas corren a la vez. Entorno: las imágenes de las validaciones anteriores en un solo Compose, 13 servicios con los límites de la sección 39: PostgreSQL 19, `metadata-db` con las bases de Airflow y Superset, RustFS, el catálogo REST, Flink (JobManager y TaskManager), Spark (master y worker), Airflow con el gestor de Flask AppBuilder (`api-server`, `scheduler` y `dag-processor`), Superset con cuatro workers y la sonda del simulador de la validación 11. La memoria de cada contenedor se muestreó cada 5 segundos durante unos 12 minutos.
+Es la primera vez que todas las piezas corren a la vez. Entorno: las imágenes de las validaciones anteriores en un solo Compose, 13 servicios con los límites de la sección 39: PostgreSQL 19, `metadata-db` con las bases de Airflow y Superset, RustFS, el catálogo REST, Flink (JobManager y TaskManager), Spark (master y worker), Airflow con el gestor de Flask AppBuilder (`airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor`), Superset con cuatro workers y la sonda del simulador de la validación 11. La memoria de cada contenedor se muestreó cada 5 segundos durante unos 12 minutos.
 
 Carga aplicada, por fases: reposo; carga de las 438,925 filas y snapshot inicial de Flink; una corrida de un DAG con tres tareas `SparkSubmitOperator` (el prototipo de `bronze_to_silver` para `dim_movie`, dos productos Gold de prueba y el mantenimiento de las 20 tablas Bronze) con el simulador haciendo un UPDATE por segundo y sondeando Bronze; y la misma corrida con, además, ocho clientes consultando Superset por su API.
 
@@ -547,7 +562,7 @@ Carga aplicada, por fases: reposo; carga de las 438,925 filas y snapshot inicial
 Dos hallazgos ajenos a la memoria:
 
 - **`logical_date` no existe en una corrida manual de Airflow 3.** La primera corrida falló al renderizar la plantilla que pasaba esa fecha al job. Con `dag_run.run_after` funciona (decisión 36).
-- **Tres consultas de Superset fallaron** con un error interno del motor (`'NoneType' object has no attribute 'push'`), un 0.07 %. Ocurrieron con el DAG reemplazando las tablas Gold a la vez; la causa no se investigó.
+- **Tres consultas de Superset fallaron** con un error interno del motor (`'NoneType' object has no attribute 'push'`), un 0.07 %. Coincidieron con el DAG reemplazando las tablas Gold, pero el mismo error ya apareció una vez en la validación 7 sin ninguna recarga, así que no se puede atribuir a ella. La causa no se investigó, y la lectura durante una recarga sigue sin probarse (sección 32).
 
 - **Lo que no cubre:** los jobs reales, que construyen 14 dimensiones, 2 hechos y 6 bridges en lugar de una dimensión; el simulador real, que además guarda los CSV en memoria (unos 100 MB más); dashboards de Superset abiertos en un navegador; una ejecución de horas; y un host con solo 16 GB, porque la máquina de la prueba tiene 32 GB. La actividad F11-09 del plan repite la medición con el laboratorio construido.
 
@@ -616,12 +631,12 @@ Decisiones que deja (33 y 34): el UPDATE de relaciones actualiza `updated_at` de
 
 #### Validación 12: inicio de sesión del administrador de Airflow
 
-Entorno: `apache/airflow:3.4.0-python3.12` sin modificar, con `metadata-db` en `postgres:19.0`, un `airflow-init` que migra la base y crea el administrador, y el `api-server` publicado en `127.0.0.1`. Se ejecutó dos veces, una por gestor de autenticación, con el mismo usuario y la misma contraseña de prueba.
+Entorno: `apache/airflow:3.4.0-python3.12` sin modificar, con `metadata-db` en `postgres:19.0`, un `airflow-init` que migra la base y crea el administrador, y `airflow-apiserver` publicado en `127.0.0.1`. Se ejecutó dos veces, una por gestor de autenticación, con el mismo usuario y la misma contraseña de prueba.
 
 | Comprobación | Gestor simple | Gestor de Flask AppBuilder |
 |---|---|---|
 | Cómo crea `airflow-init` al administrador | Usuario en `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS`; contraseña en un archivo JSON indicado por `AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE` | `airflow users create --role Admin` |
-| Dónde queda la contraseña | En texto plano, en ese archivo. Tiene que estar en un volumen compartido con el `api-server` y pertenecer al usuario de Airflow | Cifrada (`scrypt`) en la tabla `ab_user` de `metadata-db` |
+| Dónde queda la contraseña | En texto plano, en ese archivo. Tiene que estar en un volumen compartido con `airflow-apiserver` y pertenecer al usuario de Airflow | Cifrada (`scrypt`) en la tabla `ab_user` de `metadata-db` |
 | Piezas adicionales | Un volumen y un paso que ajuste su propiedad | Ninguna: el proveedor `apache-airflow-providers-fab` 3.10.2 ya viene en la imagen |
 | Inicio de sesión en la interfaz web, desde un navegador | Correcto; llega al panel de control | Correcto; llega al panel de control, que además muestra el menú «Seguridad» |
 | `POST /auth/token` con la contraseña correcta | 201, con token | 201, con token |
@@ -629,9 +644,9 @@ Entorno: `apache/airflow:3.4.0-python3.12` sin modificar, con `metadata-db` en `
 | API sin token y con token | 401 y 200 | 401 y 200 |
 | Un recurso solo para administradores (`/api/v2/connections`) | 200 | 200 |
 | Segunda ejecución de `airflow-init` | Reescribe el archivo; sin error | Hace falta comprobar antes si el usuario existe; con esa comprobación, sin error |
-| Inicio de sesión tras reiniciar el `api-server` | Correcto | Correcto |
+| Inicio de sesión tras reiniciar `airflow-apiserver` | Correcto | Correcto |
 | La contraseña aparece en los logs | No | No |
-| Memoria del `api-server` en reposo | 229 MiB | 243 MiB |
+| Memoria de `airflow-apiserver` en reposo | 229 MiB | 243 MiB |
 | Avisos al arrancar | Advierte de que guarda contraseñas en texto plano y de que el despliegue «parece de producción» | Ninguno relacionado |
 
 Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja la contraseña en claro ni exige un volumen compartido, y porque es el mismo mecanismo que usa Superset.
@@ -645,6 +660,20 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Dashboards de Superset | Importados por `superset-init` al arrancar | Importados por la tarea `superset_import` del DAG; vistas solo para tablas Gold existentes | 18, 34, 35 |
+| SQL de DuckDB | Un archivo con las vistas de Gold | `attach_lakehouse.sql` y `gold_views.sql`, montados en solo lectura | 7, 34 |
+| `record_hash` | Sobre las claves foráneas del hecho | Sobre las claves de negocio | 27 |
+| Tipos de UPDATE del simulador | Tres; el de relaciones incluía el reparto según la sección 31 | Cuatro, con el de catálogo; relaciones solo con géneros y keywords | 9.5, 31 |
+| Tareas del DAG | `validate_bronze` exigía actividad reciente; el mantenimiento solo si todo validaba | Tablas y job de Flink; `superset_import` nueva; mantenimiento siempre al final | 18 |
+| Productos Gold y columnas de Silver | «Candidatos» y «propuestos» | Definitivos | 22 a 29, 33 |
+| Revisión de coherencia de la documentación | — | Se corrigieron restos de revisiones anteriores, huecos entre validaciones y diseño, y trabajo sin actividad en el plan. Los nueve puntos que pedían una decisión se cerraron como decisiones 48 a 56 | Varias |
+| Contraseña del pipeline CDC | Escrita en el YAML de ejemplo | Marcador `${ELASTIFLIX_CDC_PASSWORD}`; `flink-cdc-submit` genera la copia con el valor | 14 |
+| `flink-cdc-submit` | Terminaba al enviar el pipeline | Espera a que el job esté en `RUNNING` | 14, 40 |
+| Tombstone sin versión previa en Silver | Sin regla | No crea versión ni snapshot | 31 |
+| `is_lead_cast` | Columna sin regla | Se retira hasta que haya un requisito | 28 |
+| Particionamiento de `fact_movie_snapshot` | «Se evaluará» | Sin partición | 37 |
+| `quality_status` en las dimensiones de referencia | Solo en países e idiomas hablados, aunque la regla de `unmapped` vale para los seis archivos de referencia | También en `dim_original_language`, `dim_status`, `dim_rating` y `dim_enrichment_field` | 24, 29 |
+| Valores por defecto del simulador | Sin definir | Intervalo 250 ms, pesos 70/25/5, semilla 42, modo continuo | 9.6 |
 | Dataset | Primera versión: formato correcto, datos degenerados | Versión regenerada, validada y definitiva | 8 |
 | Saltos de línea en las celdas | El diseño los atribuía a `plot` y a `overview` | Solo `plot` los lleva | 8.3 |
 | `effective_from` | `cdc_op_ts` primero, `updated_at` después; marcada como regla por revisar | `updated_at` en las filas vivas; `cdc_op_ts` en los DELETE y en las tablas sin `updated_at` | 21 |
@@ -674,6 +703,7 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Job de permisos | Mencionado sin nombre en dos secciones y ausente de la lista de jobs | `volumes-init`, con los directorios y usuarios que ajusta | 39, 45.2 |
 | Documentación | Decisiones, validaciones y registro de cambios dentro del diseño (secciones 43, 46 y 47) | En este documento. El diseño conserva una sección 46 que enlaza aquí | 46 |
 | Numeración | «Trabajo siguiente» era la sección 44 y «Criterio de éxito» la 45 | Pasan a ser la 43 y la 44 | 43, 44 |
+| Validaciones | Nueve validaciones previas | Se añaden las validaciones 10 (consola Lanterna), 11 (DuckDB JDBC desde Java 25) y 12 (inicio de sesión en Airflow) | 9.8, 45.4 |
 
 ### Revisión 4, 2026-11-22
 

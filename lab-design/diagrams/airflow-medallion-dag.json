@@ -2,55 +2,271 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "DAG elastiflix_medallion: Bronze → Silver → Gold",
+    "title": "DAG elastiflix_medallion: Bronze → Silver → Gold → Superset",
     "locale": "es",
     "output": "airflow-medallion-dag.html",
     "quality_profile": "showcase",
     "feedback_links": false,
     "legend": {
       "entries": {
-        "backend": { "label": "Tarea Airflow (spark-submit)" },
-        "security": { "label": "Validación de datos" },
-        "messagebus": { "label": "Job PySpark" },
-        "database": { "label": "Capa Iceberg" }
+        "backend": {
+          "label": "Tarea Airflow (spark-submit)"
+        },
+        "security": {
+          "label": "Validación de datos"
+        },
+        "messagebus": {
+          "label": "Job PySpark"
+        },
+        "database": {
+          "label": "Capa Iceberg"
+        },
+        "frontend": {
+          "label": "Tarea Airflow sobre Superset"
+        }
       }
     }
   },
   "lanes": [
-    { "id": "dag", "label": "Airflow 3.4" },
-    { "id": "spark", "label": "Spark 4.1.4" },
-    { "id": "lake", "label": "Iceberg" }
+    {
+      "id": "dag",
+      "label": "Airflow 3.4"
+    },
+    {
+      "id": "spark",
+      "label": "Spark 4.1.4"
+    },
+    {
+      "id": "lake",
+      "label": "Iceberg"
+    },
+    {
+      "id": "bi",
+      "label": "Superset 6.1"
+    }
   ],
-  "mainPath": ["validateBronze", "runSilver", "validateSilver", "runGold", "validateGold", "maintenance"],
+  "mainPath": [
+    "validateBronze",
+    "runSilver",
+    "validateSilver",
+    "runGold",
+    "validateGold",
+    "supersetImport",
+    "maintenance"
+  ],
   "nodes": [
-    { "id": "validateBronze", "lane": "dag", "col": 0, "type": "security", "label": "validate_bronze", "sublabel": "tablas y frescura" },
-    { "id": "runSilver", "lane": "dag", "col": 1, "type": "backend", "label": "bronze_to_silver", "sublabel": "SparkSubmit" },
-    { "id": "validateSilver", "lane": "dag", "col": 2, "type": "security", "label": "validate_silver", "sublabel": "SCD2 y claves" },
-    { "id": "runGold", "lane": "dag", "col": 3, "type": "backend", "label": "silver_to_gold", "sublabel": "SparkSubmit" },
-    { "id": "validateGold", "lane": "dag", "col": 4, "type": "security", "label": "validate_gold", "sublabel": "conteos y nulos" },
-    { "id": "maintenance", "lane": "dag", "col": 5, "type": "backend", "label": "iceberg_maintenance", "sublabel": "compacta y expira" },
-    { "id": "jobSilver", "lane": "spark", "col": 1, "type": "messagebus", "label": "bronze_to_silver.py", "sublabel": "dims, hechos, bridges" },
-    { "id": "jobGold", "lane": "spark", "col": 3, "type": "messagebus", "label": "silver_to_gold.py", "sublabel": "productos analíticos" },
-    { "id": "bronze", "lane": "lake", "col": 0, "type": "database", "label": "bronze.*", "sublabel": "escrita por Flink CDC" },
-    { "id": "silver", "lane": "lake", "col": 2, "type": "database", "label": "silver.*", "sublabel": "estrella + SCD2" },
-    { "id": "gold", "lane": "lake", "col": 4, "type": "database", "label": "gold.*", "sublabel": "serving BI" }
+    {
+      "id": "validateBronze",
+      "lane": "dag",
+      "col": 0,
+      "type": "security",
+      "label": "validate_bronze",
+      "sublabel": "tablas y job de Flink"
+    },
+    {
+      "id": "runSilver",
+      "lane": "dag",
+      "col": 1,
+      "type": "backend",
+      "label": "bronze_to_silver",
+      "sublabel": "SparkSubmit"
+    },
+    {
+      "id": "validateSilver",
+      "lane": "dag",
+      "col": 2,
+      "type": "security",
+      "label": "validate_silver",
+      "sublabel": "SCD2 y claves"
+    },
+    {
+      "id": "runGold",
+      "lane": "dag",
+      "col": 3,
+      "type": "backend",
+      "label": "silver_to_gold",
+      "sublabel": "SparkSubmit"
+    },
+    {
+      "id": "validateGold",
+      "lane": "dag",
+      "col": 4,
+      "type": "security",
+      "label": "validate_gold",
+      "sublabel": "conteos y nulos"
+    },
+    {
+      "id": "maintenance",
+      "lane": "dag",
+      "col": 5,
+      "type": "backend",
+      "label": "iceberg_maintenance",
+      "sublabel": "siempre al final"
+    },
+    {
+      "id": "jobSilver",
+      "lane": "spark",
+      "col": 1,
+      "type": "messagebus",
+      "label": "bronze_to_silver.py",
+      "sublabel": "dims, hechos, bridges"
+    },
+    {
+      "id": "jobGold",
+      "lane": "spark",
+      "col": 3,
+      "type": "messagebus",
+      "label": "silver_to_gold.py",
+      "sublabel": "productos analíticos"
+    },
+    {
+      "id": "bronze",
+      "lane": "lake",
+      "col": 0,
+      "type": "database",
+      "label": "bronze.*",
+      "sublabel": "escrita por Flink CDC"
+    },
+    {
+      "id": "silver",
+      "lane": "lake",
+      "col": 2,
+      "type": "database",
+      "label": "silver.*",
+      "sublabel": "estrella + SCD2"
+    },
+    {
+      "id": "gold",
+      "lane": "lake",
+      "col": 4,
+      "type": "database",
+      "label": "gold.*",
+      "sublabel": "serving BI"
+    },
+    {
+      "id": "supersetImport",
+      "lane": "bi",
+      "col": 5,
+      "type": "frontend",
+      "label": "superset_import",
+      "sublabel": "tarea del DAG: importa dashboards"
+    }
   ],
   "edges": [
-    { "id": "t1", "from": "validateBronze", "to": "runSilver", "variant": "emphasis" },
-    { "id": "t2", "from": "runSilver", "to": "validateSilver", "variant": "emphasis" },
-    { "id": "t3", "from": "validateSilver", "to": "runGold", "variant": "emphasis" },
-    { "id": "t4", "from": "runGold", "to": "validateGold", "variant": "emphasis" },
-    { "id": "t5", "from": "validateGold", "to": "maintenance", "variant": "emphasis" },
-    { "id": "submit-silver", "from": "runSilver", "to": "jobSilver", "label": "spark-submit", "variant": "dashed", "role": "branch" },
-    { "id": "submit-gold", "from": "runGold", "to": "jobGold", "label": "spark-submit", "variant": "dashed", "role": "branch" },
-    { "id": "read-bronze", "from": "bronze", "to": "jobSilver", "label": "lee estado" },
-    { "id": "write-silver", "from": "jobSilver", "to": "silver", "label": "MERGE" },
-    { "id": "read-silver", "from": "silver", "to": "jobGold", "label": "lee vigentes" },
-    { "id": "write-gold", "from": "jobGold", "to": "gold", "label": "overwrite" }
+    {
+      "id": "t1",
+      "from": "validateBronze",
+      "to": "runSilver",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t2",
+      "from": "runSilver",
+      "to": "validateSilver",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t3",
+      "from": "validateSilver",
+      "to": "runGold",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t4",
+      "from": "runGold",
+      "to": "validateGold",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t5",
+      "from": "validateGold",
+      "to": "supersetImport",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t6",
+      "from": "supersetImport",
+      "to": "maintenance",
+      "label": "all_done",
+      "variant": "dashed"
+    },
+    {
+      "id": "submit-silver",
+      "from": "runSilver",
+      "to": "jobSilver",
+      "label": "spark-submit",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "submit-gold",
+      "from": "runGold",
+      "to": "jobGold",
+      "label": "spark-submit",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "read-bronze",
+      "from": "bronze",
+      "to": "jobSilver",
+      "label": "lee estado"
+    },
+    {
+      "id": "write-silver",
+      "from": "jobSilver",
+      "to": "silver",
+      "label": "MERGE"
+    },
+    {
+      "id": "read-silver",
+      "from": "silver",
+      "to": "jobGold",
+      "label": "lee vigentes"
+    },
+    {
+      "id": "write-gold",
+      "from": "jobGold",
+      "to": "gold",
+      "label": "overwrite"
+    }
   ],
   "cards": [
-    { "dot": "rose", "title": "Validaciones", "items": ["Cada validate_* consulta la capa de su mismo nombre", "Si una validación falla, el DAG se detiene ahí", "La capa siguiente conserva su último estado bueno"] },
-    { "dot": "emerald", "title": "Alcance de Airflow", "items": ["Solo orquesta los jobs PySpark por lotes", "Flink CDC corre continuo, fuera del DAG", "Reejecutar el DAG es idempotente"] },
-    { "dot": "violet", "title": "Mantenimiento", "items": ["Compacta Bronze (deletes de igualdad de Flink)", "Expira snapshots antiguos", "Corre al final, solo si todo validó"] }
+    {
+      "dot": "rose",
+      "title": "Validaciones",
+      "items": [
+        "Cada validate_* consulta la capa de su mismo nombre",
+        "Si una validación falla, no corren las tareas siguientes salvo el mantenimiento",
+        "La capa siguiente conserva su último estado bueno"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Alcance de Airflow",
+      "items": [
+        "Solo orquesta los jobs PySpark por lotes",
+        "Flink CDC corre continuo, fuera del DAG",
+        "Reejecutar el DAG es idempotente"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Mantenimiento",
+      "items": [
+        "Compacta Bronze (deletes de igualdad de Flink)",
+        "Expira snapshots antiguos",
+        "Corre siempre al final, aunque falle una validación"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Dashboards",
+      "items": [
+        "superset_import importa datasets y dashboards por la API de Superset",
+        "Aparecen tras la primera corrida, cuando Gold ya existe",
+        "Es idempotente: cada corrida importa el mismo paquete"
+      ]
+    }
   ]
 }

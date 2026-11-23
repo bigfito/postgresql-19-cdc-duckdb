@@ -253,7 +253,7 @@
       "id": "e7",
       "from": "cdcSubmit",
       "to": "simulator",
-      "label": "job RUNNING",
+      "label": "completó",
       "variant": "emphasis"
     },
     {
@@ -304,7 +304,7 @@
       "dot": "emerald",
       "title": "Por qué el simulador va al final",
       "items": [
-        "Espera a que el pipeline CDC esté RUNNING",
+        "flink-cdc-submit termina con el pipeline en RUNNING",
         "Así los INSERT se capturan como streaming",
         "No como parte del snapshot inicial"
       ]

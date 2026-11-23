@@ -49,6 +49,6 @@
   "cards": [
     { "dot": "amber", "title": "Bronze", "items": ["Espejo por PK de las 20 tablas de catalog", "Añade cdc_op_type y cdc_op_ts", "Un DELETE queda como tombstone (-D)"] },
     { "dot": "slate", "title": "Silver", "items": ["SCD2 en dim_movie, dim_collection y dim_keyword", "Bridges con movie_id y vigencia propia", "Un snapshot por cambio de record_hash"] },
-    { "dot": "orange", "title": "Gold", "items": ["Tablas planas con tipos simples", "Los bridges también alimentan Gold (pesos N:M)", "Única capa visible para DuckDB y Superset"] }
+    { "dot": "orange", "title": "Gold", "items": ["Tablas planas con tipos simples", "Los bridges también alimentan Gold (pesos N:M)", "Única capa que consume Superset"] }
   ]
 }

@@ -16,18 +16,18 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 |---|---|---:|---:|---:|---|
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
-| F2 | Base del proyecto | 7 | 0 | 0 % | ⏳ Pendiente |
+| F2 | Base del proyecto | 8 | 0 | 0 % | ⏳ Pendiente |
 | F3 | PostgreSQL operacional | 14 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
-| F5 | Flink CDC hacia Bronze | 16 | 0 | 0 % | ⏳ Pendiente |
-| F6 | Event Simulator | 39 | 0 | 0 % | ⏳ Pendiente |
-| F7 | Spark y capa Silver | 33 | 0 | 0 % | ⏳ Pendiente |
-| F8 | Capa Gold | 11 | 0 | 0 % | ⏳ Pendiente |
+| F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
+| F6 | Event Simulator | 41 | 0 | 0 % | ⏳ Pendiente |
+| F7 | Spark y capa Silver | 35 | 0 | 0 % | ⏳ Pendiente |
+| F8 | Capa Gold | 10 | 0 | 0 % | ⏳ Pendiente |
 | F9 | Orquestación con Airflow | 17 | 0 | 0 % | ⏳ Pendiente |
-| F10 | DuckDB y Superset | 14 | 0 | 0 % | ⏳ Pendiente |
+| F10 | DuckDB y Superset | 17 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 10 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **205** | **30** | **15 %** | 🔄 En curso |
+| | **Global** | **216** | **30** | **14 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -54,18 +54,18 @@ Estas reglas valen igual para una persona que para un agente de programación (C
    - ejecuta `python planning/update_progress.py` para recalcular el tablero;
    - añade una línea a la bitácora de la sección 5.
 7. **Al cerrar una fase**, comprueba su «Terminada cuando». Si no se cumple, la fase sigue abierta aunque todas sus casillas estén marcadas: añade la actividad que falte.
-8. **Si aparece trabajo que el plan no prevé**, añádelo como actividad nueva al final de su fase, con el siguiente número. No renumeres las existentes.
+8. **Si aparece trabajo que el plan no prevé**, añádelo como actividad nueva dentro de su fase, en la posición en que deba hacerse, con el siguiente número libre. No renumeres las existentes: el número identifica la actividad, no indica su orden.
 9. **Activa la skill de la actividad antes de empezarla.** Cada fase indica la suya; el detalle y la forma de activarla en cada agente están en [AGENTS.md](../AGENTS.md).
 
 Cada actividad tiene un identificador fijo, como `F3-04`: fase 3, actividad 4. Úsalo en la bitácora y en los mensajes de commit.
 
 ## 3. Fases y dependencias
 
-![Dependencias entre las 13 fases del plan, de F0 a F12: en la columna central, de arriba abajo, el camino más largo (F2, F3, F5, F7, F8, F9, F11 y F12); a los lados, las fases F0, F1, F4, F6 y F10 con las fases que dependen de ellas](../lab-design/diagrams/plan-phases.svg)
+![Dependencias entre las 13 fases del plan, de F0 a F12: en la columna central, de arriba abajo, el camino más largo (F2, F3, F5, F7, F8, F9, F10, F11 y F12); a los lados, las fases F0, F1, F4 y F6 con las fases que dependen de ellas](../lab-design/diagrams/plan-phases.svg)
 
 > Versión interactiva: [`../lab-design/diagrams/plan-phases.html`](../lab-design/diagrams/plan-phases.html) · Fuente editable: [`../lab-design/diagrams/plan-phases.json`](../lab-design/diagrams/plan-phases.json).
 
-Las flechas continuas son dependencias entre fases completas; las verdes, además, forman el camino más largo, que ocupa la columna central. Las punteadas indican que la fase espera a una o dos actividades concretas de F0, no a toda la fase.
+Cada flecha es una dependencia entre fases completas; las verdes, además, forman el camino más largo, que ocupa la columna central. No se dibujan las dependencias que ya se deducen de otras, ni las esperas a actividades de F0, que está terminada.
 
 | Fase | Depende de | Puede avanzar en paralelo con |
 |---|---|---|
@@ -74,16 +74,16 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 | F2 · Base del proyecto | Nada | F0 y F1 |
 | F3 · PostgreSQL operacional | F2 | F4 |
 | F4 · Almacenamiento y catálogo | F2 | F3 |
-| F5 · Flink CDC hacia Bronze | F3, F4 y la actividad F0-12 | F6 |
-| F6 · Event Simulator | F3 y las actividades F0-14 y F0-15 | F4, F5, F7 y F8 |
+| F5 · Flink CDC hacia Bronze | F3, F4 y la actividad F0-12 | Ninguna |
+| F6 · Event Simulator | F1, F5 y las actividades F0-14 y F0-15 | F7, F8, F9 y F10 |
 | F7 · Spark y capa Silver | F5 y la actividad F0-13 | F6 |
 | F8 · Capa Gold | F7 | F6 |
-| F9 · Orquestación con Airflow | F8 y las actividades F0-16 y F0-17 | F10 |
-| F10 · DuckDB y Superset | F8 | F9 |
+| F9 · Orquestación con Airflow | F8 y las actividades F0-16 y F0-17 | F6 |
+| F10 · DuckDB y Superset | F8 y F9 | F6 |
 | F11 · Integración de extremo a extremo | F1, F5, F6, F9 y F10 | Ninguna |
 | F12 · Documentación y cierre | F11 | Ninguna |
 
-**Camino más largo:** F2 → F3 → F5 → F7 → F8 → F9 → F11 → F12. Un retraso en cualquiera de esas fases retrasa el final. F6 es la fase con más actividades, pero puede hacerse en paralelo desde que termina F3.
+**Camino más largo:** F2 → F3 → F5 → F7 → F8 → F9 → F10 → F11 → F12. Un retraso en cualquiera de esas fases retrasa el final. F6 es la fase con más actividades, pero puede hacerse en paralelo desde que termina F5.
 
 **Hitos:**
 
@@ -99,7 +99,8 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 
 - **Objetivo:** Tener un diseño completo y probado antes de escribir el laboratorio.
 - **Depende de:** Nada
-- **Terminada cuando:** La validación 11 está ejecutada.
+- **Skill:** No aplica: fase terminada
+- **Terminada cuando:** Las validaciones 1 a 12 están ejecutadas y todas sus actividades, marcadas.
 
 - [x] **F0-01** Definir los requisitos y el stack del laboratorio. _(diseño §2 y §3)_
 - [x] **F0-02** Fijar las versiones y comprobar sus imágenes en Docker Hub. _(diseño §3)_
@@ -127,6 +128,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 
 - **Objetivo:** Tener en `raw_data/` los 20 CSV definitivos, validados.
 - **Depende de:** Nada
+- **Skill:** No aplica: fase terminada
 - **Terminada cuando:** El dataset definitivo está en `raw_data/`, validado y cargado una vez en PostgreSQL 19 sin errores.
 
 - [x] **F1-01** Perfilar el catálogo original. _(diseño §8.1)_
@@ -144,15 +146,16 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - **Objetivo:** Tener el esqueleto del Compose y la configuración común que usarán todos los servicios.
 - **Depende de:** Nada
 - **Skill:** `/solution-architect`
-- **Terminada cuando:** `docker compose config` valida sin errores y `volumes-init` termina con código 0.
+- **Terminada cuando:** `docker compose config` valida sin errores, `volumes-init` termina con código 0 y `metadata-db` arranca sano.
 
-- [ ] **F2-01** Crear `.env.example` con todas las variables. _(diseño §45.5)_
+- [ ] **F2-01** Crear `.env.example` con todas las variables. _(diseño §45.5, §39, §9.6, §14 y §16)_
 - [ ] **F2-02** Crear el `.env` local a partir de `.env.example`. _(diseño §45.5)_
 - [ ] **F2-03** Crear `docker-compose.yml` con el nombre del proyecto. _(diseño §39)_
 - [ ] **F2-04** Declarar los puertos del host como variables ligadas a `127.0.0.1`. _(diseño §39)_
 - [ ] **F2-05** Añadir el job `volumes-init`. _(diseño §45.2)_
 - [ ] **F2-06** Comprobar que `docker compose config` valida sin errores. _(diseño §39)_
 - [ ] **F2-07** Comprobar que `volumes-init` deja cada directorio con su usuario. _(diseño §45.2)_
+- [ ] **F2-08** Añadir `metadata-db` con las bases `airflow` y `superset`. _(diseño §45.3)_
 
 ### F3 · PostgreSQL operacional
 
@@ -206,6 +209,8 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F5-06** Escribir el script de envío: no enviar si el job ya está en ejecución. _(diseño §14)_
 - [ ] **F5-07** Escribir el script de envío: reanudar desde el último checkpoint. _(diseño §14)_
 - [ ] **F5-08** Escribir el script de envío: detenerse con error si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
+- [ ] **F5-17** Escribir el script de envío: generar el YAML con la contraseña de `.env`. _(diseño §14)_
+- [ ] **F5-18** Escribir el script de envío: esperar a que el job esté en `RUNNING` antes de terminar. _(diseño §14)_
 - [ ] **F5-09** Añadir el job `flink-cdc-submit` al Compose. _(diseño §39)_
 - [ ] **F5-10** Comprobar que las 20 tablas llegan a Bronze. _(diseño §17)_
 - [ ] **F5-11** Comprobar un INSERT en Bronze. _(diseño §17)_
@@ -213,12 +218,14 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F5-13** Comprobar un DELETE en Bronze. _(diseño §17)_
 - [ ] **F5-14** Comprobar que repetir `docker compose up` no crea un segundo job. _(diseño §14)_
 - [ ] **F5-15** Comprobar que el pipeline se reanuda tras reiniciar el JobManager. _(diseño §14)_
+- [ ] **F5-19** Comprobar que el script de envío se detiene sin borrar nada si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
 - [ ] **F5-16** Escribir el script que elimina las tablas Bronze para reconstruirlas. _(diseño §38)_
+- [ ] **F5-20** Comprobar la reconstrucción de Bronze con el script de borrado. _(diseño §38)_
 
 ### F6 · Event Simulator
 
 - **Objetivo:** Tener el simulador Java 25 generando transacciones reales, con su interfaz de consola.
-- **Depende de:** F3 y las actividades F0-14 y F0-15
+- **Depende de:** F1, F5 y las actividades F0-14 y F0-15
 - **Skill:** `/java-developer`; `/solution-architect` para el Dockerfile y el Compose
 - **Terminada cuando:** El simulador cumple los requisitos RF-01 a RF-12 y su interfaz se abre con `docker compose attach`.
 
@@ -231,12 +238,13 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-07** Implementar el UPDATE descriptivo. _(RF-03)_
 - [ ] **F6-08** Implementar el UPDATE de medidas. _(RF-03)_
 - [ ] **F6-09** Implementar el UPDATE de relaciones, que actualiza también `updated_at` de la película. _(RF-03 y diseño §9.5)_
+- [ ] **F6-41** Implementar el UPDATE de catálogo: renombrar una colección o una keyword. _(RF-03 y diseño §9.5)_
 - [ ] **F6-10** Implementar el DELETE de una película. _(RF-03)_
 - [ ] **F6-11** Implementar la reinserción de una película borrada. _(RF-03)_
 - [ ] **F6-12** Elegir la siguiente operación según los pesos y la semilla. _(RF-04 y RF-05)_
 - [ ] **F6-13** Implementar el modo continuo. _(diseño §9.5)_
 - [ ] **F6-14** Ante un dato inconsistente: revertir, registrar y continuar. _(RF-12)_
-- [ ] **F6-15** Escribir una línea de log por transacción. _(RF-11)_
+- [ ] **F6-15** Registrar cada transacción, cada cambio de configuración y cada operación manual, también en `/tmp/simulator.log`. _(RF-11 y diseño §9.8)_
 - [ ] **F6-16** Implementar el modo de líneas, que es como arranca el simulador. _(RF-10 y diseño §9.4)_
 - [ ] **F6-17** Dibujar la cabecera de la pantalla. _(diseño §9.3)_
 - [ ] **F6-18** Dibujar la zona de avance. _(diseño §9.3)_
@@ -246,6 +254,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-33** Abrir la interfaz con la primera tecla y cerrarla con `Q`. _(diseño §9.4)_
 - [ ] **F6-34** Atrapar `Ctrl-C` para que no detenga el simulador. _(diseño §9.8)_
 - [ ] **F6-35** Repintar la pantalla completa cada 2 segundos y al cambiar de tamaño. _(diseño §9.8)_
+- [ ] **F6-40** Mostrar un aviso cuando la terminal mida menos de 100×30. _(diseño §9.2)_
 - [ ] **F6-22** Implementar pausar y reanudar. _(RF-07)_
 - [ ] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
 - [ ] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
@@ -257,7 +266,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
 - [ ] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator` y las opciones de la JVM. _(diseño §9.8 y §45.2)_
 - [ ] **F6-39** Instalar las extensiones de DuckDB durante el build de la imagen. _(diseño §34)_
-- [ ] **F6-30** Añadir `java-simulator` al Compose, después de `flink-cdc-submit`. _(diseño §40)_
+- [ ] **F6-30** Añadir `java-simulator` al Compose, con `tty` y `stdin_open`, después de `flink-cdc-submit`. _(diseño §9.8 y §40)_
 - [ ] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
 - [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.2)_
 - [ ] **F6-32** Comprobar que la misma semilla repite la misma secuencia. _(RF-05)_
@@ -296,19 +305,21 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F7-25** Cargar `bridge_movie_production_company`. _(diseño §28)_
 - [ ] **F7-26** Cargar `bridge_movie_production_country`. _(diseño §28)_
 - [ ] **F7-27** Cargar `bridge_movie_spoken_language`. _(diseño §28)_
-- [ ] **F7-28** Cargar `fact_movie_snapshot`. _(diseño §27)_
+- [ ] **F7-28** Cargar `fact_movie_snapshot`, con `record_hash` sobre las claves de negocio. _(diseño §27)_
 - [ ] **F7-29** Cargar `fact_movie_enrichment`. _(diseño §29)_
 - [ ] **F7-30** Reparar las referencias que quedaron con clave 0. _(diseño §19 y §30)_
 - [ ] **F7-31** Comprobar que una segunda corrida sin cambios no escribe nada. _(diseño §19)_
 - [ ] **F7-32** Comprobar un INSERT, un UPDATE, un DELETE y una reinserción en Silver. _(diseño §31)_
 - [ ] **F7-33** Cerrar las versiones vigentes cuya clave ya no aparece en Bronze. _(diseño §19 y §38)_
+- [ ] **F7-35** Comprobar que renombrar una colección o una keyword crea su versión nueva sin crear snapshot. _(diseño §31)_
+- [ ] **F7-34** Comprobar que un tombstone sin versión previa no crea versión ni snapshot. _(diseño §31)_
 
 ### F8 · Capa Gold
 
 - **Objetivo:** Materializar los productos analíticos que consultará Superset.
 - **Depende de:** F7
 - **Skill:** `/python-developer`
-- **Terminada cuando:** Los siete productos Gold existen, se reemplazan completos en cada corrida y DuckDB los lee.
+- **Terminada cuando:** Los siete productos Gold existen y se reemplazan completos en cada corrida.
 
 - [ ] **F8-01** Definir las columnas y los indicadores de los siete productos. _(diseño §33)_
 - [ ] **F8-02** Crear el esqueleto de `silver_to_gold.py`. _(diseño §32)_
@@ -320,7 +331,6 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F8-08** Crear `gold.cast_analysis`. _(diseño §33)_
 - [ ] **F8-09** Crear `gold.data_quality_coverage`. _(diseño §33)_
 - [ ] **F8-10** Comprobar que cada corrida reemplaza las tablas completas. _(diseño §32)_
-- [ ] **F8-11** Comprobar que DuckDB lee los siete productos. _(diseño §34)_
 
 ### F9 · Orquestación con Airflow
 
@@ -329,35 +339,36 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - **Skill:** `/python-developer`; `/solution-architect` para el Dockerfile y el Compose
 - **Terminada cuando:** Una corrida del DAG `elastiflix_medallion` termina en `success` y deja Silver y Gold actualizados.
 
-- [ ] **F9-01** Añadir `metadata-db` con las bases `airflow` y `superset`. _(diseño §45.3)_
 - [ ] **F9-02** Escribir `airflow/Dockerfile` con Java, PySpark y los JAR de Iceberg. _(diseño §18)_
 - [ ] **F9-03** Añadir el job `airflow-init`. _(diseño §39)_
 - [ ] **F9-04** Añadir `airflow-apiserver` al Compose. _(diseño §18)_
 - [ ] **F9-05** Añadir `airflow-scheduler` al Compose. _(diseño §18)_
 - [ ] **F9-06** Añadir `airflow-dag-processor` al Compose. _(diseño §18)_
 - [ ] **F9-07** Crear el administrador de Airflow con `airflow users create`. _(diseño §45.4)_
-- [ ] **F9-08** Escribir el job de mantenimiento de Iceberg. _(diseño §38)_
+- [ ] **F9-08** Escribir el job `iceberg_maintenance.py`. _(diseño §38)_
 - [ ] **F9-09** Crear el DAG `elastiflix_medallion`. _(diseño §18)_
-- [ ] **F9-10** Añadir la tarea `validate_bronze`. _(diseño §18)_
-- [ ] **F9-11** Añadir la tarea `bronze_to_silver`. _(diseño §18)_
-- [ ] **F9-12** Añadir la tarea `validate_silver`. _(diseño §18)_
+- [ ] **F9-10** Escribir `validate_bronze.py`, que comprueba las tablas y el job de Flink, y añadir su tarea. _(diseño §18)_
+- [ ] **F9-11** Añadir la tarea `bronze_to_silver`, que pasa `dag_run.run_after` al job. _(diseño §18 y §21)_
+- [ ] **F9-12** Escribir `validate_silver.py` y añadir la tarea `validate_silver`. _(diseño §18)_
 - [ ] **F9-13** Añadir la tarea `silver_to_gold`. _(diseño §18)_
-- [ ] **F9-14** Añadir la tarea `validate_gold`. _(diseño §18)_
-- [ ] **F9-15** Añadir la tarea `iceberg_maintenance`. _(diseño §38)_
+- [ ] **F9-14** Escribir `validate_gold.py` y añadir la tarea `validate_gold`. _(diseño §18)_
+- [ ] **F9-15** Añadir la tarea `iceberg_maintenance`, que corre siempre al final (`trigger_rule = all_done`). _(diseño §18 y §38)_
 - [ ] **F9-16** Comprobar una corrida completa del DAG. _(diseño §18)_
-- [ ] **F9-17** Comprobar que una validación fallida detiene el DAG. _(diseño §18)_
+- [ ] **F9-17** Comprobar que una validación fallida detiene el DAG, salvo el mantenimiento. _(diseño §18)_
+- [ ] **F9-18** Comprobar la reconstrucción de Bronze con el DAG pausado y reanudado después. _(diseño §38, decisión 39)_
 
 ### F10 · DuckDB y Superset
 
 - **Objetivo:** Mostrar los productos Gold en dashboards.
-- **Depende de:** F8
+- **Depende de:** F8 y F9
 - **Skill:** `/python-developer` para la configuración de Superset; `/solution-architect` para el SQL de DuckDB, el Dockerfile y el Compose
-- **Terminada cuando:** Los dashboards se crean solos al levantar el laboratorio y muestran datos de Gold.
+- **Terminada cuando:** Tras la primera corrida del DAG, los dashboards aparecen solos y muestran datos de Gold.
 
-- [ ] **F10-01** Escribir `duckdb/init/attach_lakehouse.sql` con una vista por producto Gold. _(diseño §34)_
+- [ ] **F10-01** Escribir `duckdb/init/attach_lakehouse.sql` y `duckdb/init/gold_views.sql`. _(diseño §34)_
 - [ ] **F10-02** Escribir `duckdb/Dockerfile` para la línea de comandos opcional. _(diseño §34)_
+- [ ] **F10-15** Añadir el servicio `duckdb` al Compose, bajo el perfil `tools`. _(diseño §34 y §39)_
 - [ ] **F10-03** Escribir `superset/Dockerfile` con DuckDB y sus extensiones. _(diseño §35)_
-- [ ] **F10-04** Escribir `superset_config.py` con el hook de conexión. _(diseño §35)_
+- [ ] **F10-04** Escribir `superset_config.py` con el hook de conexión, que crea solo las vistas de las tablas Gold que existen. _(diseño §35)_
 - [ ] **F10-05** Añadir el job `superset-init`: migrar la base de metadatos. _(diseño §39)_
 - [ ] **F10-06** Añadir a `superset-init` la creación del administrador. _(diseño §45.4)_
 - [ ] **F10-07** Añadir a `superset-init` el registro de la base de datos DuckDB. _(diseño §35)_
@@ -366,7 +377,9 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F10-10** Definir los dashboards y sus gráficos. _(diseño §35)_
 - [ ] **F10-11** Construir los dashboards. _(diseño §35)_
 - [ ] **F10-12** Exportar datasets y dashboards a `superset/config/`. _(diseño §35)_
-- [ ] **F10-13** Importar datasets y dashboards desde `superset-init`. _(diseño §35)_
+- [ ] **F10-13** Añadir al DAG la tarea `superset_import`, que importa datasets y dashboards por la API de Superset. _(diseño §18 y §35)_
+- [ ] **F10-16** Comprobar que Superset consulta sin errores antes de la primera corrida del DAG. _(diseño §34)_
+- [ ] **F10-17** Comprobar que DuckDB lee los siete productos Gold. _(diseño §34)_
 - [ ] **F10-14** Comprobar que los dashboards muestran datos. _(diseño §35)_
 
 ### F11 · Integración de extremo a extremo
@@ -397,7 +410,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F12-01** Actualizar el README con las instrucciones reales de ejecución. _(README §8)_
 - [ ] **F12-02** Escribir la guía de la demostración paso a paso. _(diseño §42)_
 - [ ] **F12-03** Actualizar el diseño con lo que cambió al implementar. _(diseño)_
-- [ ] **F12-04** Actualizar los diagramas al estado final. _(diseño §4, §6, §12, §18 y §40)_
+- [ ] **F12-04** Actualizar los diagramas al estado final. _(diseño §4, §6, §9.3, §12, §18, §35, §36, §40 y §44; plan §3)_
 - [ ] **F12-05** Cerrar las decisiones que sigan abiertas. _(decisiones, parte 1.3)_
 - [ ] **F12-06** Verificar el criterio de éxito con un clon limpio. _(diseño §44)_
 - [ ] **F12-07** Publicar la versión final con una etiqueta de Git. _(—)_
@@ -417,7 +430,9 @@ Además, toda actividad que añade un servicio al Compose deja ese servicio con:
 - su healthcheck, si es un servicio con estado (diseño §40);
 - su límite de memoria (diseño §39);
 - sus puertos del host declarados como variables ligadas a `127.0.0.1` (diseño §39);
-- un usuario sin privilegios (diseño §45.2).
+- un usuario sin privilegios (diseño §45.2); la única excepción es `volumes-init`, que corre como `root`.
+
+Los jobs one-shot no llevan healthcheck: el Compose espera a que terminen con `service_completed_successfully` (diseño §40).
 
 ## 5. Bitácora de avance
 
@@ -425,7 +440,9 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
-| 2026-11-22 | Plan | Responsable y agente | Cada fase indica su skill. Se añade F4-07 (consola de RustFS) y se retira F11-10 (arranque en Linux): el laboratorio corre en un solo equipo. Decisiones 37 a 42 |
+| 2026-11-22 | Plan | Responsable y agente | Decisiones D-8 a D-16 tomadas (vigentes 48 a 56). F6 depende de F1 y F5 y F10 de F8 y F9; `metadata-db` pasa a F2 (F2-08, se retira F9-01) y la comprobación de DuckDB a F10 (F10-17, se retira F8-11). Nuevas: F6-41, F7-35 y F10-16 |
+| 2026-11-22 | Plan y documentación | Agente | Revisión de coherencia de la documentación: se corrigen los hallazgos que no dependían de una decisión y quedan nueve decisiones abiertas (D-8 a D-16). Ocho actividades nuevas: F5-17 a F5-20, F6-40, F7-34, F9-18 y F10-15 |
+| 2026-11-22 | Plan | Responsable y agente | Cada fase indica su skill. Se añade F4-07 (consola de RustFS) y se retira F11-10 (arranque en Linux): el laboratorio corre en un solo equipo. Decisiones 41 a 43 |
 | 2026-11-22 | Riesgos | Agente | Medición de memoria con los 13 servicios a la vez: 7.9 GB de máximo. Se cierra R3; Airflow reparte sus 3 GB en 0.5, 2 y 0.5 |
 | 2026-11-22 | F0-15 | Responsable y agentes | Validación 11 superada con ajustes al diseño; decisiones 33 y 34. Fase F0 terminada. Se cierra el riesgo R6 |
 | 2026-11-22 | Riesgos | Agente | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |

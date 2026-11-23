@@ -35,8 +35,8 @@ Cada fase del plan indica su skill por defecto. Si una actividad concreta es de 
 | La actividad consiste en | Skill |
 |---|---|
 | Código Java: el Event Simulator y su proyecto Maven | `/java-developer` |
-| Código Python: jobs PySpark, DAG de Airflow, configuración de Superset y scripts | `/python-developer` |
-| Todo lo demás: Compose, Dockerfile, SQL, YAML de Flink, scripts de arranque, diagramas y cualquier duda o cambio de diseño | `/solution-architect` |
+| Código Python: jobs PySpark, DAG de Airflow, configuración de Superset y scripts escritos en Python | `/python-developer` |
+| Todo lo demás: Compose, Dockerfile, SQL, YAML de Flink, scripts de shell de arranque y de operación, diagramas y cualquier duda o cambio de diseño | `/solution-architect` |
 
 Cómo activarla:
 

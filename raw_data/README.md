@@ -4,7 +4,7 @@ Estos archivos son **sintéticos**. No proceden del catálogo original, no usan
 títulos de películas reales, nombres de personas reales ni nombres de compañías
 reales, y las sinopsis están generadas. Los catálogos cerrados (estado, rating,
 idiomas, países, géneros, idiomas hablados y campos de enrichment) sí usan los
-valores exactos del contrato (secciones 8.2 y 8.5 del diseño).
+valores exactos del contrato (secciones 8.2, 12.19 y 12.20 del diseño).
 
 ## Semilla
 
@@ -119,9 +119,9 @@ Resultado de `python3 raw_data/generate_raw_data.py --validate`:
 8. PASS. Están los defectos de la sección 8.6 y no hay repeticiones dentro de una película ni un keyword_id con dos nombres.
 9. PASS. Cada fila de movie_enrichment corresponde a un dato presente, y los códigos fx cuadran con el estreno.
 11. PASS. Ninguna película tiene dos keywords del mismo nombre.
-12. PASS. Correlaciones de Spearman (tarea §4.1 y §4.2) dentro de ±0.15; ningún par en ±1.00.
-13. PASS. Variedad de títulos, tagline, overview, plot y homepage (tarea §4.3, §4.4, §4.8).
-14. PASS. Contenido de celdas (comas, comillas, saltos) según la tarea §4.5 (±5 %).
+12. PASS. Correlaciones de Spearman con `movie_id` y entre medidas, medidas en el catálogo original, dentro de ±0.15; ningún par en ±1.00.
+13. PASS. Variedad de títulos, tagline, overview, plot y homepage, con los mínimos de distintos del encargo de regeneración.
+14. PASS. Contenido de celdas (comas, comillas, saltos) igual al medido en el catálogo original (±5 %).
 15. PASS. Todos los nombres de persona están en alfabeto latino; un 5 % lleva diacríticos.
 16. PASS. imdb_id no secuenciales (rango tt0000417..tt35725827) y homepage solo con dominios .example.
 17. PASS. Cada palabra de los títulos (salvo números) está en la lista de palabras del generador.

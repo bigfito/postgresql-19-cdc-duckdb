@@ -27,7 +27,7 @@
       "sublabel": "Diseño y validaciones",
       "pos": [
         70,
-        488
+        40
       ],
       "size": [
         150,
@@ -42,7 +42,7 @@
       "sublabel": "Dataset",
       "pos": [
         70,
-        824
+        152
       ],
       "size": [
         150,
@@ -117,7 +117,7 @@
       "sublabel": "Event Simulator",
       "pos": [
         70,
-        264
+        376
       ],
       "size": [
         150,
@@ -171,13 +171,13 @@
     },
     {
       "id": "f10",
-      "type": "external",
+      "type": "backend",
       "icon": "none",
       "label": "F10",
       "sublabel": "DuckDB y Superset",
       "pos": [
-        530,
-        600
+        300,
+        712
       ],
       "size": [
         150,
@@ -192,7 +192,7 @@
       "sublabel": "Integración",
       "pos": [
         300,
-        712
+        824
       ],
       "size": [
         150,
@@ -207,7 +207,7 @@
       "sublabel": "Cierre",
       "pos": [
         300,
-        824
+        936
       ],
       "size": [
         150,
@@ -247,8 +247,14 @@
       "variant": "emphasis"
     },
     {
-      "id": "f9-f11",
+      "id": "f9-f10",
       "from": "f9",
+      "to": "f10",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f10-f11",
+      "from": "f10",
       "to": "f11",
       "variant": "emphasis"
     },
@@ -273,77 +279,24 @@
       "toSide": "right"
     },
     {
-      "id": "f3-f6",
-      "from": "f3",
+      "id": "f1-f6",
+      "from": "f1",
+      "to": "f6",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "f5-f6",
+      "from": "f5",
       "to": "f6",
       "fromSide": "left",
-      "toSide": "top"
-    },
-    {
-      "id": "f8-f10",
-      "from": "f8",
-      "to": "f10",
-      "fromSide": "right",
-      "toSide": "top"
-    },
-    {
-      "id": "f10-f11",
-      "from": "f10",
-      "to": "f11",
-      "fromSide": "bottom",
-      "toSide": "right"
-    },
-    {
-      "id": "f5-f11",
-      "from": "f5",
-      "to": "f11",
-      "fromSide": "right",
       "toSide": "right"
     },
     {
       "id": "f6-f11",
       "from": "f6",
       "to": "f11",
-      "fromSide": "left",
-      "toSide": "left"
-    },
-    {
-      "id": "f1-f11",
-      "from": "f1",
-      "to": "f11",
-      "fromSide": "top",
-      "toSide": "left"
-    },
-    {
-      "id": "f0-f6",
-      "from": "f0",
-      "to": "f6",
-      "variant": "dashed",
-      "fromSide": "top",
-      "toSide": "bottom"
-    },
-    {
-      "id": "f0-f5",
-      "from": "f0",
-      "to": "f5",
-      "variant": "dashed",
-      "fromSide": "right",
-      "toSide": "left"
-    },
-    {
-      "id": "f0-f7",
-      "from": "f0",
-      "to": "f7",
-      "variant": "dashed",
-      "fromSide": "right",
-      "toSide": "left"
-    },
-    {
-      "id": "f0-f9",
-      "from": "f0",
-      "to": "f9",
-      "variant": "dashed",
-      "fromSide": "right",
+      "fromSide": "bottom",
       "toSide": "left"
     }
   ],
@@ -352,28 +305,27 @@
       "dot": "emerald",
       "title": "Cómo leerlo",
       "items": [
-        "Flecha continua: la fase espera a que termine la fase de origen",
+        "Cada flecha: la fase espera a que termine la fase de origen",
         "Flecha verde: tramo del camino más largo",
-        "Flecha punteada: espera solo a una o dos actividades de F0"
+        "No se dibujan las dependencias que se deducen de otras"
       ]
     },
     {
       "dot": "amber",
       "title": "Camino más largo",
       "items": [
-        "F2 → F3 → F5 → F7 → F8 → F9 → F11 → F12",
+        "F2 → F3 → F5 → F7 → F8 → F9 → F10 → F11 → F12",
         "Un retraso en cualquiera de esas fases retrasa el final",
-        "F6 puede hacerse en paralelo desde que termina F3"
+        "F6 puede hacerse en paralelo desde que termina F5"
       ]
     },
     {
       "dot": "violet",
-      "title": "Actividades de F0 que se esperan",
+      "title": "Fases terminadas",
       "items": [
-        "F5 espera a F0-12",
-        "F6 espera a F0-14 y F0-15",
-        "F7 espera a F0-13",
-        "F9 espera a F0-16 y F0-17"
+        "F0 y F1 están terminadas",
+        "Las esperas a actividades de F0 ya se cumplieron",
+        "F4 puede avanzar en paralelo con F3"
       ]
     }
   ]

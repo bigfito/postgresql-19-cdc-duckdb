@@ -19,4 +19,7 @@ Identificadores de Context7 ya resueltos para el stack de este proyecto (pueden 
 | Apache Iceberg | `/websites/iceberg_apache` |
 | Apache Airflow | `/websites/airflow_apache` |
 | Apache Superset | `/apache/superset` |
-| DuckDB | `/duckdb/duckdb-web` |
+| DuckDB (también su cliente JDBC) | `/duckdb/duckdb-web` |
+| Apache Spark y PySpark | `/websites/spark_apache` |
+| Lanterna | `/mabe02/lanterna` |
+| Apache Commons CSV | `/websites/commons_apache_proper_commons-csv` |

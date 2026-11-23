@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> ⚠️ **Fase de diseño.** Todavía no hay código ejecutable: no existe `docker-compose.yml` ni ninguno de los servicios. El repositorio contiene hoy el documento de diseño y sus diagramas.
+> ⚠️ **Fase de diseño.** Todavía no hay código ejecutable: no existe `docker-compose.yml` ni ninguno de los servicios. El repositorio contiene hoy el diseño con sus diagramas, el documento de decisiones y validaciones, el plan de trabajo y el dataset de entrada.
 
 | Elemento | Estado |
 |---|---|
@@ -24,9 +24,9 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
-| Estructura de directorios del proyecto | ✅ Creada (vacía) |
+| Estructura de directorios del proyecto | ✅ Creada; vacía salvo `raw_data/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
-| Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 24.5 MB, con su script generador y su [README](raw_data/README.md) |
+| Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
@@ -37,7 +37,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ### Flujo principal
 
-**📄 CSV → ☕ Java → 🐘 PostgreSQL → 🌊 Flink CDC → 🥉 Bronze → ⚡ PySpark → 🥈 Silver → ⚡ PySpark → 🥇 Gold → 🦆 DuckDB → 📊 Superset**
+El recorrido de un cambio, paso a paso, del CSV hasta Superset, está en el [diagrama del criterio de éxito](lab-design/diagrams/end-to-end-change-path.svg).
 
 ### Ideas clave del diseño
 
@@ -45,7 +45,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 - 🥉 **Bronze conserva los borrados.** Cada tabla es un espejo por clave primaria con dos columnas técnicas (`cdc_op_type`, `cdc_op_ts`); un `DELETE` queda como tombstone en lugar de desaparecer.
 - 🥈 **Historial donde aporta.** SCD Type 2 en las dimensiones cuyos atributos cambian (`dim_movie`, `dim_collection`, `dim_keyword`); el resto son Tipo 1.
 - 🥇 **Gold simple para BI.** Tablas planas que se recargan completas en cada corrida.
-- 🦆 **DuckDB embebido.** No es un servicio de red: corre dentro del contenedor de Superset y lee Gold directamente desde Iceberg.
+- 🦆 **DuckDB embebido.** No es un servicio de red: corre dentro del contenedor de Superset, donde lee Gold directamente desde Iceberg, y dentro del simulador, que lo usa para comprobar que cada cambio llegó a Bronze.
 - 🧭 **Un catálogo, un almacenamiento.** Flink, Spark y DuckDB comparten el Iceberg REST Catalog y RustFS (`s3://warehouse/`).
 
 ## 4. 🧰 Software Stack
@@ -66,7 +66,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Iceberg REST Catalog | **1.10.1** | Catálogo compartido | Dar a Flink, Spark y DuckDB un único registro de tablas |
 | Docker Compose | **v2 o posterior** | Runtime del laboratorio | Levantar todo el laboratorio con un solo comando reproducible |
 
-> ℹ️ Cada componente usa la versión estable más reciente que el resto del stack admite, y toda imagen base está publicada en Docker Hub. Cuatro quedan por debajo de la última publicada por compatibilidad: Flink 2.2.1 (Flink CDC 3.7 no soporta Flink 2.3), Spark 4.1.4 (Iceberg no publica runtime para Spark 4.2 ni 4.3), Iceberg 1.10.2 en Flink (línea contra la que se compila Flink CDC 3.7.0) y DuckDB 1.5.6 (Superset 6.1.0 exige `duckdb<2`). El razonamiento completo y la tabla de imágenes están en la [sección 3 del diseño](lab-design/LAB-DESIGN.md#3--software-stack).
+> ℹ️ Cada componente usa la versión estable más reciente que el resto del stack admite, y toda imagen base está publicada en Docker Hub. Cuatro quedan por debajo de la última publicada por compatibilidad entre librerías: Flink 2.2.1 (Flink CDC 3.7 no soporta Flink 2.3), Spark 4.1.4 (Iceberg no publica runtime para Spark 4.2 ni 4.3), Iceberg 1.10.2 en Flink (línea contra la que se compila Flink CDC 3.7.0) y DuckDB 1.5.6 (Superset 6.1.0 exige `duckdb<2`). Otros tres siguen su propio criterio: el catálogo REST 1.10.1 (no hay imagen versionada más nueva), Java 25 (la LTS vigente) y Python 3.12 (la versión más alta común a Airflow y Superset). El razonamiento completo y la tabla de imágenes están en la [sección 3 del diseño](lab-design/LAB-DESIGN.md#3--software-stack).
 
 ## 5. 🥉🥈🥇 Capas de datos
 
@@ -94,6 +94,10 @@ postgresql-19-cdc-duckdb/
 |-- planning/
 |   |-- PLAN.md
 |   `-- update_progress.py
+|-- raw_data/
+|   |-- README.md
+|   |-- generate_raw_data.py
+|   `-- <tabla>.csv   (20 archivos)
 |-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
