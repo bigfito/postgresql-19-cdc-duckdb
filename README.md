@@ -28,7 +28,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
-| Implementación del resto (PostgreSQL, CDC, simulador, jobs, DAG y Superset) | ⏳ Fases F3 a F12; ver el [plan de trabajo](planning/PLAN.md) |
+| PostgreSQL operacional: esquema `catalog`, cuentas, publicación y servicio en el Compose | 🔄 Fase F3 en curso |
+| Implementación del resto (CDC, simulador, jobs, DAG y Superset) | ⏳ Fases F4 a F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -104,7 +105,7 @@ postgresql-19-cdc-duckdb/
 |-- metadata-db/
 |   `-- init/01-create-databases.sh
 |-- postgresql/
-|   `-- init/   (DDL de las 20 tablas, cuentas e identidad de réplica)
+|   `-- init/   (DDL de las 20 tablas, cuentas, identidad de réplica y publicación)
 |-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
@@ -122,7 +123,7 @@ postgresql-19-cdc-duckdb/
         `-- end-to-end-change-path.{json,html,svg}
 ```
 
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización y `postgresql/init/` el DDL de las 20 tablas, sus cuentas y la identidad de réplica; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización y `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/
@@ -165,7 +166,7 @@ docker compose up -d --build
 
 Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ Hoy ese comando solo levanta la base del proyecto: el job `volumes-init`, que prepara los directorios de datos, y `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ⚠️ Hoy ese comando solo levanta tres piezas: el job `volumes-init`, que prepara los directorios de datos; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; y `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
 Flujo demostrativo esperado:
 

@@ -124,3 +124,52 @@ services:
       retries: 12
       start_period: 30s
     mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # postgresql (diseño, secciones 10, 12 y 39)
+  # ---------------------------------------------------------------------------
+  # Base operacional: elastiflix, esquema catalog. Es el origen del CDC.
+  # postgresql/init/ crea, la primera vez que arranca, las 20 tablas, las
+  # cuentas elastiflix_app y elastiflix_cdc y la publicación elastiflix_pub.
+  # Las tablas arrancan vacías: las llena el simulador.
+  # La imagen arranca como root, prepara su directorio de datos y baja al
+  # usuario postgres (999:999); no necesita volumes-init.
+  postgresql:
+    image: postgres:19.0
+    # Replicación lógica para Flink CDC (sección 10):
+    #   wal_level=logical           el WAL lleva lo que pgoutput necesita.
+    #   max_replication_slots       el slot elastiflix_cdc y los auxiliares del
+    #   y max_wal_senders           snapshot inicial; 10 es el valor por defecto.
+    #   max_slot_wal_keep_size=2GB  tope del WAL que retiene el slot si Flink
+    #                               está parado; sin él se llena el disco.
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_slot_wal_keep_size=2GB
+    environment:
+      POSTGRES_DB: elastiflix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      ELASTIFLIX_APP_PASSWORD: ${ELASTIFLIX_APP_PASSWORD:?falta ELASTIFLIX_APP_PASSWORD en .env}
+      ELASTIFLIX_CDC_PASSWORD: ${ELASTIFLIX_CDC_PASSWORD:?falta ELASTIFLIX_CDC_PASSWORD en .env}
+    ports: *ports-postgresql
+    volumes:
+      # Desde PostgreSQL 18 el volumen es /var/lib/postgresql (sección 7).
+      - ./postgresql/data:/var/lib/postgresql
+      - ./postgresql/init:/docker-entrypoint-initdb.d:ro
+    # Por TCP y no por el socket: durante la inicialización la imagen levanta
+    # un servidor temporal que solo escucha en el socket. Así el servicio solo
+    # está sano cuando postgresql/init/ ha terminado; si un archivo de
+    # inicialización falla, el contenedor se detiene y nunca llega a estarlo.
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "elastiflix"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 1g

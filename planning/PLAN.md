@@ -17,7 +17,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
-| F3 | PostgreSQL operacional | 15 | 9 | 60 % | 🔄 En curso |
+| F3 | PostgreSQL operacional | 15 | 12 | 80 % | 🔄 En curso |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **48** | **22 %** | 🔄 En curso |
+| | **Global** | **222** | **51** | **23 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -174,9 +174,9 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [x] **F3-07** Crear el rol `elastiflix_cdc`. _(diseño §45.3)_
 - [x] **F3-08** Tomar las contraseñas de los roles desde variables de entorno. _(diseño §45.5)_
 - [x] **F3-09** Configurar `REPLICA IDENTITY FULL` en las 20 tablas. _(diseño §10)_
-- [ ] **F3-10** Crear la publicación `elastiflix_pub`. _(diseño §10)_
-- [ ] **F3-11** Añadir el servicio `postgresql` al Compose con sus parámetros de replicación. _(diseño §10)_
-- [ ] **F3-12** Añadir el healthcheck de `postgresql`. _(diseño §40)_
+- [x] **F3-10** Crear la publicación `elastiflix_pub`. _(diseño §10)_
+- [x] **F3-11** Añadir el servicio `postgresql` al Compose con sus parámetros de replicación. _(diseño §10)_
+- [x] **F3-12** Añadir el healthcheck de `postgresql`. _(diseño §40)_
 - [ ] **F3-13** Comprobar que el esquema se crea al arrancar. _(diseño §10)_
 - [ ] **F3-15** Escribir `postgresql/scripts/load_dev_data.sql`, que carga los 20 CSV para el desarrollo. _(diseño §39)_
 - [ ] **F3-14** Comprobar que los 20 CSV cargan sin errores con ese script. _(diseño §8.3 y §39)_
@@ -446,6 +446,9 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F3-12 | Agente | F3 80 % · Global 23 % | Healthcheck `pg_isready` por TCP contra la base `elastiflix`: solo da sano cuando la inicialización terminó. Con `docker compose up -d --wait postgresql` queda sano en 36 s desde cero |
+| 2026-11-22 | F3-11 | Agente | F3 73 % · Global 23 % | Servicio `postgresql` (`postgres:19.0`, 1 GB, puerto en `127.0.0.1`) con `wal_level=logical`, 10 slots, 10 emisores de WAL y `max_slot_wal_keep_size=2GB`. Arranca desde cero, ejecuta los nueve archivos de `postgresql/init/` y deja 20 tablas vacías; las dos cuentas entran desde otro contenedor solo con su contraseña; al reiniciar conserva los datos |
+| 2026-11-22 | F3-10 | Agente | F3 67 % · Global 22 % | `postgresql/init/09-publication.sql` crea `elastiflix_pub` con `FOR TABLES IN SCHEMA catalog`. En el Compose publica las 20 tablas; con un slot `pgoutput` creado por `elastiflix_cdc` se leyeron 5 INSERT, 1 UPDATE y 2 DELETE (uno por cascada) hechos por `elastiflix_app` |
 | 2026-11-22 | F3-09 | Agente | F3 60 % · Global 22 % | `postgresql/init/08-replica-identity.sql` aplica `REPLICA IDENTITY FULL` a las 20 tablas y termina con una comprobación que detiene la inicialización si alguna tabla de `catalog` queda sin ella. Probado con decodificación lógica: un UPDATE y un DELETE de `movie` llevan las 25 columnas, y los 62 borrados en cascada llevan su fila completa |
 | 2026-11-22 | F3-08 | Agente | F3 53 % · Global 21 % | `postgresql/init/07-role-passwords.sh` pone la contraseña a `elastiflix_app` y `elastiflix_cdc` desde `ELASTIFLIX_APP_PASSWORD` y `ELASTIFLIX_CDC_PASSWORD`, como variables de `psql`. Probado: quedan en `scram-sha-256`, cada cuenta entra desde la red solo con la suya, no aparecen en el log y, si falta una variable, la inicialización se detiene con un mensaje |
 | 2026-11-22 | F3-07 | Agente | F3 47 % · Global 21 % | El mismo archivo crea `elastiflix_cdc` con `REPLICATION` y `SELECT` en las 20 tablas, sin superusuario. Probado con `wal_level=logical`: lee, crea y borra un slot lógico con `pgoutput`; no puede modificar datos ni crear publicaciones |
