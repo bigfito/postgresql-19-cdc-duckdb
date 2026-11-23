@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: 🟢 Verde.** No hay bloqueos ni decisiones abiertas. Hay un defecto intermitente en observación, en la sección 6.
+**Estado global: 🟢 Verde.** No hay bloqueos. En la sección 6 hay un defecto intermitente en observación, un problema de rendimiento de RustFS que hay que resolver antes de la fase F9 y tres dudas abiertas.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -19,17 +19,17 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
 | F3 | PostgreSQL operacional | 15 | 15 | 100 % | ✅ Terminada |
 | F4 | Almacenamiento y catálogo | 7 | 7 | 100 % | ✅ Terminada |
-| F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
-| F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
-| F7 | Spark y capa Silver | 35 | 0 | 0 % | ⏳ Pendiente |
+| F5 | Flink CDC hacia Bronze | 20 | 20 | 100 % | ✅ Terminada |
+| F6 | Event Simulator | 45 | 45 | 100 % | ✅ Terminada |
+| F7 | Spark y capa Silver | 35 | 35 | 100 % | ✅ Terminada |
 | F8 | Capa Gold | 10 | 0 | 0 % | ⏳ Pendiente |
 | F9 | Orquestación con Airflow | 19 | 0 | 0 % | ⏳ Pendiente |
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **61** | **27 %** | 🔄 En curso |
+| | **Global** | **222** | **161** | **73 %** | 🔄 En curso |
 
-Actualizado el 2026-11-22.
+Actualizado el 2026-11-23.
 <!-- tablero:fin -->
 
 El tablero no se edita a mano: lo recalcula `python planning/update_progress.py` a partir de las casillas marcadas. El mismo script, con `--done`, registra cada actividad terminada e imprime el avance de su fase y el global (regla 6 de la sección 2).
@@ -203,26 +203,26 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/solution-architect`
 - **Terminada cuando:** Las 20 tablas están en Bronze, reflejan INSERT, UPDATE y DELETE, y el pipeline se reanuda al repetir `docker compose up` tras reiniciar Flink.
 
-- [ ] **F5-01** Escribir `flink/Dockerfile` con Flink CDC y sus JAR. _(diseño §14)_
-- [ ] **F5-02** Escribir la configuración de Flink: checkpoint de 30 s y checkpoints retenidos. _(diseño §14)_
-- [ ] **F5-03** Escribir el pipeline `flink/jobs/postgres-to-bronze.yaml`. _(diseño §14)_
-- [ ] **F5-04** Añadir `flink-jobmanager` al Compose. _(diseño §39)_
-- [ ] **F5-05** Añadir `flink-taskmanager` al Compose. _(diseño §39)_
-- [ ] **F5-06** Escribir el script de envío: no enviar si el job ya está en ejecución. _(diseño §14)_
-- [ ] **F5-07** Escribir el script de envío: reanudar desde el último checkpoint. _(diseño §14)_
-- [ ] **F5-08** Escribir el script de envío: detenerse con error si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
-- [ ] **F5-17** Escribir el script de envío: generar el YAML con la contraseña de `.env`. _(diseño §14)_
-- [ ] **F5-18** Escribir el script de envío: esperar a que el job esté en `RUNNING` antes de terminar. _(diseño §14)_
-- [ ] **F5-09** Añadir el job `flink-cdc-submit` al Compose. _(diseño §39)_
-- [ ] **F5-10** Comprobar que las 20 tablas llegan a Bronze. _(diseño §17)_
-- [ ] **F5-11** Comprobar un INSERT en Bronze. _(diseño §17)_
-- [ ] **F5-12** Comprobar un UPDATE en Bronze. _(diseño §17)_
-- [ ] **F5-13** Comprobar un DELETE en Bronze. _(diseño §17)_
-- [ ] **F5-14** Comprobar que repetir `docker compose up` no crea un segundo job. _(diseño §14)_
-- [ ] **F5-15** Comprobar que, tras reiniciar el JobManager, repetir `docker compose up` reanuda el pipeline desde su checkpoint. _(diseño §14)_
-- [ ] **F5-19** Comprobar que el script de envío se detiene sin borrar nada si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
-- [ ] **F5-16** Escribir el script que elimina las tablas Bronze para reconstruirlas. _(diseño §38)_
-- [ ] **F5-20** Comprobar la reconstrucción de Bronze con el script de borrado. _(diseño §38)_
+- [x] **F5-01** Escribir `flink/Dockerfile` con Flink CDC y sus JAR. _(diseño §14)_
+- [x] **F5-02** Escribir la configuración de Flink: checkpoint de 30 s y checkpoints retenidos. _(diseño §14)_
+- [x] **F5-03** Escribir el pipeline `flink/jobs/postgres-to-bronze.yaml`. _(diseño §14)_
+- [x] **F5-04** Añadir `flink-jobmanager` al Compose. _(diseño §39)_
+- [x] **F5-05** Añadir `flink-taskmanager` al Compose. _(diseño §39)_
+- [x] **F5-06** Escribir el script de envío: no enviar si el job ya está en ejecución. _(diseño §14)_
+- [x] **F5-07** Escribir el script de envío: reanudar desde el último checkpoint. _(diseño §14)_
+- [x] **F5-08** Escribir el script de envío: detenerse con error si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
+- [x] **F5-17** Escribir el script de envío: generar el YAML con la contraseña de `.env`. _(diseño §14)_
+- [x] **F5-18** Escribir el script de envío: esperar a que el job esté en `RUNNING` antes de terminar. _(diseño §14)_
+- [x] **F5-09** Añadir el job `flink-cdc-submit` al Compose. _(diseño §39)_
+- [x] **F5-10** Comprobar que las 20 tablas llegan a Bronze. _(diseño §17)_
+- [x] **F5-11** Comprobar un INSERT en Bronze. _(diseño §17)_
+- [x] **F5-12** Comprobar un UPDATE en Bronze. _(diseño §17)_
+- [x] **F5-13** Comprobar un DELETE en Bronze. _(diseño §17)_
+- [x] **F5-14** Comprobar que repetir `docker compose up` no crea un segundo job. _(diseño §14)_
+- [x] **F5-15** Comprobar que, tras reiniciar el JobManager, repetir `docker compose up` reanuda el pipeline desde su checkpoint. _(diseño §14)_
+- [x] **F5-19** Comprobar que el script de envío se detiene sin borrar nada si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
+- [x] **F5-16** Escribir el script que elimina las tablas Bronze para reconstruirlas. _(diseño §38)_
+- [x] **F5-20** Comprobar la reconstrucción de Bronze con el script de borrado. _(diseño §38)_
 
 ### F6 · Event Simulator
 
@@ -231,51 +231,51 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/java-developer`; `/solution-architect` para el Dockerfile y el Compose
 - **Terminada cuando:** El simulador cumple los requisitos RF-01 a RF-13 y su interfaz se abre con `docker compose attach`.
 
-- [ ] **F6-01** Crear el proyecto Maven con sus dependencias. _(diseño §9.8)_
-- [ ] **F6-02** Leer la configuración desde variables de entorno. _(diseño §9.6)_
-- [ ] **F6-03** Cargar los 20 CSV en memoria. _(RF-01)_
-- [ ] **F6-04** Conectar con PostgreSQL usando `elastiflix_app`. _(diseño §45.3)_
-- [ ] **F6-05** Dar de alta una película en una sola transacción. _(RF-02)_
-- [ ] **F6-06** Insertar catálogos y entidades la primera vez que se necesitan. _(diseño §9.5)_
-- [ ] **F6-42** Al arrancar, leer de PostgreSQL lo ya insertado y continuar con la primera película pendiente. _(RF-13 y diseño §9.5)_
-- [ ] **F6-07** Implementar el UPDATE descriptivo. _(RF-03)_
-- [ ] **F6-08** Implementar el UPDATE de medidas. _(RF-03)_
-- [ ] **F6-09** Implementar el UPDATE de relaciones, que actualiza también `updated_at` de la película. _(RF-03 y diseño §9.5)_
-- [ ] **F6-41** Implementar el UPDATE de catálogo: renombrar una colección o una keyword con el sufijo `(rev N)`. _(RF-03 y diseño §9.5)_
-- [ ] **F6-10** Implementar el DELETE de una película. _(RF-03)_
-- [ ] **F6-11** Implementar la reinserción de una película borrada. _(RF-03)_
-- [ ] **F6-12** Elegir la siguiente operación según los pesos y la semilla. _(RF-04 y RF-05)_
-- [ ] **F6-43** Elegir el tipo de UPDATE con la semilla, entre los que la película admite. _(diseño §9.5)_
-- [ ] **F6-13** Implementar el modo continuo, con la reinserción automática cuando ya no quedan películas pendientes. _(diseño §9.5)_
-- [ ] **F6-14** Ante un dato inconsistente: revertir, registrar y continuar. _(RF-12)_
-- [ ] **F6-15** Registrar cada transacción, cada cambio de configuración y cada operación manual, también en `/tmp/simulator.log`. _(RF-11 y diseño §9.8)_
-- [ ] **F6-16** Implementar el modo de líneas, que es como arranca el simulador. _(RF-10 y diseño §9.4)_
-- [ ] **F6-17** Dibujar la cabecera de la pantalla. _(diseño §9.3)_
-- [ ] **F6-18** Dibujar la zona de avance. _(diseño §9.3)_
-- [ ] **F6-19** Dibujar la zona de operaciones. _(diseño §9.3)_
-- [ ] **F6-20** Dibujar la lista de últimas transacciones. _(diseño §9.3)_
-- [ ] **F6-21** Dibujar la zona de detalle. _(diseño §9.3)_
-- [ ] **F6-33** Abrir la interfaz con la primera tecla y cerrarla con `Q`. _(diseño §9.4)_
-- [ ] **F6-34** Atrapar `Ctrl-C` para que no detenga el simulador. _(diseño §9.8)_
-- [ ] **F6-35** Repintar la pantalla completa cada 2 segundos y al cambiar de tamaño. _(diseño §9.8)_
-- [ ] **F6-40** Mostrar un aviso cuando la terminal mida menos de 100×30. _(diseño §9.2)_
-- [ ] **F6-22** Implementar pausar y reanudar. _(RF-07)_
-- [ ] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
-- [ ] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
-- [ ] **F6-25** Implementar el diálogo de operación manual. _(RF-08)_
-- [ ] **F6-37** Abrir DuckDB en un hilo propio, con hilos y memoria limitados, y reabrirlo si una consulta falla. _(diseño §9.8)_
-- [ ] **F6-26** Implementar el seguimiento del cambio hasta Bronze, con el instante de referencia truncado. _(RF-09 y diseño §9.3)_
-- [ ] **F6-38** Marcar como demorada la transacción que no llega a Bronze en 120 segundos. _(diseño §9.3)_
-- [ ] **F6-27** Escribir pruebas unitarias de la lectura de CSV. _(diseño §9.1)_
-- [ ] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
-- [ ] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator` y las opciones de la JVM. _(diseño §9.8 y §45.2)_
-- [ ] **F6-39** Instalar las extensiones de DuckDB durante el build de la imagen. _(diseño §34)_
-- [ ] **F6-30** Añadir `java-simulator` al Compose, con `tty` y `stdin_open`, después de `flink-cdc-submit`. _(diseño §9.8 y §40)_
-- [ ] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
-- [ ] **F6-44** Volver el laboratorio a cero antes de las comprobaciones del simulador. _(diseño §39)_
-- [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.8)_
-- [ ] **F6-32** Comprobar que la misma semilla repite la misma secuencia. _(RF-05)_
-- [ ] **F6-45** Comprobar que, tras detener y arrancar el contenedor, el simulador continúa sin repetir altas. _(RF-13)_
+- [x] **F6-01** Crear el proyecto Maven con sus dependencias. _(diseño §9.8)_
+- [x] **F6-02** Leer la configuración desde variables de entorno. _(diseño §9.6)_
+- [x] **F6-03** Cargar los 20 CSV en memoria. _(RF-01)_
+- [x] **F6-04** Conectar con PostgreSQL usando `elastiflix_app`. _(diseño §45.3)_
+- [x] **F6-05** Dar de alta una película en una sola transacción. _(RF-02)_
+- [x] **F6-06** Insertar catálogos y entidades la primera vez que se necesitan. _(diseño §9.5)_
+- [x] **F6-42** Al arrancar, leer de PostgreSQL lo ya insertado y continuar con la primera película pendiente. _(RF-13 y diseño §9.5)_
+- [x] **F6-07** Implementar el UPDATE descriptivo. _(RF-03)_
+- [x] **F6-08** Implementar el UPDATE de medidas. _(RF-03)_
+- [x] **F6-09** Implementar el UPDATE de relaciones, que actualiza también `updated_at` de la película. _(RF-03 y diseño §9.5)_
+- [x] **F6-41** Implementar el UPDATE de catálogo: renombrar una colección o una keyword con el sufijo `(rev N)`. _(RF-03 y diseño §9.5)_
+- [x] **F6-10** Implementar el DELETE de una película. _(RF-03)_
+- [x] **F6-11** Implementar la reinserción de una película borrada. _(RF-03)_
+- [x] **F6-12** Elegir la siguiente operación según los pesos y la semilla. _(RF-04 y RF-05)_
+- [x] **F6-43** Elegir el tipo de UPDATE con la semilla, entre los que la película admite. _(diseño §9.5)_
+- [x] **F6-13** Implementar el modo continuo, con la reinserción automática cuando ya no quedan películas pendientes. _(diseño §9.5)_
+- [x] **F6-14** Ante un dato inconsistente: revertir, registrar y continuar. _(RF-12)_
+- [x] **F6-15** Registrar cada transacción, cada cambio de configuración y cada operación manual, también en `/tmp/simulator.log`. _(RF-11 y diseño §9.8)_
+- [x] **F6-16** Implementar el modo de líneas, que es como arranca el simulador. _(RF-10 y diseño §9.4)_
+- [x] **F6-17** Dibujar la cabecera de la pantalla. _(diseño §9.3)_
+- [x] **F6-18** Dibujar la zona de avance. _(diseño §9.3)_
+- [x] **F6-19** Dibujar la zona de operaciones. _(diseño §9.3)_
+- [x] **F6-20** Dibujar la lista de últimas transacciones. _(diseño §9.3)_
+- [x] **F6-21** Dibujar la zona de detalle. _(diseño §9.3)_
+- [x] **F6-33** Abrir la interfaz con la primera tecla y cerrarla con `Q`. _(diseño §9.4)_
+- [x] **F6-34** Atrapar `Ctrl-C` para que no detenga el simulador. _(diseño §9.8)_
+- [x] **F6-35** Repintar la pantalla completa cada 2 segundos y al cambiar de tamaño. _(diseño §9.8)_
+- [x] **F6-40** Mostrar un aviso cuando la terminal mida menos de 100×30. _(diseño §9.2)_
+- [x] **F6-22** Implementar pausar y reanudar. _(RF-07)_
+- [x] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
+- [x] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
+- [x] **F6-25** Implementar el diálogo de operación manual. _(RF-08)_
+- [x] **F6-37** Abrir DuckDB en un hilo propio, con hilos y memoria limitados, y reabrirlo si una consulta falla. _(diseño §9.8)_
+- [x] **F6-26** Implementar el seguimiento del cambio hasta Bronze, con el instante de referencia truncado. _(RF-09 y diseño §9.3)_
+- [x] **F6-38** Marcar como demorada la transacción que no llega a Bronze en 120 segundos. _(diseño §9.3)_
+- [x] **F6-27** Escribir pruebas unitarias de la lectura de CSV. _(diseño §9.1)_
+- [x] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
+- [x] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator` y las opciones de la JVM. _(diseño §9.8 y §45.2)_
+- [x] **F6-39** Instalar las extensiones de DuckDB durante el build de la imagen. _(diseño §34)_
+- [x] **F6-30** Añadir `java-simulator` al Compose, con `tty` y `stdin_open`, después de `flink-cdc-submit`. _(diseño §9.8 y §40)_
+- [x] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
+- [x] **F6-44** Volver el laboratorio a cero antes de las comprobaciones del simulador. _(diseño §39)_
+- [x] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.8)_
+- [x] **F6-32** Comprobar que la misma semilla repite la misma secuencia. _(RF-05)_
+- [x] **F6-45** Comprobar que, tras detener y arrancar el contenedor, el simulador continúa sin repetir altas. _(RF-13)_
 
 ### F7 · Spark y capa Silver
 
@@ -284,41 +284,41 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/python-developer`; `/solution-architect` para el Dockerfile, la configuración de Spark y el Compose
 - **Terminada cuando:** Silver tiene sus 14 dimensiones, 2 hechos y 6 bridges, y una corrida sin cambios no escribe nada.
 
-- [ ] **F7-01** Escribir `pyspark/Dockerfile` con Iceberg y Python 3.12. _(diseño §18)_
-- [ ] **F7-02** Escribir `pyspark/conf/spark-defaults.conf`. _(validaciones, parte 2)_
-- [ ] **F7-03** Añadir `spark-master` al Compose. _(diseño §39)_
-- [ ] **F7-04** Añadir `spark-worker` al Compose. _(diseño §39)_
-- [ ] **F7-05** Crear los seis archivos de referencia en `pyspark/reference/`. _(diseño §24)_
-- [ ] **F7-06** Crear el esqueleto de `bronze_to_silver.py`. _(diseño §19)_
-- [ ] **F7-07** Cargar `dim_date`. _(diseño §26)_
-- [ ] **F7-08** Crear las filas especiales 0 y -1 de cada dimensión. _(diseño §30)_
-- [ ] **F7-09** Cargar `dim_original_language`. _(diseño §24)_
-- [ ] **F7-10** Cargar `dim_status`. _(diseño §24)_
-- [ ] **F7-11** Cargar `dim_rating`. _(diseño §24)_
-- [ ] **F7-12** Cargar `dim_genre`. _(diseño §25)_
-- [ ] **F7-13** Cargar `dim_person`. _(diseño §25)_
-- [ ] **F7-14** Cargar `dim_production_company`. _(diseño §25)_
-- [ ] **F7-15** Cargar `dim_production_country`. _(diseño §25)_
-- [ ] **F7-16** Cargar `dim_spoken_language`. _(diseño §25)_
-- [ ] **F7-17** Cargar `dim_enrichment_field`. _(diseño §29)_
-- [ ] **F7-18** Cargar `dim_enrichment_code`. _(diseño §29)_
-- [ ] **F7-19** Cargar `dim_movie` con SCD2. _(diseño §21 y §22)_
-- [ ] **F7-20** Cargar `dim_collection` con SCD2. _(diseño §23)_
-- [ ] **F7-21** Cargar `dim_keyword` con SCD2. _(diseño §25)_
-- [ ] **F7-22** Cargar `bridge_movie_genre`. _(diseño §28)_
-- [ ] **F7-23** Cargar `bridge_movie_keyword`. _(diseño §28)_
-- [ ] **F7-24** Cargar `bridge_movie_cast`. _(diseño §28)_
-- [ ] **F7-25** Cargar `bridge_movie_production_company`. _(diseño §28)_
-- [ ] **F7-26** Cargar `bridge_movie_production_country`. _(diseño §28)_
-- [ ] **F7-27** Cargar `bridge_movie_spoken_language`. _(diseño §28)_
-- [ ] **F7-28** Cargar `fact_movie_snapshot`, con `record_hash` sobre las claves de negocio. _(diseño §27)_
-- [ ] **F7-29** Cargar `fact_movie_enrichment`. _(diseño §29)_
-- [ ] **F7-30** Reparar las referencias que quedaron con clave 0. _(diseño §19 y §30)_
-- [ ] **F7-31** Comprobar que una segunda corrida sin cambios no escribe nada. _(diseño §19)_
-- [ ] **F7-32** Comprobar un INSERT, un UPDATE, un DELETE y una reinserción en Silver. _(diseño §31)_
-- [ ] **F7-33** Cerrar las versiones vigentes cuya clave ya no aparece en Bronze. _(diseño §19 y §38)_
-- [ ] **F7-35** Comprobar que renombrar una colección o una keyword crea su versión nueva sin crear snapshot. _(diseño §31)_
-- [ ] **F7-34** Comprobar que un tombstone sin versión previa no crea versión ni snapshot. _(diseño §31)_
+- [x] **F7-01** Escribir `pyspark/Dockerfile` con Iceberg y Python 3.12. _(diseño §18)_
+- [x] **F7-02** Escribir `pyspark/conf/spark-defaults.conf`. _(validaciones, parte 2)_
+- [x] **F7-03** Añadir `spark-master` al Compose. _(diseño §39)_
+- [x] **F7-04** Añadir `spark-worker` al Compose. _(diseño §39)_
+- [x] **F7-05** Crear los seis archivos de referencia en `pyspark/reference/`. _(diseño §24)_
+- [x] **F7-06** Crear el esqueleto de `bronze_to_silver.py`. _(diseño §19)_
+- [x] **F7-07** Cargar `dim_date`. _(diseño §26)_
+- [x] **F7-08** Crear las filas especiales 0 y -1 de cada dimensión. _(diseño §30)_
+- [x] **F7-09** Cargar `dim_original_language`. _(diseño §24)_
+- [x] **F7-10** Cargar `dim_status`. _(diseño §24)_
+- [x] **F7-11** Cargar `dim_rating`. _(diseño §24)_
+- [x] **F7-12** Cargar `dim_genre`. _(diseño §25)_
+- [x] **F7-13** Cargar `dim_person`. _(diseño §25)_
+- [x] **F7-14** Cargar `dim_production_company`. _(diseño §25)_
+- [x] **F7-15** Cargar `dim_production_country`. _(diseño §25)_
+- [x] **F7-16** Cargar `dim_spoken_language`. _(diseño §25)_
+- [x] **F7-17** Cargar `dim_enrichment_field`. _(diseño §29)_
+- [x] **F7-18** Cargar `dim_enrichment_code`. _(diseño §29)_
+- [x] **F7-19** Cargar `dim_movie` con SCD2. _(diseño §21 y §22)_
+- [x] **F7-20** Cargar `dim_collection` con SCD2. _(diseño §23)_
+- [x] **F7-21** Cargar `dim_keyword` con SCD2. _(diseño §25)_
+- [x] **F7-22** Cargar `bridge_movie_genre`. _(diseño §28)_
+- [x] **F7-23** Cargar `bridge_movie_keyword`. _(diseño §28)_
+- [x] **F7-24** Cargar `bridge_movie_cast`. _(diseño §28)_
+- [x] **F7-25** Cargar `bridge_movie_production_company`. _(diseño §28)_
+- [x] **F7-26** Cargar `bridge_movie_production_country`. _(diseño §28)_
+- [x] **F7-27** Cargar `bridge_movie_spoken_language`. _(diseño §28)_
+- [x] **F7-28** Cargar `fact_movie_snapshot`, con `record_hash` sobre las claves de negocio. _(diseño §27)_
+- [x] **F7-29** Cargar `fact_movie_enrichment`. _(diseño §29)_
+- [x] **F7-30** Reparar las referencias que quedaron con clave 0. _(diseño §19 y §30)_
+- [x] **F7-31** Comprobar que una segunda corrida sin cambios no escribe nada. _(diseño §19)_
+- [x] **F7-32** Comprobar un INSERT, un UPDATE, un DELETE y una reinserción en Silver. _(diseño §31)_
+- [x] **F7-33** Cerrar las versiones vigentes cuya clave ya no aparece en Bronze. _(diseño §19 y §38)_
+- [x] **F7-35** Comprobar que renombrar una colección o una keyword crea su versión nueva sin crear snapshot. _(diseño §31)_
+- [x] **F7-34** Comprobar que un tombstone sin versión previa no crea versión ni snapshot. _(diseño §31)_
 
 ### F8 · Capa Gold
 
@@ -372,7 +372,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/python-developer` para la configuración de Superset; `/solution-architect` para el SQL de DuckDB, el Dockerfile y el Compose
 - **Terminada cuando:** Siguiendo la guía del diseño, se conecta la base DuckDB, se crea un dataset sobre un producto Gold y un gráfico muestra sus datos.
 
-- [ ] **F10-01** Escribir `duckdb/init/attach_lakehouse.sql` y `duckdb/init/gold_views.sql`. _(diseño §34)_
+- [ ] **F10-01** Escribir `duckdb/init/attach_lakehouse.sql` y `duckdb/init/gold_views.sql`. El primero existe desde la fase F6; falta el segundo. _(diseño §34)_
 - [ ] **F10-02** Escribir `duckdb/Dockerfile` para la línea de comandos opcional. _(diseño §34)_
 - [ ] **F10-15** Añadir el servicio `duckdb` al Compose, bajo el perfil `tools`. _(diseño §34 y §39)_
 - [ ] **F10-03** Escribir `superset/Dockerfile` con DuckDB y sus extensiones. _(diseño §35)_
@@ -446,6 +446,50 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | F7 | Agente | F7 100 % · Global 73 % | Fase terminada. Su criterio de cierre está comprobado: Silver tiene sus 14 dimensiones, 2 hechos y 6 bridges, con las columnas del diseño, y una corrida sin cambios no escribe nada. Verificación aparte de la del agente que la implementó, leyendo Silver con DuckDB: los casos de la sección 31 sobre películas reales y 117 comprobaciones de calidad, 115 en cero y 2 informativas. Dos hallazgos, en la sección 6: RustFS se degrada a los 60 minutos de arrancar y multiplica por cinco la duración del job, y el job no sobrevive a la pérdida del ejecutor |
+| 2026-11-23 | F7-34 | Agente | F7 100 % · Global 73 % | Comprobación propia: una película insertada y borrada entre dos corridas queda en Bronze como tombstone y no deja ninguna fila en `dim_movie` ni en el hecho; el job termina bien |
+| 2026-11-23 | F7-35 | Agente | F7 97 % · Global 72 % | Comprobación propia: al renombrar una keyword y una colección solo cambian `dim_keyword` y `dim_collection`. Los 9 bridges que usan la keyword conservan su versión anterior, y las películas afectadas no reciben versión ni snapshot |
+| 2026-11-23 | F7-33 | Agente | F7 94 % · Global 72 % | Cierre por ausencia. Comprobado por el agente de Python quitando de Bronze, con Spark SQL, las filas de claves de prueba: versión, bridges, keyword y colección quedaron cerrados con el timestamp de la corrida, y el snapshot `is_deleted` lleva esa fecha. No se probó con una reconstrucción real de Bronze, que llega en F9-18 |
+| 2026-11-23 | F7-31 y F7-32 | Agente | F7 91 % · Global 71 % | Comprobación propia. Sin cambios en Bronze, la corrida deja las 22 tablas con el mismo snapshot vigente, el mismo número de snapshots y las mismas filas (335 s). Sobre películas reales: UPDATE descriptivo, de medidas y de relaciones (el género quitado se cierra y los pesos pasan de 0.20 a 0.25), DELETE (versión, 92 bridges y procedencia cerrados, snapshot `is_deleted`) y reinserción (versión 2, bridges nuevos y snapshot vivo). Una corrida falló al congelarse Docker un minuto; no dejó escrituras y su repetición pasó |
+| 2026-11-23 | F7-30 | Agente | F7 86 % · Global 70 % | Reparación de claves 0 en bridges, hecho y procedencia. Comprobada por el agente de Python, que ocultó en Bronze las filas de las dimensiones y las devolvió después: las claves pasaron de 0 a su valor sin cambiar el `movie_snapshot_sk` ni el `effective_from` de los bridges. No la repetí; leí el código de las tres ramas |
+| 2026-11-23 | F7-28 y F7-29 | Agente | F7 83 % · Global 70 % | Los dos hechos. `record_hash` usa claves de negocio, medidas y conteos: un cambio de título no crea snapshot y uno de popularidad sí (comprobación propia). El último snapshot de cada película viva coincide con Bronze, y `profit_usd` y `roi_percentage` están bien calculados en todas las filas. 974 snapshots tienen `rating_sk = 0`: son películas sin rating en origen |
+| 2026-11-23 | F7-22, F7-23, F7-24, F7-25, F7-26 y F7-27 | Agente | F7 77 % · Global 69 % | Los seis bridges, anclados en `movie_id`. Comprobación propia, con Bronze quieto: las filas vigentes coinciden con las relaciones vivas de Bronze en los dos sentidos, hay una sola fila vigente por película y posición, y todos los pesos vigentes valen 1/n. Sin claves huérfanas ni en 0 |
+| 2026-11-23 | F7-19, F7-20 y F7-21 | Agente | F7 60 % · Global 66 % | `dim_movie`, `dim_collection` y `dim_keyword` con SCD2. Comprobación propia sobre datos reales: un cambio de título cierra la versión 1 y crea la 2; al deshacerlo, la 3. Lo mismo al renombrar una keyword y una colección, que conserva su imagen canónica. Sin claves con más de una versión vigente, sin rangos solapados y con `version_number` consecutivo en las tres |
+| 2026-11-23 | F7-09, F7-10, F7-11, F7-12, F7-13, F7-14, F7-15, F7-16, F7-17 y F7-18 | Agente | F7 51 % · Global 65 % | Las diez dimensiones Tipo 1, con sus columnas iguales a las del diseño en nombre y orden. Primera carga: 43 idiomas originales, 1 estado, 7 ratings, 19 géneros, 95,050 personas, 8,061 compañías, 98 países, 68 idiomas hablados, 21 campos y 77 códigos de procedencia. Sin claves sustitutas ni de negocio repetidas (comprobación propia). No se ejercitó la rama que actualiza un atributo |
+| 2026-11-23 | F7-06, F7-07 y F7-08 | Agente | F7 23 % · Global 60 % | `bronze_to_silver.py`, 1,485 líneas, sin UDF de Python, con `--run-ts`, `--reference-dir` y errores `SILVER-001` a `SILVER-003`. Código leído completo contra el diseño (§19 a §31), sin desviaciones. `dim_date` con 73,051 filas y cada dimensión con sus filas 0 y -1 (comprobación propia con DuckDB: 0 incidencias en las 14) |
+| 2026-11-23 | F7-05 | Agente | F7 14 % · Global 59 % | Seis CSV en `pyspark/reference/`: 43 idiomas, 1 estado, 7 ratings, 96 países, 68 idiomas hablados y 21 campos de procedencia, en UTF-8. `Soviet Union` y `Czechoslovakia` quedan como `unmapped`, sin código ISO vigente |
+| 2026-11-23 | F7-01, F7-02, F7-03 y F7-04 | Agente | F7 11 % · Global 59 % | Imagen `elastiflix-spark:4.1.4-iceberg1.12.0` (2.55 GB) con los dos JAR de Iceberg 1.12.0 y Python 3.12.16 instalado con `uv`; corre como `spark` (185). `spark-defaults.conf` con el catálogo `lake`, y `spark-master` y `spark-worker` en el Compose, sanos y con el worker registrado (1500 MB, 4 núcleos). Revisado aparte: `docker compose config` pasa, la imagen trae lo dicho y no queda `uv` en ella. Memoria máxima, medida por el agente de Python: 0.29 GiB el master y 2.18 GiB el worker |
+| 2026-11-23 | F6 | Agente | F6 100 % · Global 57 % | Fase terminada. Su criterio de cierre está comprobado: el simulador cumple los requisitos RF-01 a RF-13 y su interfaz se abre con `docker compose attach`. El código lo escribió el agente de Java; lo verifiqué aparte antes de registrar nada. Quedan sin probar, por no ser necesarias o por coste: el umbral de demora con sus 120 s reales, la rotación del log de Docker, la imagen en `arm64` y un teclado real en Windows Terminal. `duckdb/init/attach_lakehouse.sql`, la primera mitad de F10-01, se creó ya porque el simulador lo necesita |
+| 2026-11-23 | F6-44, F6-31, F6-32 y F6-45 | Agente | F6 100 % · Global 57 % | Con el laboratorio a cero: `docker compose up -d` deja el simulador emitiendo a los 51 s. Dos ejecuciones con la semilla 42 dan las mismas 300 primeras transacciones. Tras `stop` y `start` continúa en la película siguiente a la última insertada. En reposo, PostgreSQL y Bronze coinciden en las 20 tablas. Las claves no aparecen en ningún log |
+| 2026-11-23 | F6-29, F6-39, F6-30 y F6-36 | Agente | F6 91 % · Global 55 % | Imagen `elastiflix-simulator:1.0.0` de dos etapas (661 MB), usuario `simulator` 10002, extensiones de DuckDB instaladas en el build y servicio `java-simulator` en el Compose con `tty`, `stdin_open`, 512 MB y log limitado a 3 archivos de 10 MB. Memoria medida: 170 a 240 MiB; 336 MiB como máximo tras 10,000 transacciones |
+| 2026-11-23 | F6-27 y F6-28 | Agente | F6 82 % · Global 53 % | 71 pruebas unitarias en siete clases: lectura de CSV con comillas, saltos de línea y UTF-8, carga del dataset real, selección de operaciones, registro de películas, contenido de los UPDATE, configuración y regla de llegada a Bronze |
+| 2026-11-23 | F6-37, F6-26 y F6-38 | Agente | F6 78 % · Global 52 % | Seguimiento hasta Bronze con DuckDB en un hilo propio (`threads=2`, `memory_limit=128MB`) y reapertura tras un fallo. La columna pasa de «pendiente» a ✓ con 11 a 50 s de retraso. La demora la probó el agente de Java con el umbral bajado a 8 s, no con los 120 s del diseño |
+| 2026-11-23 | F6-22, F6-23, F6-24 y F6-25 | Agente | F6 71 % · Global 51 % | Pausa y reanudación, cambio de velocidad, diálogo de pesos y diálogo de operación manual con búsqueda por `movie_id` o título. Un DELETE manual lanzado en pausa quedó marcado `M`, en el log como `MANUAL` y confirmado en Bronze a los 32 s. La aplicación de pesos nuevos la comprobó el agente de Java |
+| 2026-11-23 | F6-17, F6-18, F6-19, F6-20, F6-21, F6-33, F6-34, F6-35 y F6-40 | Agente | F6 62 % · Global 49 % | Pantalla de cinco zonas comprobada con `tmux` a 130×40: se abre con una tecla, `Q` vuelve al modo de líneas, dos `Ctrl-C` no detienen el contenedor, y a 90×28 muestra el aviso de tamaño mínimo y se repinta al volver |
+| 2026-11-23 | F6-12, F6-43, F6-13, F6-14, F6-15 y F6-16 | Agente | F6 42 % · Global 45 % | Selección por pesos y semilla, tipo de UPDATE entre los admisibles, modo continuo con reinserción automática, y modo de líneas con copia en `/tmp/simulator.log`. RF-12 comprobado plantando una fila en conflicto: la transacción se revierte con `ERROR` y código `SIM-021`, y la simulación sigue. El agotamiento completo de `movie.csv` lo comprobó el agente de Java a 10 ms |
+| 2026-11-23 | F6-07, F6-08, F6-09, F6-41, F6-10 y F6-11 | Agente | F6 29 % · Global 42 % | Los cuatro tipos de UPDATE, el DELETE y la reinserción. Contrastado en PostgreSQL: todo UPDATE deja `updated_at` posterior a `created_at` en la película, y en la keyword o colección renombrada; ningún nombre acumula sufijos `(rev N)`; el DELETE borra las relaciones por cascada |
+| 2026-11-23 | F6-01, F6-02, F6-03, F6-04, F6-05, F6-06 y F6-42 | Agente | F6 16 % · Global 40 % | Proyecto Maven con las cuatro librerías del diseño; `mvn verify` pasa 71 pruebas en el host y dentro de la imagen. Carga los 20 CSV (438,925 filas) en unos 3.5 s, se conecta como `elastiflix_app`, da de alta cada película en una transacción con sus catálogos y entidades nuevos, y al arrancar sobre una base con datos continúa con la primera pendiente |
+| 2026-11-23 | F5 | Agente | F5 100 % · Global 36 % | Fase terminada. Su criterio de cierre está comprobado: las 20 tablas están en Bronze, reflejan INSERT, UPDATE y DELETE, y el pipeline se reanuda al repetir `docker compose up` tras reiniciar Flink. Dos hallazgos, anotados en el diseño: la carga de desarrollo no puede ir en una sola transacción, y DuckDB 1.5.6 falla con `UNION ALL` sobre tablas con borrados |
+| 2026-11-23 | F5-20 | Agente | F5 100 % · Global 36 % | Reconstrucción completa tras perder los checkpoints, con una película borrada entretanto: el script elimina las 20 tablas en 49 s sin dejar objetos en RustFS, `flink-cdc-submit` hace un envío nuevo y a los 110 s Bronze vuelve a coincidir con PostgreSQL en las 20 tablas, todo en `+I` |
+| 2026-11-23 | F5-16 | Agente | F5 95 % · Global 36 % | `flink/jobs/drop-bronze-tables.sh`: sin `--confirm` solo lista lo que borraría; se niega si el pipeline está vivo o si recibe otro argumento; con `--confirm` borra las tablas de `bronze` con purga |
+| 2026-11-23 | F5-19 | Agente | F5 90 % · Global 36 % | Sin checkpoints y con 20 tablas en Bronze, `flink-cdc-submit` termina con código 1 y un mensaje que remite a la reconstrucción; no hay job nuevo y Bronze queda intacto |
+| 2026-11-23 | F5-15 | Agente | F5 85 % · Global 35 % | Tras reiniciar JobManager y TaskManager el clúster queda sin jobs y el slot, inactivo. Un UPDATE y un DELETE hechos durante la parada llegan a Bronze al repetir `docker compose up`, que reanuda desde el último checkpoint; no se repite el snapshot: las demás filas conservan su `cdc_op_ts` |
+| 2026-11-23 | F5-14 | Agente | F5 80 % · Global 35 % | Repetir `docker compose up` con el pipeline en marcha: `flink-cdc-submit` informa de que ya corre, el job es el mismo y las marcas de Bronze no cambian |
+| 2026-11-23 | F5-13 | Agente | F5 75 % · Global 34 % | Un DELETE deja la película como tombstone `-D` con el título y el `plot` completos, y 62 tombstones en sus ocho tablas de relación; PostgreSQL y Bronze siguen coincidiendo en filas vivas |
+| 2026-11-23 | F5-12 | Agente | F5 70 % · Global 34 % | Un UPDATE del título deja la fila en `+U` con el valor nuevo y una sola fila para esa clave |
+| 2026-11-23 | F5-11 | Agente | F5 65 % · Global 33 % | Un alta con dos géneros y una keyword en una transacción llega a Bronze como cuatro filas `+I` con el mismo `cdc_op_ts`, posterior al instante de referencia leído en PostgreSQL |
+| 2026-11-23 | F5-10 | Agente | F5 60 % · Global 33 % | Con PostgreSQL vacío, el conector crea ya las 20 tablas de `bronze`. Con el dataset cargado después, en streaming, las 20 coinciden con PostgreSQL: 438,925 filas. La carga en una sola transacción no servía: PostgreSQL la volcaba a disco y Bronze no recibía nada; el script de carga pasa a una transacción por archivo |
+| 2026-11-23 | F5-09 | Agente | F5 55 % · Global 32 % | Job `flink-cdc-submit` (512 MB) tras Flink, `postgresql` sano e `iceberg-init`. Desde cero, todo el proyecto arranca y deja el pipeline en `RUNNING` en 52 a 58 s |
+| 2026-11-23 | F5-18 | Agente | F5 50 % · Global 32 % | Tras enviar o reanudar, el script espera hasta 120 s a que el job esté en `RUNNING` y solo entonces termina con 0 |
+| 2026-11-23 | F5-17 | Agente | F5 45 % · Global 32 % | El script genera con `envsubst` una copia temporal del YAML con la contraseña de `.env`, con permisos solo para su usuario, y la borra al terminar. La contraseña no aparece en los logs de los tres servicios ni en la API REST de Flink |
+| 2026-11-23 | F5-08 | Agente | F5 40 % · Global 31 % | Sin job ni checkpoint, el script cuenta las tablas de `bronze` en el catálogo; si hay alguna, termina con error sin enviar ni borrar |
+| 2026-11-23 | F5-07 | Agente | F5 35 % · Global 31 % | El script busca el checkpoint retenido más reciente y reanuda con `--from-savepoint`; con dos directorios de job retenidos eligió el último |
+| 2026-11-23 | F5-06 | Agente | F5 30 % · Global 30 % | `flink/jobs/submit-pipeline.sh`: consulta la API de Flink y, si el pipeline ya corre, termina sin enviar nada |
+| 2026-11-23 | F5-05 | Agente | F5 25 % · Global 30 % | Servicio `flink-taskmanager` (2 GB), sano cuando el JobManager lo ve registrado. Bajo carga usó 1.05 GB |
+| 2026-11-23 | F5-04 | Agente | F5 20 % · Global 29 % | Servicio `flink-jobmanager` (1 GB, interfaz en `127.0.0.1:8081`, healthcheck contra su API) tras `volumes-init`, con `flink/data` montado para los checkpoints. Sano en unos 10 s |
+| 2026-11-23 | F5-03 | Agente | F5 15 % · Global 29 % | `flink/jobs/postgres-to-bronze.yaml`, igual al borrador del diseño, con el marcador de la contraseña. Flink lo acepta y el job queda en `RUNNING` |
+| 2026-11-23 | F5-02 | Agente | F5 10 % · Global 28 % | `flink/config/flink-properties.conf`, que el Dockerfile aplica sobre la configuración de la imagen: checkpoint cada 30 s en `/opt/flink/state/checkpoints`, retenido al cancelar; 900 MB para el JobManager y 1800 MB para el TaskManager. Los checkpoints se completan en menos de 100 ms |
+| 2026-11-23 | F5-01 | Agente | F5 5 % · Global 28 % | `flink/Dockerfile` sobre `flink:2.2.1-java21`: Flink CDC 3.7.0 para Flink 2.2 con los conectores `postgres` e `iceberg`, Iceberg 1.10.2 (runtime y `aws-bundle`), cliente de Hadoop 3.3.6, Commons Logging 1.2 y `jq`. Cada descarga se comprueba contra su suma publicada. La imagen se construye en 81 s y corre como `flink` |
 | 2026-11-22 | F4 | Agente | F4 100 % · Global 27 % | Fase terminada. Su criterio de cierre quedó comprobado en F4-05 y F4-06: el bucket `warehouse` y los namespaces `bronze`, `silver` y `gold` existen y sobreviven a recrear los contenedores. Sigue en observación el defecto de la sección 6 |
 | 2026-11-22 | F4-07 | Agente | F4 100 % · Global 27 % | En un navegador, en `http://127.0.0.1:9001/rustfs/console/`: con la clave del servicio se entra y la consola muestra el bucket `warehouse`, privado y vacío; con un secreto erróneo responde 403 y se queda en la pantalla de inicio de sesión |
 | 2026-11-22 | F4-06 | Agente | F4 86 % · Global 27 % | Con una tabla de prueba en `bronze`: tras recrear solo `iceberg-rest`, solo `rustfs`, y tras `docker compose down` y un arranque completo, siguen el bucket, los tres namespaces y la tabla, que se carga bien; los dos jobs informan de que todo existía. En ese arranque completo `postgresql` falló una vez al inicializarse; anotado en la sección 6 |
@@ -504,7 +548,11 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 | Fecha | Actividad | Qué pasa | Qué se necesita |
 |---|---|---|---|
-| 2026-11-22 | F4-06 | En un arranque completo desde cero, `postgresql` terminó con error al inicializarse: `could not write to file … No space left on device`, con 1.8 TB libres en el disco. No se repitió en cuatro arranques completos seguidos, y repetir `docker compose up` lo recupera. Todo apunta a la capa que comparte con los contenedores los directorios de Windows; la causa no está confirmada. No bloquea | Vigilar si reaparece al añadir servicios (riesgo R10). Si se repite, decidir si los datos pasan a volúmenes con nombre de Docker |
+| 2026-11-23 | F7 | RustFS se degrada a los 60 minutos de arrancar: su `scanner` empieza a recorrer el directorio de datos, que llega al contenedor como V9FS, y desde entonces registra miles de avisos de disco lento por hora y responde 503 por ráfagas. No se recupera solo. `bronze_to_silver` pasa de unos 90 s a entre 6 y 9 minutos. No bloquea F8, pero condiciona F9 y F11 (riesgo R11) | Decidir el arreglo. Lo primero a probar: `RUSTFS_SCANNER_ENABLED=false` o `RUSTFS_SCANNER_SPEED=slowest` en el servicio `rustfs`, comprobando que la 1.0.6 las acepta y dejando el laboratorio más de una hora en marcha. Si no basta, pasar `rustfs/data` a un volumen con nombre (contingencia de R10) |
+| 2026-11-23 | F7-28 | Duda de diseño, no defecto. `has_homepage` del hecho puede quedar desfasado: el UPDATE descriptivo del simulador cambia `homepage` y, por diseño (§31), no crea snapshot. No bloquea | Decidir en F8 si Gold lo deriva de `dim_movie.homepage` o si se acepta el desfase |
+| 2026-11-23 | F7-06 | El job de Silver no tiene pruebas versionadas: el diseño (§7) no prevé un directorio de pruebas para `pyspark/`, y las comprobaciones de F7 se hicieron con scripts que no están en el repositorio. No bloquea | Decidir si se quiere una suite de pruebas versionada para los jobs |
+| 2026-11-22 | F4-06 | En un arranque completo desde cero, `postgresql` terminó con error al inicializarse: `could not write to file … No space left on device`, con 1.8 TB libres en el disco. No se repitió en cuatro arranques completos seguidos; reapareció una vez en la fase F6 y tampoco se repitió al reintentar, y repetir `docker compose up` lo recupera. Todo apunta a la capa que comparte con los contenedores los directorios de Windows; la causa no está confirmada. No bloquea | Vigilar si reaparece al añadir servicios (riesgo R10). Si se repite, decidir si los datos pasan a volúmenes con nombre de Docker |
+| 2026-11-23 | F6-45 | Duda de diseño, no defecto. La regla de reanudación (RF-13) da por borradas las películas anteriores a la última presente. Si alguien inserta a mano la última película de `movie.csv` y después reinicia el contenedor, no queda ninguna pendiente: el simulador pasa a reinsertar las que faltaban, en el orden de la semilla. Es lo que dice el diseño (§9.5) y está documentado ahí. No bloquea | Decidir si se deja así o si la reanudación debe distinguir las películas que nunca se insertaron. Mientras tanto, no insertar a mano películas lejanas antes de un reinicio |
 
 ## 7. Riesgos
 
@@ -516,7 +564,8 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 |---|---|---|---|---|
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
 | R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
-| R10 | Los directorios de datos montados desde Windows fallan bajo carga: a los contenedores les llegan como V9FS, RustFS los declara no soportados para producción y `postgresql` falló una vez al inicializarse con un falso «sin espacio» | Las comprobaciones de F5 con las 20 tablas (F5-10 a F5-13), el arranque desde cero de F11-03 y la medición de F11-09 | Guardar los datos en volúmenes con nombre de Docker, lo que cambia la regla de persistencia del diseño (§7) | Errores de lectura o escritura en los logs, un servicio que no se inicializa, o commits de Iceberg que fallan |
+| R11 | Una corrida del DAG no cabe en su intervalo de 10 minutos: con RustFS degradado, `bronze_to_silver` solo ya tarda entre 6 y 9 minutos, y faltan Gold, las validaciones y el mantenimiento | Resolver la degradación de RustFS antes de F9 (sección 6) y medir la corrida completa del DAG en F9-16 | Alargar el intervalo del DAG, lo que cambia el diseño (§18) | Corridas del DAG que se encolan o que terminan después de que empiece la siguiente |
+| R10 | Los directorios de datos montados desde Windows fallan bajo carga: a los contenedores les llegan como V9FS, RustFS los declara no soportados para producción `postgresql` falló una vez al inicializarse con un falso «sin espacio» y tardó minutos en volcar a disco una transacción grande. En F5, RustFS y los checkpoints de Flink aguantaron el dataset completo sin errores. En F7 se vio que RustFS se degrada a los 60 minutos de arrancar, cuando su `scanner` empieza a recorrer el directorio, y que el motor de Docker se congeló una vez cerca de un minuto con dos lecturas pesadas a la vez | Las comprobaciones de F5 con las 20 tablas (F5-10 a F5-13), el arranque desde cero de F11-03 y la medición de F11-09 | Guardar los datos en volúmenes con nombre de Docker, lo que cambia la regla de persistencia del diseño (§7) | Errores de lectura o escritura en los logs, un servicio que no se inicializa, o commits de Iceberg que fallan |
 
 ### Riesgos cerrados
 

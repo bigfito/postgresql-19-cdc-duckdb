@@ -23,8 +23,13 @@
 --     entidades compartidas, movie y, al final, sus relaciones.
 --   - Las columnas se nombran en el orden de cada CSV (sección 8.2). Las que
 --     no vienen en los archivos, created_at y updated_at, las pone PostgreSQL.
---   - Todo ocurre en una sola transacción: si un archivo falla, no queda nada
---     cargado y basta con corregir y repetir.
+--   - Cada archivo es una transacción aparte. No se carga todo en una sola
+--     porque PostgreSQL decodifica cada transacción entera antes de entregarla
+--     al CDC y, cuando pasa de 64 MB, la vuelca a disco cambio a cambio. Con
+--     los datos en un directorio compartido desde Windows, ese volcado tarda
+--     muchos minutos y Bronze no recibe nada mientras tanto.
+--   - Si un archivo falla, lo ya cargado se queda: hay que volver a cero
+--     (sección 39, «Vuelta a cero») y repetir la carga.
 --   - Solo carga sobre una base vacía. Si catalog ya tiene datos, se detiene
 --     sin tocar nada; para repetir la carga hay que volver antes a cero
 --     (sección 39, «Vuelta a cero»).
@@ -45,8 +50,6 @@ BEGIN
     END IF;
 END
 $$;
-
-BEGIN;
 
 -- Catálogos.
 \copy catalog.movie_status (status_code) FROM '/raw_data/movie_status.csv' WITH (FORMAT csv, HEADER true)
@@ -75,8 +78,6 @@ BEGIN;
 \copy catalog.movie_production_country (movie_id, country_id, source_position) FROM '/raw_data/movie_production_country.csv' WITH (FORMAT csv, HEADER true)
 \copy catalog.movie_spoken_language (movie_id, spoken_language_id, source_position) FROM '/raw_data/movie_spoken_language.csv' WITH (FORMAT csv, HEADER true)
 \copy catalog.movie_enrichment (movie_id, field_name, code) FROM '/raw_data/movie_enrichment.csv' WITH (FORMAT csv, HEADER true)
-
-COMMIT;
 
 -- Resumen: filas por tabla y total. El dataset definitivo suma 438,925 filas y
 -- 6,899 películas (sección 8.5).

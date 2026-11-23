@@ -1,0 +1,22 @@
+field_name,field_description
+backdrop_path,Backdrop image path
+belongs_to_collection,Collection the movie belongs to
+budget,Production budget in US dollars
+cast,Cast members
+genres,Genres
+homepage,Official homepage URL
+imdb_id,IMDb identifier
+keywords,Keywords
+overview,Short synopsis
+plot,Long plot text
+poster_path,Poster image path
+production_companies,Production companies
+production_countries,Production countries
+rating,Content rating
+revenue,Box office revenue in US dollars
+runtime,Runtime in minutes
+spoken_languages,Spoken languages
+tagline,Tagline
+user_score,User score from 0 to 10
+vote_average,Average vote from 0 to 10
+vote_count,Number of votes

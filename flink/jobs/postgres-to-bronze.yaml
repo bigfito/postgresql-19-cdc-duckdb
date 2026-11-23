@@ -1,0 +1,61 @@
+# =============================================================================
+# ElastiFlix: pipeline de Flink CDC, de PostgreSQL a Bronze (diseño, sección 14)
+# =============================================================================
+# Replica cada tabla del esquema catalog en una tabla Iceberg del namespace
+# bronze, con dos columnas más: cdc_op_type y cdc_op_ts. Lo envía el job
+# flink-cdc-submit; no se envía a mano.
+#
+# La contraseña no está aquí: la línea «password» lleva un marcador que el
+# script de envío sustituye por el valor de .env en una copia temporal.
+# Las credenciales de RustFS tampoco: S3FileIO las toma de las variables AWS_*
+# de los contenedores de Flink.
+
+source:
+  type: postgres
+  hostname: postgresql
+  port: 5432
+  username: elastiflix_cdc
+  password: ${ELASTIFLIX_CDC_PASSWORD}
+  # base.esquema.tabla: las 20 tablas del esquema catalog.
+  tables: elastiflix.catalog.\.*
+  # El conector crea este slot la primera vez; pgoutput viene con PostgreSQL.
+  slot.name: elastiflix_cdc
+  decoding.plugin.name: pgoutput
+  # Snapshot inicial y, después, lectura continua del WAL.
+  scan.startup.mode: initial
+  # Con false, transform y route ven «esquema.tabla», sin la base.
+  table-id.include-database: false
+  # Instante de cada cambio, en milisegundos; en el snapshot, cuándo se leyó.
+  metadata.list: op_ts
+  # La publicación la crea postgresql/init/; el conector no puede crearla.
+  debezium.publication.name: elastiflix_pub
+  debezium.publication.autocreate.mode: disabled
+
+transform:
+  - source-table: catalog.\.*
+    # Todas las columnas, más la operación (+I, +U, -D) y su instante.
+    projection: \*, __data_event_type__ AS cdc_op_type, op_ts AS cdc_op_ts
+    # Un DELETE no borra la fila en Bronze: la deja como tombstone, marcada -D.
+    converter-after-transform: SOFT_DELETE
+
+route:
+  # catalog.<tabla> en PostgreSQL pasa a bronze.<tabla> en Iceberg.
+  - source-table: catalog.\.*
+    sink-table: bronze.<>
+    replace-symbol: <>
+
+sink:
+  type: iceberg
+  catalog.properties.catalog-impl: org.apache.iceberg.rest.RESTCatalog
+  catalog.properties.uri: http://iceberg-rest:8181
+  catalog.properties.warehouse: s3://warehouse/
+  catalog.properties.io-impl: org.apache.iceberg.aws.s3.S3FileIO
+  catalog.properties.s3.endpoint: http://rustfs:9000
+  catalog.properties.s3.path-style-access: true
+  # El formato v2 es el que admite UPDATE y DELETE por fila.
+  table.properties.format-version: 2
+
+pipeline:
+  name: elastiflix-postgres-to-bronze
+  parallelism: 1
+  local-time-zone: UTC

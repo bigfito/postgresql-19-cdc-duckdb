@@ -1,0 +1,8 @@
+rating_code,rating_system,rating_description
+G,MPA,General audiences: all ages admitted
+PG,MPA,Parental guidance suggested
+PG-13,MPA,Parents strongly cautioned: some material may be inappropriate for children under 13
+R,MPA,Restricted: under 17 requires an accompanying parent or adult guardian
+NC-17,MPA,Adults only: no one 17 and under admitted
+NR,Unrated,Not rated
+TV-PG,TV Parental Guidelines,Parental guidance suggested

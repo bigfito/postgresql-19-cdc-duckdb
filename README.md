@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F4 dejaron la base del proyecto, la base de datos operacional y el almacenamiento del lakehouse: `.env.example`, el `docker-compose.yml`, `metadata-db`, `postgresql` con su esquema `catalog` listo para el CDC, RustFS con el bucket `warehouse` y el catálogo Iceberg con sus tres namespaces. El resto de servicios llega fase a fase según el [plan de trabajo](planning/PLAN.md).
+> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F7 dejaron el camino del dato hasta Silver: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, sobre RustFS y el catálogo Iceberg, y el job `bronze_to_silver.py` construye con Spark el modelo dimensional de Silver. Ese job todavía se lanza a mano: Airflow, Gold y Superset llegan fase a fase según el [plan de trabajo](planning/PLAN.md).
 
 | Elemento | Estado |
 |---|---|
@@ -24,13 +24,16 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
-| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/` y `postgresql/` |
+| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/` y `duckdb/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
 | PostgreSQL operacional: esquema `catalog`, cuentas, publicación y servicio en el Compose | ✅ Fase F3 terminada |
 | Almacenamiento y catálogo: RustFS, bucket `warehouse`, catálogo Iceberg y sus tres namespaces | ✅ Fase F4 terminada |
-| Implementación del resto (CDC, simulador, jobs, DAG y Superset) | ⏳ Fases F5 a F12; ver el [plan de trabajo](planning/PLAN.md) |
+| Flink CDC hacia Bronze: imagen, pipeline, envío idempotente y reconstrucción | ✅ Fase F5 terminada |
+| Event Simulator: transacciones reales, interfaz de consola y seguimiento de cada cambio hasta Bronze | ✅ Fase F6 terminada |
+| Spark y capa Silver: imagen, clúster y el job que mantiene 14 dimensiones, 2 hechos y 6 bridges con historial | ✅ Fase F7 terminada |
+| Implementación del resto (Gold, DAG y Superset) | ⏳ Fases F8 a F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -103,6 +106,10 @@ postgresql-19-cdc-duckdb/
 |   |-- README.md
 |   |-- generate_raw_data.py
 |   `-- <tabla>.csv   (20 archivos)
+|-- flink/
+|   |-- Dockerfile
+|   |-- config/flink-properties.conf
+|   `-- jobs/      (pipeline YAML y scripts de envío y de borrado de Bronze)
 |-- metadata-db/
 |   `-- init/01-create-databases.sh
 |-- postgresql/
@@ -125,7 +132,7 @@ postgresql-19-cdc-duckdb/
         `-- end-to-end-change-path.{json,html,svg}
 ```
 
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización, `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación, y `postgresql/scripts/` la carga de desarrollo; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización, `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación, `postgresql/scripts/` la carga de desarrollo, `flink/` la imagen, la configuración y el pipeline CDC, `java-simulator/` el proyecto Maven del simulador y su imagen, `pyspark/` la imagen de Spark, su configuración, los datos de referencia y el job de Silver, y `duckdb/init/` el SQL con el que DuckDB adjunta el lakehouse; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/
@@ -168,15 +175,42 @@ docker compose up -d --build
 
 Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; e `iceberg-rest`, el catálogo de tablas (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; `iceberg-rest`, el catálogo de tablas; y Flink (`flink-jobmanager`, `flink-taskmanager` y el job `flink-cdc-submit`), que deja corriendo el pipeline que replica PostgreSQL en Bronze; `java-simulator`, que empieza a insertar películas en cuanto el pipeline está en marcha; y `spark-master` y `spark-worker`, el clúster que ejecuta los jobs por lotes (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
-Mientras no exista el simulador, las tablas se pueden llenar de una vez con la carga de desarrollo, que mete los 20 CSV (438,925 filas) con el servicio `postgresql` en marcha. Es solo para desarrollar; el detalle está en la [sección 39 del diseño](lab-design/LAB-DESIGN.md#datos-de-desarrollo):
+### El simulador
+
+El simulador arranca solo y escribe una línea por transacción. Para verlo y manejarlo:
+
+| Qué | Cómo |
+|---|---|
+| Ver las transacciones | `docker compose logs -f java-simulator` |
+| Abrir la interfaz de consola | `docker compose attach java-simulator` y después cualquier tecla. La terminal debe medir al menos 100×30 |
+| Manejar la simulación | `Espacio` pausa o reanuda, `+` y `-` cambian la velocidad, `P` los pesos, `M` lanza una operación a mano, `↑` y `↓` recorren la lista |
+| Salir de la interfaz | `Q` y después `Ctrl-P`, `Ctrl-Q`. El simulador sigue en marcha |
+| Ver el log con la interfaz abierta | `docker compose exec java-simulator tail -f /tmp/simulator.log` |
+| Detener y volver a arrancar | `docker compose stop java-simulator` y `docker compose start java-simulator`. Continúa donde quedó |
+
+La columna `Bronze` de la interfaz dice si cada cambio ya llegó al lakehouse y cuánto tardó: entre 11 y 50 segundos. Al detenerlo, el contenedor queda en `Exited (143)`; es lo normal. El detalle está en la [sección 9 del diseño](lab-design/LAB-DESIGN.md#9--aplicación-java-25-event-simulator).
+
+### El job de Silver
+
+Mientras no exista Airflow, Silver se construye y se pone al día lanzando el job a mano:
+
+```bash
+docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py
+```
+
+La primera corrida crea las 22 tablas de Silver; las siguientes solo escriben lo que cambió en Bronze, y una corrida sin cambios no escribe nada. Tarda entre uno y dos minutos con el dataset completo. Si RustFS lleva más de una hora en marcha puede tardar entre 6 y 9 minutos: es un problema conocido, descrito en la [sección 15 del diseño](lab-design/LAB-DESIGN.md#15--rustfs). En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1` al comando. La interfaz de Spark está en <http://127.0.0.1:8082>. El detalle del job está en la [sección 19 del diseño](lab-design/LAB-DESIGN.md#19--job-pyspark-1-bronze--silver).
+
+### Carga de desarrollo
+
+Para desarrollar sin esperar al simulador, las tablas se pueden llenar de una vez con la carga de desarrollo, que mete los 20 CSV (438,925 filas). Solo carga sobre una base vacía, así que se levanta todo menos el simulador (`docker compose up -d flink-cdc-submit`), se lanza la carga y después `docker compose up -d`. El detalle está en la [sección 39 del diseño](lab-design/LAB-DESIGN.md#datos-de-desarrollo):
 
 ```bash
 docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scripts:/scripts:ro postgresql bash -c 'PGPASSWORD="$ELASTIFLIX_APP_PASSWORD" psql -h postgresql -U elastiflix_app -d elastiflix -v ON_ERROR_STOP=1 -f /scripts/load_dev_data.sql'
 ```
 
-Flujo demostrativo esperado:
+### Flujo demostrativo esperado
 
 1. Arranca el stack; PostgreSQL tiene el esquema pero no las películas.
 2. Flink CDC queda corriendo y el simulador empieza a insertar.

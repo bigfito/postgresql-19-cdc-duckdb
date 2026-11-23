@@ -1,0 +1,8 @@
+# La imagen compila desde el código fuente: la salida de un build hecho en la
+# máquina de quien desarrolla no forma parte del contexto.
+target/
+
+# Archivos de editores.
+.idea/
+.vscode/
+*.iml

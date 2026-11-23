@@ -62,6 +62,47 @@ x-host-ports:
   iceberg-rest: &ports-iceberg-rest
     - "127.0.0.1:${ICEBERG_REST_HOST_PORT:-8181}:8181"
 
+# -----------------------------------------------------------------------------
+# Imagen y variables comunes a los tres servicios de Flink (diseño, sección 14)
+# -----------------------------------------------------------------------------
+# flink-jobmanager, flink-taskmanager y flink-cdc-submit comparten la imagen
+# que construye flink/Dockerfile.
+x-flink-build: &flink-build
+  context: ./flink
+
+x-flink-environment: &flink-environment
+  # Nombre con el que el TaskManager y el cliente de envío encuentran al
+  # JobManager. Sin él, cada contenedor usaría su propio nombre.
+  JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+  # S3FileIO toma de aquí la clave de RustFS; no está en el YAML del pipeline.
+  AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+  AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+
+# -----------------------------------------------------------------------------
+# Imagen, variables y montajes comunes a los servicios de Spark (diseño,
+# secciones 18 y 19)
+# -----------------------------------------------------------------------------
+# spark-master y spark-worker comparten la imagen que construye
+# pyspark/Dockerfile.
+x-spark-build: &spark-build
+  context: ./pyspark
+
+x-spark-environment: &spark-environment
+  # S3FileIO toma de aquí la clave de RustFS; no está en pyspark/conf. La
+  # reciben el master, el worker (y con él sus ejecutores) y el contenedor
+  # temporal que hace de driver cuando un job se lanza a mano.
+  AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+  AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+
+# Solo lectura: la configuración de Spark, los jobs y los datos de referencia
+# de Silver. Nadie los copia en la imagen, así hay una sola copia de cada uno.
+x-spark-volumes: &spark-volumes
+  - ./pyspark/conf:/opt/spark/conf:ro
+  - ./pyspark/jobs:/opt/spark/jobs:ro
+  - ./pyspark/reference:/opt/spark/reference:ro
+
 services:
 
   # ---------------------------------------------------------------------------
@@ -302,3 +343,235 @@ services:
       iceberg-rest:
         condition: service_healthy
     mem_limit: 64m
+
+  # ---------------------------------------------------------------------------
+  # flink-jobmanager (diseño, secciones 14 y 39)
+  # ---------------------------------------------------------------------------
+  # Coordina el clúster de Flink y sirve su interfaz web y su API REST en el
+  # 8081. Es un clúster standalone sin alta disponibilidad: si este servicio se
+  # reinicia, arranca sin jobs y flink-cdc-submit reanuda el pipeline desde su
+  # último checkpoint en el siguiente `docker compose up`.
+  # Corre como el usuario flink (9999:9999); por eso espera a volumes-init, que
+  # le deja flink/data con ese dueño.
+  flink-jobmanager:
+    image: elastiflix-flink:2.2.1-cdc3.7.0
+    build: *flink-build
+    command: jobmanager
+    environment: *flink-environment
+    ports: *ports-flink-jobmanager
+    volumes:
+      # Checkpoints: la misma ruta en el JobManager y en el TaskManager.
+      - ./flink/data:/opt/flink/state
+    depends_on:
+      volumes-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:8081/overview"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # flink-taskmanager (diseño, secciones 14 y 39)
+  # ---------------------------------------------------------------------------
+  # Ejecuta el pipeline: lee el WAL de PostgreSQL y escribe Bronze en Iceberg.
+  # Si cae, el job se recupera solo desde su último checkpoint.
+  flink-taskmanager:
+    image: elastiflix-flink:2.2.1-cdc3.7.0
+    build: *flink-build
+    command: taskmanager
+    environment: *flink-environment
+    volumes:
+      - ./flink/data:/opt/flink/state
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    # Está sano cuando el JobManager lo ve registrado.
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://flink-jobmanager:8081/taskmanagers | jq --exit-status '.taskmanagers | length > 0' > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 2g
+
+  # ---------------------------------------------------------------------------
+  # flink-cdc-submit (job one-shot; diseño, sección 14)
+  # ---------------------------------------------------------------------------
+  # Envía el pipeline PostgreSQL -> Bronze, o lo reanuda desde su último
+  # checkpoint, y termina cuando el job está en RUNNING. Es idempotente: si el
+  # pipeline ya corre, no hace nada. La lógica está en
+  # flink/jobs/submit-pipeline.sh.
+  # Espera a todo lo que el pipeline necesita: el clúster de Flink, PostgreSQL
+  # con su publicación y el catálogo con sus namespaces.
+  flink-cdc-submit:
+    image: elastiflix-flink:2.2.1-cdc3.7.0
+    build: *flink-build
+    command: ["bash", "/opt/flink/jobs/submit-pipeline.sh"]
+    environment:
+      <<: *flink-environment
+      ELASTIFLIX_CDC_PASSWORD: ${ELASTIFLIX_CDC_PASSWORD:?falta ELASTIFLIX_CDC_PASSWORD en .env}
+    volumes:
+      # Solo lectura: de aquí solo busca el checkpoint más reciente.
+      - ./flink/data:/opt/flink/state:ro
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+      flink-taskmanager:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+      iceberg-init:
+        condition: service_completed_successfully
+    mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # java-simulator (diseño, secciones 9, 39 y 40)
+  # ---------------------------------------------------------------------------
+  # Event Simulator: hace de aplicación transaccional. Lee el dataset de
+  # raw_data/ y ejecuta INSERT, UPDATE y DELETE reales sobre PostgreSQL, que
+  # Flink CDC lleva a Bronze. Con DuckDB embebido comprueba, en solo lectura,
+  # que cada cambio llegó.
+  # Arranca solo, en modo de líneas, cuando el pipeline ya está en RUNNING, y
+  # escribe una línea por transacción (docker compose logs java-simulator). Su
+  # interfaz de consola se abre con:
+  #
+  #   docker compose attach java-simulator      y después cualquier tecla
+  #
+  # Q cierra la interfaz sin detener nada; Ctrl-P, Ctrl-Q desconecta. Se detiene
+  # con `docker compose stop java-simulator` y, al volver a arrancar, continúa
+  # con la primera película pendiente.
+  # Corre como el usuario simulator (10002:10002), que crea su Dockerfile. No
+  # publica puertos ni escribe en ningún directorio del host; por eso no
+  # necesita volumes-init. No lleva healthcheck: no es un servicio con estado
+  # y nadie espera a que esté sano.
+  java-simulator:
+    image: elastiflix-simulator:1.0.0
+    build:
+      context: ./java-simulator
+    # Terminal y entrada abiertas aunque nadie esté conectado: sin ellas la
+    # interfaz no se puede abrir con docker compose attach.
+    tty: true
+    stdin_open: true
+    environment:
+      # Cuenta elastiflix_app de PostgreSQL (sección 45.3).
+      ELASTIFLIX_APP_PASSWORD: ${ELASTIFLIX_APP_PASSWORD:?falta ELASTIFLIX_APP_PASSWORD en .env}
+      # La clave única de RustFS, para que DuckDB lea Bronze. Sustituye a los
+      # marcadores de duckdb/init/attach_lakehouse.sql justo antes de ejecutarlo.
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Configuración de la simulación (sección 9.6). Los valores por defecto
+      # son los del diseño; las cuatro primeras se cambian después desde la
+      # interfaz.
+      SIMULATOR_DELAY_MS: ${SIMULATOR_DELAY_MS:-250}
+      SIMULATOR_INSERT_WEIGHT: ${SIMULATOR_INSERT_WEIGHT:-70}
+      SIMULATOR_UPDATE_WEIGHT: ${SIMULATOR_UPDATE_WEIGHT:-25}
+      SIMULATOR_DELETE_WEIGHT: ${SIMULATOR_DELETE_WEIGHT:-5}
+      SIMULATOR_RANDOM_SEED: ${SIMULATOR_RANDOM_SEED:-42}
+      SIMULATOR_CONTINUOUS: ${SIMULATOR_CONTINUOUS:-true}
+      SIMULATOR_AUTOSTART: ${SIMULATOR_AUTOSTART:-true}
+      # Seguimiento de cada cambio hasta Bronze y límites de DuckDB.
+      SIMULATOR_TRACK_BRONZE: ${SIMULATOR_TRACK_BRONZE:-true}
+      SIMULATOR_TRACK_INTERVAL_MS: ${SIMULATOR_TRACK_INTERVAL_MS:-5000}
+      SIMULATOR_TRACK_LATE_MS: ${SIMULATOR_TRACK_LATE_MS:-120000}
+      SIMULATOR_DUCKDB_THREADS: ${SIMULATOR_DUCKDB_THREADS:-2}
+      SIMULATOR_DUCKDB_MEMORY_LIMIT: ${SIMULATOR_DUCKDB_MEMORY_LIMIT:-128MB}
+    volumes:
+      # Solo lectura: el dataset y el SQL de inicialización de DuckDB. Nadie
+      # los copia en la imagen, así hay una sola copia de cada uno.
+      - ./raw_data:/raw_data:ro
+      - ./duckdb/init:/duckdb/init:ro
+    depends_on:
+      # El simulador no emite hasta que el pipeline está en RUNNING: es cuando
+      # flink-cdc-submit termina bien (sección 40).
+      flink-cdc-submit:
+        condition: service_completed_successfully
+      postgresql:
+        condition: service_healthy
+    # Con la interfaz abierta el log recibe también las secuencias de dibujo,
+    # cerca de 1 KB por segundo. Se limita su tamaño; las líneas de cada
+    # transacción quedan además en /tmp/simulator.log dentro del contenedor.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # spark-master (diseño, secciones 19, 39 y 40)
+  # ---------------------------------------------------------------------------
+  # Coordina el clúster standalone de Spark, el que ejecuta los jobs por lotes:
+  # Bronze -> Silver, Silver -> Gold, las validaciones y el mantenimiento. Los
+  # jobs se le envían a spark://spark-master:7077; su interfaz web escucha en el
+  # 8080 y se publica en el 8082 del host. No pide credenciales (sección 45.3).
+  # Arranca tras iceberg-init, para que los jobs encuentren los namespaces.
+  # Corre como el usuario spark (185:185) de la imagen y no escribe en ningún
+  # directorio del host; por eso no necesita volumes-init.
+  spark-master:
+    image: elastiflix-spark:4.1.4-iceberg1.12.0
+    build: *spark-build
+    # --host: el master se anuncia con el nombre del servicio, que es el que
+    # usan el worker y los drivers para encontrarlo.
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark-master"]
+    environment:
+      <<: *spark-environment
+      # Memoria del proceso del master. Por defecto pediría 1 GB, el doble de
+      # lo que permite el límite del contenedor.
+      SPARK_DAEMON_MEMORY: 256m
+    ports: *ports-spark-master
+    volumes: *spark-volumes
+    depends_on:
+      iceberg-init:
+        condition: service_completed_successfully
+    # Está sano cuando su API responde que el master está activo.
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/json/ | grep -q '\"status\" : \"ALIVE\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # spark-worker (diseño, secciones 19, 39 y 40)
+  # ---------------------------------------------------------------------------
+  # Ejecuta los jobs: aloja el ejecutor de cada aplicación, que es quien lee y
+  # escribe los archivos Iceberg en RustFS. Ofrece al clúster 1.5 GB, lo justo
+  # para un ejecutor (spark.executor.memory en pyspark/conf), así que corre una
+  # aplicación a la vez y la siguiente espera.
+  #
+  # Mientras no exista Airflow, un job se lanza a mano en un contenedor temporal
+  # de este servicio, que hace de driver en modo cliente:
+  #
+  #   docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py
+  #
+  # No se lanza con `docker compose exec` dentro del master ni del worker: el
+  # driver, de 1 GB, no cabe en el límite de memoria de ninguno de los dos.
+  spark-worker:
+    image: elastiflix-spark:4.1.4-iceberg1.12.0
+    build: *spark-build
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    environment:
+      <<: *spark-environment
+      # Memoria del proceso del worker, aparte de la del ejecutor.
+      SPARK_DAEMON_MEMORY: 256m
+      # Lo que el worker ofrece a las aplicaciones. Sin fijarlo ofrecería toda
+      # la memoria y todos los núcleos del host, no los del contenedor.
+      SPARK_WORKER_MEMORY: 1500m
+      SPARK_WORKER_CORES: 4
+    volumes: *spark-volumes
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    # Está sano cuando el master lo ve registrado.
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://spark-master:8080/json/ | grep -q '\"aliveworkers\" : [1-9]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 3g

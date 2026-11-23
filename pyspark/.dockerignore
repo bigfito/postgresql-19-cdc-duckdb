@@ -1,0 +1,3 @@
+# La imagen no copia nada del contexto: pyspark/conf, pyspark/jobs y
+# pyspark/reference se montan en el Compose, en solo lectura.
+*
