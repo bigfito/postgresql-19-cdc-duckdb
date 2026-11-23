@@ -287,7 +287,7 @@ Notas sobre la estructura:
 - `planning/PLAN.md` es el único plan de actividades del laboratorio, con su tablero de avance por fase y global. `planning/update_progress.py` recalcula ese tablero a partir de las actividades marcadas y, con `--done`, registra cada actividad terminada en la bitácora e imprime el avance de su fase y el global, que es lo que se reporta a la persona responsable.
 - `AGENTS.md` da a cualquier agente de programación las reglas comunes y lo dirige al plan; `CLAUDE.md` añade lo propio de Claude Code.
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
-- `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.
+- `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación, en nueve archivos numerados que la imagen ejecuta en orden: esquema, catálogos, entidades compartidas, `movie`, relaciones, cuentas, contraseñas, identidad de réplica y publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset; `metadata-db/init/01-create-databases.sh` crea sus cuentas y sus bases (sección 45.3).
 - `flink/jobs/` contiene el YAML del pipeline CDC y `flink/data/` los checkpoints. Los JAR se descargan en el build, por eso no hay `flink/lib/`.
 - `pyspark/reference/` contiene los datos de referencia versionados que Silver usa para enriquecer catálogos (nombres de idioma, códigos de país, descripción de ratings).
@@ -645,7 +645,7 @@ max_wal_senders > 0
 max_slot_wal_keep_size = 2GB
 ```
 
-`max_slot_wal_keep_size` acota el WAL que el slot puede retener si Flink está detenido; sin él, un Flink caído llena el disco del host. A cambio, si Flink está parado el tiempo suficiente, PostgreSQL invalida el slot y el pipeline ya no puede reanudar desde su checkpoint; ese caso se trata como una pérdida de checkpoints (sección 38).
+El Compose fija `max_replication_slots` y `max_wal_senders` en 10, que es su valor por defecto. `max_slot_wal_keep_size` acota el WAL que el slot puede retener si Flink está detenido; sin él, un Flink caído llena el disco del host. A cambio, si Flink está parado el tiempo suficiente, PostgreSQL invalida el slot y el pipeline ya no puede reanudar desde su checkpoint; ese caso se trata como una pérdida de checkpoints (sección 38).
 
 Objetos de replicación, creados en `postgresql/init/`:
 
@@ -792,7 +792,7 @@ Reglas principales:
 - scores entre 0 y 10.
 - `vote_count >= 0` cuando exista; una película sin votos es un dato válido.
 - `homepage` acepta únicamente valores HTTP/HTTPS cuando está presente.
-- `poster_path` y `backdrop_path` son rutas relativas.
+- `poster_path` y `backdrop_path` son rutas relativas: empiezan por `/` y no llevan servidor.
 - `created_at` y `updated_at` tienen `DEFAULT now()`; el simulador actualiza `updated_at` en cada UPDATE.
 
 Índice único parcial previsto para `imdb_id` cuando no es null. `poster_path` no será único: dos películas pueden compartir imagen y un UPDATE puede repetirla.
@@ -2321,9 +2321,14 @@ Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB
 
 Las fases F3 a F5 y F7 a F10 del plan se construyen antes de que exista el simulador, o en paralelo con él. Para trabajar con el volumen real, el dataset completo se carga de una vez:
 
-- `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` de `psql`, en el orden de sus claves foráneas, con la cuenta `elastiflix_app`.
-- Se ejecuta a mano, desde un contenedor temporal de la imagen de PostgreSQL que monta `raw_data/` y `postgresql/scripts/` en solo lectura. El servicio `postgresql` no monta ninguno de los dos, y ningún servicio ni job del Compose ejecuta el script.
-- Flink CDC lleva esas filas a Bronze: en el snapshot inicial si se cargan antes de enviar el pipeline, que es lo que se probó en la validación de volumen, o como cambios en streaming si el pipeline ya corre.
+- `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` de `psql`, en el orden de sus claves foráneas, en una sola transacción y con la cuenta `elastiflix_app`. Solo carga sobre una base vacía: si `catalog` ya tiene datos, se detiene sin tocar nada. Al terminar muestra las filas de cada tabla, que deben sumar 438,925.
+- Se ejecuta a mano, con el servicio `postgresql` en marcha, desde un contenedor temporal de la imagen de PostgreSQL que monta `raw_data/` y `postgresql/scripts/` en solo lectura. El servicio `postgresql` no monta ninguno de los dos, y ningún servicio ni job del Compose ejecuta el script. El comando, desde la raíz del repositorio:
+
+  ```bash
+  docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scripts:/scripts:ro postgresql bash -c 'PGPASSWORD="$ELASTIFLIX_APP_PASSWORD" psql -h postgresql -U elastiflix_app -d elastiflix -v ON_ERROR_STOP=1 -f /scripts/load_dev_data.sql'
+  ```
+
+- Flink CDC lleva esas filas a Bronze: en el snapshot inicial si se cargan antes de enviar el pipeline, que es lo que se probó en la validación de volumen, o como cambios en streaming si el pipeline ya corre. Como la carga es una sola transacción, en streaming llega a Flink de una vez, al confirmarse; ese caso no se ha probado.
 - Es solo para desarrollar. El laboratorio terminado arranca con las tablas vacías y es el simulador quien las llena (sección 9.5).
 - Las comprobaciones del simulador (fase F6) se hacen sobre una base vacía: antes se vuelve a cero, y desde ese momento los datos los pone el simulador, también para lo que quede de F7 a F10.
 
@@ -2347,7 +2352,7 @@ Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laborator
 
 Reglas:
 
-- Los servicios con estado (`postgresql`, `metadata-db`, `rustfs`, `iceberg-rest`, Flink, Spark) exponen healthcheck.
+- Los servicios con estado (`postgresql`, `metadata-db`, `rustfs`, `iceberg-rest`, Flink, Spark) exponen healthcheck. Los dos PostgreSQL usan `pg_isready` por TCP y no por el socket: mientras la imagen ejecuta sus archivos de inicialización solo escucha en el socket, así que por TCP el servicio no aparece sano hasta que la inicialización ha terminado.
 - Las dependencias sobre jobs one-shot usan `condition: service_completed_successfully`.
 - Los jobs one-shot son idempotentes: `docker compose up` puede repetirse sin romper nada.
 - `docker compose up --wait` sin nombrar servicios no sirve para esperar al laboratorio: devuelve error en cuanto termina un job one-shot, aunque termine con código 0. Para esperar a un servicio se nombra: `docker compose up -d --wait metadata-db`. Comprobado con Compose 5.5.1 en la fase F2.
@@ -2501,7 +2506,7 @@ Reglas:
 
 - Ninguna contraseña se escribe en el `docker-compose.yml`, en un Dockerfile, en el YAML del pipeline ni en el SQL de DuckDB. Todos leen de variables de entorno.
 - Los valores de `.env.example` son de laboratorio y están pensados para una máquina local con los puertos ligados a `127.0.0.1`. Quien exponga el laboratorio fuera de su máquina debe cambiarlos. Es el único archivo versionado que lleva credenciales (decisión 66); las contraseñas y los secretos se generaron al azar una sola vez.
-- Las contraseñas de `elastiflix_app` y `elastiflix_cdc` las aplica el script de inicialización de PostgreSQL leyendo las variables; no se versionan dentro del SQL.
+- Las contraseñas de `elastiflix_app` y `elastiflix_cdc` las aplica el script de inicialización de PostgreSQL leyendo las variables; no se versionan dentro del SQL. `06-roles.sql` crea las cuentas sin contraseña y `07-role-passwords.sh` se la pone a partir de `ELASTIFLIX_APP_PASSWORD` y `ELASTIFLIX_CDC_PASSWORD`; si falta alguna, la inicialización se detiene.
 
 ## 46. 📚 Decisiones y validaciones
 

@@ -681,6 +681,7 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Implementación de la fase F3 | Diseño sin concretar en estos puntos | DDL en nueve archivos numerados; cuentas creadas sin contraseña y un script aparte que se la pone desde variables de entorno; comprobación final de la identidad de réplica; healthcheck de PostgreSQL por TCP; carga de desarrollo en una sola transacción, que se niega si ya hay datos; las rutas de imagen empiezan por `/` | 7, 10, 12.2, 39, 40, 45.5 |
 | Implementación de la fase F2 | Diseño sin concretar en estos puntos | Puertos en el campo de extensión `x-host-ports`; `volumes-init` con la imagen de RustFS; script de inicialización de `metadata-db`; aviso sobre `docker compose up --wait` con jobs one-shot | 7, 39, 40, 45.2, 45.3 |
 | Secretos en `.env.example` | La definición de terminado del plan prohibía cualquier clave versionada, en contra de §45.5 | Excepción explícita para `.env.example`, con valores de laboratorio (decisión 66) | 45.5 |
 | Datos de desarrollo y vuelta a cero | Sin definir; `postgresql/scripts/` sin uso | `load_dev_data.sql` carga el dataset a mano para desarrollar; procedimiento de vuelta a cero | 7, 39 |

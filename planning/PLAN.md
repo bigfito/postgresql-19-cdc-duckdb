@@ -17,7 +17,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
-| F3 | PostgreSQL operacional | 15 | 12 | 80 % | 🔄 En curso |
+| F3 | PostgreSQL operacional | 15 | 15 | 100 % | ✅ Terminada |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **51** | **23 %** | 🔄 En curso |
+| | **Global** | **222** | **54** | **24 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -177,9 +177,9 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [x] **F3-10** Crear la publicación `elastiflix_pub`. _(diseño §10)_
 - [x] **F3-11** Añadir el servicio `postgresql` al Compose con sus parámetros de replicación. _(diseño §10)_
 - [x] **F3-12** Añadir el healthcheck de `postgresql`. _(diseño §40)_
-- [ ] **F3-13** Comprobar que el esquema se crea al arrancar. _(diseño §10)_
-- [ ] **F3-15** Escribir `postgresql/scripts/load_dev_data.sql`, que carga los 20 CSV para el desarrollo. _(diseño §39)_
-- [ ] **F3-14** Comprobar que los 20 CSV cargan sin errores con ese script. _(diseño §8.3 y §39)_
+- [x] **F3-13** Comprobar que el esquema se crea al arrancar. _(diseño §10)_
+- [x] **F3-15** Escribir `postgresql/scripts/load_dev_data.sql`, que carga los 20 CSV para el desarrollo. _(diseño §39)_
+- [x] **F3-14** Comprobar que los 20 CSV cargan sin errores con ese script. _(diseño §8.3 y §39)_
 
 ### F4 · Almacenamiento y catálogo
 
@@ -446,6 +446,10 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F3 | Agente | F3 100 % · Global 24 % | Fase terminada. Comprobación desde cero en el Compose: `postgresql` y `metadata-db` quedan sanos en 46 s, 20 tablas con identidad completa y publicadas, y los 20 CSV cargan con el script de desarrollo en 24 s (438,925 filas). Lo de F2 sigue funcionando y ningún secreto sale de `.env.example` |
+| 2026-11-22 | F3-14 | Agente | F3 100 % · Global 24 % | Con el servicio del Compose recién creado, el comando documentado, lanzado desde PowerShell, carga los 20 CSV sin errores: 438,925 filas, las mismas que los archivos tabla por tabla. Una segunda ejecución se detiene con un mensaje y no toca nada |
+| 2026-11-22 | F3-15 | Agente | F3 93 % · Global 24 % | `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` en orden de claves foráneas y en una sola transacción, con la cuenta `elastiflix_app`; se niega si `catalog` ya tiene datos y termina con el conteo por tabla. Su cabecera lleva el comando para lanzarlo desde un contenedor temporal |
+| 2026-11-22 | F3-13 | Agente | F3 87 % · Global 23 % | Arranque desde cero en el Compose: los nueve archivos de `postgresql/init/` se ejecutan sin errores y dejan el esquema `catalog` con 20 tablas vacías y 74 columnas, 20 claves primarias, 19 foráneas (8 con cascada), 11 únicas y 17 `CHECK`, identidad de réplica completa en las 20, las dos cuentas con contraseña y la publicación con las 20 tablas |
 | 2026-11-22 | F3-12 | Agente | F3 80 % · Global 23 % | Healthcheck `pg_isready` por TCP contra la base `elastiflix`: solo da sano cuando la inicialización terminó. Con `docker compose up -d --wait postgresql` queda sano en 36 s desde cero |
 | 2026-11-22 | F3-11 | Agente | F3 73 % · Global 23 % | Servicio `postgresql` (`postgres:19.0`, 1 GB, puerto en `127.0.0.1`) con `wal_level=logical`, 10 slots, 10 emisores de WAL y `max_slot_wal_keep_size=2GB`. Arranca desde cero, ejecuta los nueve archivos de `postgresql/init/` y deja 20 tablas vacías; las dos cuentas entran desde otro contenedor solo con su contraseña; al reiniciar conserva los datos |
 | 2026-11-22 | F3-10 | Agente | F3 67 % · Global 22 % | `postgresql/init/09-publication.sql` crea `elastiflix_pub` con `FOR TABLES IN SCHEMA catalog`. En el Compose publica las 20 tablas; con un slot `pgoutput` creado por `elastiflix_cdc` se leyeron 5 INSERT, 1 UPDATE y 2 DELETE (uno por cascada) hechos por `elastiflix_app` |
