@@ -25,8 +25,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ✅ 10 de 12 superadas; faltan la 10 y la 11, del simulador. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
-| Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Generado: 6,899 películas sintéticas, 24.5 MB, con su script generador y su [README](raw_data/README.md) |
+| Validaciones de compatibilidad entre componentes | ✅ 11 de 12 superadas; falta la 11, la lectura de Bronze desde el simulador. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
+| Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 24.5 MB, con su script generador y su [README](raw_data/README.md) |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura

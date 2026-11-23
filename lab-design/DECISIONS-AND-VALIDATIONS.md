@@ -50,6 +50,8 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 28 | Una sola clave de RustFS para todos los clientes | Una segunda clave de solo lectura para DuckDB añade piezas sin reducir un riesgo real en un laboratorio local | 45.3 | Revisión 6 |
 | 29 | En el diagrama de linaje, la leyenda de las flechas grises dice «Movimiento de datos» | Dos de esas flechas no son cargas PySpark: la carga del simulador a PostgreSQL y la consulta SQL sobre Gold. Cada flecha ya lleva su propia etiqueta | 6 | Revisión 6 |
 | 30 | Airflow autentica con el gestor de Flask AppBuilder; `airflow-init` crea el administrador con `airflow users create` | La contraseña queda cifrada en `metadata-db`, como en Superset. El gestor simple la guarda en texto plano en un archivo que habría que compartir entre contenedores | 18, 45.4 | Validación 12; Revisión 6 |
+| 31 | El dataset definitivo es el regenerado: mismas tablas, filas y catálogos que el primero, con medidas correlacionadas como en un catálogo real y textos y nombres legibles | El primero cumplía el formato, pero sus medidas crecían con `movie_id` y solo tenía 847 títulos distintos, lo que habría dejado los dashboards sin sentido | 8 | Validación del dataset regenerado; Revisión 6 |
+| 32 | El simulador arranca en modo de líneas y abre la interfaz con la primera tecla; atrapa `Ctrl-C` y repinta la pantalla completa cada 2 segundos | El contenedor tiene terminal aunque nadie esté conectado; `Ctrl-C` sin atrapar detiene el contenedor; quien se reconecta ve la pantalla a medias | 9.4, 9.8 | Validación 10; Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -68,11 +70,9 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 
 ### 1.3 Decisiones abiertas
 
-| # | Decisión pendiente | Opciones | Estado |
-|---|---|---|---|
-| D-5 | Dataset definitivo | Conservar el actual o sustituirlo por el regenerado | Regeneración en curso: el actual cumple el formato pero tiene medidas que crecen con `movie_id` y solo 847 títulos distintos |
+No queda ninguna decisión abierta.
 
-Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
+Los números que faltan se cerraron en la Revisión 6: D-1, D-2, D-4, D-6 y D-3 son hoy, en ese orden, las decisiones vigentes 26 a 30, y D-5 es la 31. D-7 no era una decisión sino trabajo pendiente, y está hecho: los diagramas de arquitectura y de orden de arranque ya recogen la consulta del simulador a Bronze y el job `volumes-init`.
 
 ### 1.4 Decisiones descartadas
 
@@ -148,7 +148,7 @@ Estado de verificación de las versiones al 2026-11-22:
 | RustFS corre como UID 10001 y su catálogo Iceberg integrado es *preview* | README de RustFS |
 | La imagen del catálogo REST de referencia usa por defecto un archivo SQLite en `/tmp` del contenedor y declara un healthcheck | Configuración de la imagen `apache/iceberg-rest-fixture:1.10.1` |
 
-Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve primeras pruebas se han ejecutado y superado. Las pruebas 10, 11 y 12 se añadieron en la Revisión 5; la 12 se ha superado y las otras dos están pendientes. Abajo están los resultados y lo que cada una dejó sin cubrir.
+Lo que **no** está verificado y por eso figura en la tabla de validaciones: el comportamiento conjunto de las piezas. Las nueve primeras pruebas se han ejecutado y superado. Las pruebas 10, 11 y 12 se añadieron en la Revisión 5; la 10 y la 12 se han superado y la 11 está pendiente. Abajo están los resultados y lo que cada una dejó sin cubrir.
 
 ### Resultados
 
@@ -167,8 +167,10 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | Silver y mantenimiento | 2026-11-22 | ✅ Superadas, con una restricción en el `MERGE` |
 | Pérdida de checkpoints | 2026-11-22 | ❌ Bronze queda desalineado al repetir el snapshot. Se decidió reconstruir Bronze (decisión 27) |
 | Reconstrucción de Bronze | 2026-11-22 | ✅ Superada: Bronze vuelve a coincidir con PostgreSQL y Silver cierra las claves ausentes |
+| Dataset regenerado | 2026-11-22 | ✅ Superada, con observaciones menores; queda como dataset definitivo |
 | 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
-| 10 y 11 | — | ⏳ Pendientes |
+| 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
+| 11 | — | ⏳ Pendiente |
 
 #### Validación 1: Flink CDC 3.7.0 lee el WAL de PostgreSQL 19.0
 
@@ -451,6 +453,67 @@ Antes de la pérdida, con el pipeline en marcha, se hicieron 500 UPDATE descript
 - **Lo que no cubre:** una corrida de Silver que encuentre unas tablas Bronze ya recreadas y otras todavía no, que es el motivo de pausar el DAG; la pausa en sí, porque no había Airflow en la prueba; el resto de dimensiones, los hechos y los bridges; y el paso del script de envío que se detiene cuando no hay checkpoint y Bronze ya tiene tablas.
 - **Un dato para el mantenimiento:** tras la reconstrucción, leer las 20 tablas con DuckDB tardó 57 s, igual que tras el primer snapshot. El snapshot escribe un delete de igualdad por fila; hay que compactar después (sección 38).
 
+#### Validación del dataset regenerado
+
+El dataset de `raw_data/` se regeneró para corregir los defectos del primero. La entrega cambió 8 de los 20 CSV (`movie`, `movie_cast`, `movie_keyword`, `movie_enrichment`, `person`, `keyword`, `production_company` y `collection`), el generador y su README; los otros 12 CSV son idénticos byte a byte. Se comprobó con dos validadores propios, que no usan nada del generador, y con una carga real.
+
+| Qué se comprobó | Resultado |
+|---|---|
+| Formato, cabeceras, claves, integridad referencial, volúmenes, nulos, rangos, catálogos y defectos intencionales (el validador de la primera versión) | 81 comprobaciones superadas y 4 con observaciones, descritas abajo |
+| Filas por tabla | Las mismas: 438,925 en total y 6,899 películas |
+| Ninguna medida crece de forma monótona con `movie_id` | Correcto |
+| 13 correlaciones de Spearman con `movie_id` y 11 entre pares de medidas, con tolerancia ±0.15 | Las 24 dentro de la tolerancia; la mayor desviación es de 0.06 |
+| `user_score` igual a `vote_average` redondeado | 39.9 % de las películas (se pedía un 40 %) |
+| Títulos | 6,899 distintos de 6,899, con mayúsculas de título; mediana de 3 palabras |
+| `plot`, `overview` y `tagline` | Todos distintos; prosa en inglés con 2,158 palabras distintas |
+| Celdas con coma, comilla doble y salto de línea en `title`, `tagline`, `overview` y `plot` | Los 16 recuentos coinciden exactamente con los medidos en el catálogo original |
+| Personas | Todas en alfabeto latino; 89 % de dos palabras; 5 % con diacríticos; ningún nombre repetido |
+| Keywords homónimas | Siguen los 18 nombres compartidos por dos `keyword_id`, y ya ninguna película lleva los dos |
+| `imdb_id` | Únicos, en el rango pedido, 15 % de ocho dígitos y solo 7 pares consecutivos |
+| `homepage` | 99.2 % distintas; todas en dominios reservados `.example` |
+| Determinismo | Dos ejecuciones del generador con `--out` producen los mismos 20 CSV que están versionados (SHA-256) |
+| Carga en PostgreSQL 19.0 con el DDL de la sección 12 y `COPY` | Sin errores: 438,925 filas, con todas las claves y restricciones activas |
+
+Observaciones, ninguna bloqueante:
+
+- **Coincidencias con nombres reales.** Contra listas propias de unos 200 nombres de cada tipo: 3 personas (`Julia Roberts`, `Paul Walker`, `James Stewart`), 2 títulos (`Misery`, `Rope`) y 4 compañías (`Fox Studios`, `Fox Entertainment`, `Fox Productions`, `Summit`). Son combinaciones al azar de nombres y palabras corrientes; el generador lleva listas de bloqueo, pero ninguna lista puede garantizar cero. Habrá más coincidencias que estas.
+- **Más variedad de la pedida.** 6,898 valores distintos de `popularity` (se pedían unos 6,250), 4,015 de `vote_count` (unos 2,880) y 1,337 de `budget_usd` (unos 620).
+- **Reparto de títulos.** 1,641 de una sola palabra (se pedían unos 1,375) y 794 con dígitos (unos 530); 419 terminan en un número, como una secuela.
+- **`original_title` en alfabeto no latino:** 666 películas, no las 770 pedidas. Es el tope que permiten las frecuencias de idioma original, que no debían cambiar; la entrega lo declaró.
+- **Una keyword se llama `none`.** No afecta a `COPY` ni a un lector RFC 4180, que distinguen el texto del campo vacío; conviene recordarlo si alguna herramienta interpreta ese texto como nulo.
+- **Variantes de nombre de compañía.** Siguen los 18 pares «X» / «X Ltd.» del defecto intencional. Con nombres legibles hay además cientos de compañías que comparten palabra (`Summit`, `Summit Films`), que no son variantes sino compañías distintas.
+
+Lo que no se comprobó: las dos excepciones de longitud que declara el README del dataset (mínimo de `homepage` y cola corta de `tagline`), más allá de que el validador de rangos no las señala; y la lectura de los CSV con Apache Commons CSV, que es la que usará el simulador.
+
+#### Validación 10: consola Lanterna con `docker compose attach`
+
+Entorno: una sonda Java con Lanterna 3.1.5 que dibuja las cinco zonas de la sección 9.3 con datos simulados y responde a las teclas. Se compiló con `maven:3.10.0-eclipse-temurin-25` y corre en `eclipse-temurin:25.0.5.1_2-jre` con el usuario `simulator`, en un servicio con `tty: true` y `stdin_open: true`. Se manejó desde dos terminales reales: `tmux` en Ubuntu (WSL2), que permite enviar teclas y capturar la pantalla, y una terminal PowerShell de Windows.
+
+| Comprobación | Resultado |
+|---|---|
+| Compilación con Maven 3.10.0 y Java 25 | Correcta, sin configuración especial |
+| Lo que Lanterna necesita en la imagen de ejecución | Está: `stty` y el módulo `jdk.unsupported`. Crea un `UnixTerminal` en UTF-8 |
+| Arranque sin nadie conectado | Modo de líneas. Lanterna tarda unos 5 s en inicializar y supone 80×24 |
+| El mismo programa sin TTY | Modo de líneas, sin intentar dibujar |
+| `docker compose attach` y una tecla | La interfaz se abre con las cinco zonas, los caracteres de caja, los símbolos (`▶ █ ░ … ✓ ▸`) y los colores |
+| Teclas: espacio, `+`, flechas, `R`, `Q` | Llegan todas y la pantalla responde |
+| Cambio de tamaño de la ventana (110×32 → 130×40 → 60×14) | Detectado por la señal de tamaño; la pantalla se redibuja, y por debajo del mínimo muestra un aviso |
+| `Ctrl-C` con el comportamiento por defecto de Lanterna | **Detiene el proceso y el contenedor** (código de salida 1) |
+| `Ctrl-C` con `CtrlCBehaviour.TRAP` | Llega como una tecla más; el contenedor sigue en marcha |
+| Desconexión con `Ctrl-P`, `Ctrl-Q` | El contenedor sigue en marcha. Si la interfaz estaba abierta, la terminal local queda con restos de la pantalla |
+| Segunda conexión con la interfaz abierta y refresco incremental | **La pantalla aparece a medias:** solo las celdas que cambian. `R` la repinta |
+| Segunda conexión con refresco completo cada 2 s | Pantalla completa sin pulsar nada |
+| `Q` | Cierra la interfaz y vuelve al modo de líneas; el contenedor sigue en marcha |
+| Terminal PowerShell de Windows | Modo de líneas legible; un `Ctrl-C` enviado desde ella llega al programa y abre la interfaz, que se dibuja completa a 120×30 |
+| Cerrar la terminal de Windows con la interfaz abierta | El contenedor sigue en marcha |
+| `docker logs` con la interfaz abierta | Acumula las secuencias de dibujo: unos 66 KB en un minuto |
+| Memoria de la sonda | 120 MiB |
+
+Ajustes que deja en el diseño (secciones 9.4 y 9.8, decisión 32): la interfaz se abre con una tecla y no al conectarse; `Ctrl-C` se atrapa; la pantalla se repinta completa cada 2 segundos; y el log del servicio se limita en el Compose.
+
+- **De dónde salió cada dato.** El uso de `DefaultTerminalFactory`, `TerminalScreen`, `doResizeIfNecessary` y `pollInput`, de la documentación de Lanterna (Context7). `CtrlCBehaviour.TRAP` y todo el comportamiento con Docker, de la prueba.
+- **Lo que no cubre:** teclas pulsadas por una persona en un teclado de Windows (desde Windows solo se envió `Ctrl-C`; el resto de teclas se probó desde Linux); Windows Terminal y `cmd.exe` como aplicaciones, porque la terminal de Windows usada fue la del panel de la aplicación de escritorio de Claude; los diálogos de pesos y de operación manual, que piden texto; el parpadeo que pueda percibirse con el refresco completo; y la arquitectura `arm64`.
+
 #### Validación 12: inicio de sesión del administrador de Airflow
 
 Entorno: `apache/airflow:3.4.0-python3.12` sin modificar, con `metadata-db` en `postgres:19.0`, un `airflow-init` que migra la base y crea el administrador, y el `api-server` publicado en `127.0.0.1`. Se ejecutó dos veces, una por gestor de autenticación, con el mismo usuario y la misma contraseña de prueba.
@@ -482,10 +545,13 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Dataset | Primera versión: formato correcto, datos degenerados | Versión regenerada, validada y definitiva | 8 |
+| Saltos de línea en las celdas | El diseño los atribuía a `plot` y a `overview` | Solo `plot` los lleva | 8.3 |
 | `effective_from` | `cdc_op_ts` primero, `updated_at` después; marcada como regla por revisar | `updated_at` en las filas vivas; `cdc_op_ts` en los DELETE y en las tablas sin `updated_at` | 21 |
 | Pérdida de checkpoints | Hacía falta reconciliar, sin forma elegida | Bronze se reconstruye; `flink-cdc-submit` se detiene si no hay checkpoint y Bronze ya tiene tablas; Silver cierra las claves ausentes. Comprobado | 14, 19, 31, 38 |
 | Diagramas de arquitectura y de orden de arranque | Sin la consulta del simulador a Bronze ni el job `volumes-init` | Los incluyen | 4, 40 |
 | Clave de RustFS | Una sola, con la de solo lectura como deseable sin comprobar | Una sola, por decisión | 45.3 |
+| Interfaz del simulador | Se abría al conectarse con `docker compose attach`; sin TTY no dibujaba | Arranca en modo de líneas y se abre con una tecla; atrapa `Ctrl-C`; refresco completo cada 2 s; log del servicio limitado | 9.1, 9.4, 9.8 |
 | Autenticación de Airflow | Mecanismo por validar | Gestor de Flask AppBuilder; el administrador se crea con `airflow users create` | 18, 45.4 |
 | Leyenda del diagrama de linaje | «Carga batch PySpark» para todas las flechas grises | «Movimiento de datos» | 6 |
 | Dibujos en texto | Diagrama Mermaid en el plan, boceto de la consola con caracteres y flujos escritos con flechas | Diagramas Archify; las dos listas de correspondencia pasan a tablas | 9.3, 14, 24, 35, 36, 44 |

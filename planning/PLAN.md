@@ -3,31 +3,31 @@
 Este documento es el **único plan de actividades** del laboratorio, de principio a fin. Dice qué hay que hacer y en qué orden. El cómo está en el diseño:
 
 - [LAB-DESIGN.md](../lab-design/LAB-DESIGN.md): el diseño vigente. Cada actividad cita la sección que la explica.
-- [DECISIONS-AND-VALIDATIONS.md](../lab-design/DECISIONS-AND-VALIDATIONS.md): las decisiones, con la que sigue abierta (D-5), y las validaciones.
+- [DECISIONS-AND-VALIDATIONS.md](../lab-design/DECISIONS-AND-VALIDATIONS.md): las decisiones y las validaciones.
 
 El plan no lleva fechas ni estimaciones de duración: no hay una fecha comprometida. El avance se mide en actividades terminadas.
 
 ## 1. Tablero de avance
 
-**Estado global: 🟡 Ámbar.** Hay bloqueos abiertos en la sección 6, pero ninguno detiene el trabajo en curso.
+**Estado global: 🟢 Verde.** No hay bloqueos ni decisiones abiertas.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
 |---|---|---:|---:|---:|---|
-| F0 | Diseño y validaciones previas | 21 | 19 | 90 % | 🔄 En curso |
-| F1 | Dataset de entrada | 9 | 3 | 33 % | 🔄 En curso |
+| F0 | Diseño y validaciones previas | 21 | 20 | 95 % | 🔄 En curso |
+| F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 7 | 0 | 0 % | ⏳ Pendiente |
 | F3 | PostgreSQL operacional | 14 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 6 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 16 | 0 | 0 % | ⏳ Pendiente |
-| F6 | Event Simulator | 32 | 0 | 0 % | ⏳ Pendiente |
+| F6 | Event Simulator | 36 | 0 | 0 % | ⏳ Pendiente |
 | F7 | Spark y capa Silver | 33 | 0 | 0 % | ⏳ Pendiente |
 | F8 | Capa Gold | 11 | 0 | 0 % | ⏳ Pendiente |
 | F9 | Orquestación con Airflow | 17 | 0 | 0 % | ⏳ Pendiente |
 | F10 | DuckDB y Superset | 14 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 11 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **198** | **22** | **11 %** | 🔄 En curso |
+| | **Global** | **202** | **29** | **14 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -98,7 +98,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 
 - **Objetivo:** Tener un diseño completo y probado antes de escribir el laboratorio.
 - **Depende de:** Nada
-- **Terminada cuando:** Las validaciones 10 y 11 están ejecutadas.
+- **Terminada cuando:** La validación 11 está ejecutada.
 
 - [x] **F0-01** Definir los requisitos y el stack del laboratorio. _(diseño §2 y §3)_
 - [x] **F0-02** Fijar las versiones y comprobar sus imágenes en Docker Hub. _(diseño §3)_
@@ -113,7 +113,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [x] **F0-11** Definir las cuentas y credenciales. _(diseño §45)_
 - [x] **F0-12** Decidir cómo reconciliar Bronze si se pierden los checkpoints. _(decisión 27)_
 - [x] **F0-13** Decidir el origen de `effective_from`. _(decisión 26)_
-- [ ] **F0-14** Ejecutar la validación 10: consola Lanterna dentro del contenedor. _(validaciones, parte 2)_
+- [x] **F0-14** Ejecutar la validación 10: consola Lanterna dentro del contenedor. _(validaciones, parte 2)_
 - [ ] **F0-15** Ejecutar la validación 11: DuckDB JDBC lee Bronze desde Java 25. _(validaciones, parte 2)_
 - [x] **F0-16** Ejecutar la validación 12: inicio de sesión del administrador de Airflow. _(validaciones, parte 2)_
 - [x] **F0-17** Decidir el gestor de autenticación de Airflow. _(decisión 30)_
@@ -131,12 +131,12 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [x] **F1-01** Perfilar el catálogo original. _(diseño §8.1)_
 - [x] **F1-02** Generar la primera versión de los 20 CSV sintéticos. _(diseño §8)_
 - [x] **F1-03** Validar la primera versión de forma independiente. _(validaciones, parte 2)_
-- [ ] **F1-04** Recibir el dataset regenerado. _(decisión D-5)_
-- [ ] **F1-05** Validar el formato y las claves del dataset regenerado. _(diseño §8.2 a §8.4)_
-- [ ] **F1-06** Validar el perfil y las correlaciones del dataset regenerado. _(decisión D-5)_
-- [ ] **F1-07** Comprobar que el generador produce archivos idénticos en dos ejecuciones. _(diseño §8.1)_
-- [ ] **F1-08** Cargar el dataset regenerado en PostgreSQL 19 con `COPY`, como prueba. _(diseño §8.3)_
-- [ ] **F1-09** Confirmar cuál es el dataset definitivo. _(decisión D-5)_
+- [x] **F1-04** Recibir el dataset regenerado. _(decisión 31)_
+- [x] **F1-05** Validar el formato y las claves del dataset regenerado. _(diseño §8.2 a §8.4)_
+- [x] **F1-06** Validar el perfil y las correlaciones del dataset regenerado. _(validaciones, parte 2)_
+- [x] **F1-07** Comprobar que el generador produce archivos idénticos en dos ejecuciones. _(diseño §8.1)_
+- [x] **F1-08** Cargar el dataset regenerado en PostgreSQL 19 con `COPY`, como prueba. _(diseño §8.3)_
+- [x] **F1-09** Confirmar cuál es el dataset definitivo. _(decisión 31)_
 
 ### F2 · Base del proyecto
 
@@ -230,12 +230,15 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-13** Implementar el modo continuo. _(diseño §9.5)_
 - [ ] **F6-14** Ante un dato inconsistente: revertir, registrar y continuar. _(RF-12)_
 - [ ] **F6-15** Escribir una línea de log por transacción. _(RF-11)_
-- [ ] **F6-16** Implementar el modo sin interfaz. _(RF-10)_
+- [ ] **F6-16** Implementar el modo de líneas, que es como arranca el simulador. _(RF-10 y diseño §9.4)_
 - [ ] **F6-17** Dibujar la cabecera de la pantalla. _(diseño §9.3)_
 - [ ] **F6-18** Dibujar la zona de avance. _(diseño §9.3)_
 - [ ] **F6-19** Dibujar la zona de operaciones. _(diseño §9.3)_
 - [ ] **F6-20** Dibujar la lista de últimas transacciones. _(diseño §9.3)_
 - [ ] **F6-21** Dibujar la zona de detalle. _(diseño §9.3)_
+- [ ] **F6-33** Abrir la interfaz con la primera tecla y cerrarla con `Q`. _(diseño §9.4)_
+- [ ] **F6-34** Atrapar `Ctrl-C` para que no detenga el simulador. _(diseño §9.8)_
+- [ ] **F6-35** Repintar la pantalla completa cada 2 segundos y al cambiar de tamaño. _(diseño §9.8)_
 - [ ] **F6-22** Implementar pausar y reanudar. _(RF-07)_
 - [ ] **F6-23** Implementar el cambio de velocidad. _(RF-07)_
 - [ ] **F6-24** Implementar el diálogo de pesos. _(RF-07)_
@@ -245,6 +248,7 @@ Las flechas continuas son dependencias entre fases completas; las verdes, ademá
 - [ ] **F6-28** Escribir pruebas unitarias de la selección de operaciones. _(RF-05)_
 - [ ] **F6-29** Escribir `java-simulator/Dockerfile` con el usuario `simulator`. _(diseño §45.2)_
 - [ ] **F6-30** Añadir `java-simulator` al Compose, después de `flink-cdc-submit`. _(diseño §40)_
+- [ ] **F6-36** Limitar el tamaño del log del servicio en el Compose. _(diseño §9.8)_
 - [ ] **F6-31** Comprobar la interfaz con `docker compose attach java-simulator`. _(diseño §9.2)_
 - [ ] **F6-32** Comprobar que la misma semilla repite la misma secuencia. _(RF-05)_
 
@@ -406,6 +410,8 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | F0-14 | Agente | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
+| 2026-11-22 | F1-04 a F1-09 | Responsable, agente y GrokBot | Dataset regenerado recibido, validado, cargado en PostgreSQL 19 y confirmado como definitivo. Fase F1 terminada |
 | 2026-11-22 | F0-19 a F0-21 | Agente | Reconstrucción de Bronze comprobada con las 20 tablas; leyenda del linaje corregida y diagramas de arquitectura y de arranque regenerados |
 | 2026-11-22 | F0-16 y F0-17 | Responsable y agente | Validación 12 superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
 | 2026-11-22 | F0-12, F0-13 y F0-18 | Responsable y agente | Decisiones tomadas: reconstruir Bronze, `updated_at` como primer origen de `effective_from` y una sola clave de RustFS. Diseño en Revisión 6 |
@@ -418,7 +424,7 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 | Fecha | Actividad | Qué pasa | Qué se necesita |
 |---|---|---|---|
-| 2026-11-22 | F1-04 | El dataset regenerado aún no está en el repositorio | Esperar la entrega |
+| — | — | Sin bloqueos abiertos | — |
 
 ## 7. Riesgos
 
@@ -426,8 +432,8 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 
 | # | Riesgo | Qué lo reduce | Si ocurre | Señal de alerta |
 |---|---|---|---|---|
-| R1 | La consola Lanterna no funciona a través de `docker compose attach` | Ejecutar F0-14 antes de empezar la interfaz en F6 | Usar la alternativa de la validación 10 | F0-14 falla |
-| R2 | El dataset regenerado llega tarde o no cumple | El dataset actual sirve para construir F3 a F10 | Seguir con el actual y cambiarlo antes de F11 | F1-05 o F1-06 fallan |
+| R1 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | Ejecutar F0-15 antes de empezar el seguimiento en F6 | Usar la alternativa de la validación 11 | F0-15 falla |
+| R2 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | Probar la lectura de `movie.csv` con Apache Commons CSV al empezar F6 | Ajustar la configuración del lector; el dataset no se toca | F6 carga menos de 6,899 películas o trunca un `plot` |
 | R3 | Todo el stack junto no cabe en la memoria prevista | Declarar el límite de cada servicio al añadirlo | Detener el simulador o Superset mientras corre el DAG | F11-09 supera 15 GB |
 | R4 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |

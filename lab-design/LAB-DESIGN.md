@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 6 (2026-11-22):** se cierran cinco decisiones: `effective_from` sale primero de `updated_at` (sección 21), Bronze se reconstruye si se pierden los checkpoints (secciones 14 y 38), RustFS usa una sola clave (sección 45.3), Airflow autentica con Flask AppBuilder (secciones 18 y 45.4) y la leyenda del diagrama de linaje pasa a ser genérica. Los diagramas y bocetos que estaban dibujados en texto pasan a Archify. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
+> 📝 **Revisión 6 (2026-11-22):** el dataset regenerado queda como definitivo y se cierran cinco decisiones más: `effective_from` sale primero de `updated_at` (sección 21), Bronze se reconstruye si se pierden los checkpoints (secciones 14 y 38), RustFS usa una sola clave (sección 45.3), Airflow autentica con Flask AppBuilder (secciones 18 y 45.4) y la leyenda del diagrama de linaje pasa a ser genérica. Los diagramas y bocetos que estaban dibujados en texto pasan a Archify. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -337,7 +337,7 @@ El dataset de entrada son **20 archivos CSV, uno por cada tabla del esquema `cat
 
 ### 8.1 Naturaleza de los datos
 
-- **Los datos son sintéticos.** Títulos, sinopsis, personas y compañías son inventados; no reproducen películas, personas ni textos reales.
+- **Los datos son sintéticos.** Títulos, sinopsis, personas y compañías son inventados; no reproducen películas, personas ni textos reales. Los nombres se forman combinando palabras, nombres y apellidos corrientes, así que alguno coincide por azar con el de una persona, una película o una compañía que existe; no se refiere a ella.
 - **El perfil es el del catálogo original.** Volúmenes, tasas de nulos, distribuciones y catálogos (géneros, países, idiomas, clasificaciones, códigos de enrichment) siguen los del índice Elasticsearch `elastiflix-reloaded` (índice concreto `elastiflix-dq-staging-20261113-220031`), que contiene 6,899 películas.
 - Junto a los CSV se versionan el script que los genera, `generate_raw_data.py`, y un `README.md` con la semilla, la forma de regenerarlos y sus comprobaciones.
 
@@ -380,7 +380,7 @@ Lo que el simulador puede dar por cierto al leerlos:
 ### 8.3 Formato
 
 - UTF-8 sin BOM, finales de línea LF y una fila de cabecera con los nombres de columna.
-- RFC 4180: separador coma, comillas dobles solo cuando hacen falta y comilla doble escapada duplicándola. `plot` y `overview` contienen saltos de línea y comillas dentro de la celda.
+- RFC 4180: separador coma, comillas dobles solo cuando hacen falta y comilla doble escapada duplicándola. `plot` contiene saltos de línea y comillas dentro de la celda; `overview` y `tagline`, comillas y comas, pero no saltos de línea.
 - `NULL` es un campo vacío sin comillas. No existen cadenas vacías.
 - Booleanos `true` o `false`. Fechas `YYYY-MM-DD`. Decimales con punto y la escala de su columna.
 
@@ -453,7 +453,7 @@ El simulador hace de aplicación transaccional: lee el dataset de `raw_data/` y 
 | RF-07 | **Controlar la simulación en caliente:** iniciar, pausar y reanudar, y cambiar la velocidad y los pesos sin reiniciar. |
 | RF-08 | **Lanzar operaciones a mano:** elegir una película y provocar un INSERT, un UPDATE de un tipo concreto, un DELETE o una reinserción. |
 | RF-09 | **Seguir el cambio aguas abajo:** indicar, para cada transacción reciente, si su cambio ya llegó a Bronze y cuánto tardó. |
-| RF-10 | Funcionar también sin terminal interactiva: si no hay TTY, arranca solo y escribe una línea de log por transacción. |
+| RF-10 | Funcionar también sin la interfaz abierta: arranca solo, en modo de líneas, y escribe una línea de log por transacción. Con terminal, la interfaz se abre al pulsar una tecla; sin terminal, sigue en modo de líneas. |
 | RF-11 | Registrar cada transacción, cada cambio de configuración y cada operación manual en el log, con nivel y marca de tiempo. |
 | RF-12 | Ante un dato inconsistente, revertir la transacción de esa película, registrarla con nivel `ERROR` y continuar. |
 
@@ -507,7 +507,9 @@ La operación se ejecuta como una transacción normal, aparece en la lista marca
 
 ### 9.4 Modo sin interfaz
 
-Sin TTY, por ejemplo al ver `docker compose logs java-simulator`, el simulador no dibuja la pantalla. Arranca según su configuración y escribe una línea por transacción con los mismos datos de la lista. Es el modo que usa el arranque normal del laboratorio; la interfaz se abre después con `docker compose attach`.
+El simulador arranca siempre en modo de líneas: no dibuja la pantalla, empieza según su configuración y escribe una línea por transacción con los mismos datos de la lista. Es lo que muestra `docker compose logs java-simulator` y el modo que usa el arranque normal del laboratorio.
+
+El contenedor tiene terminal aunque nadie esté conectado, así que el simulador no puede saber por sí solo si alguien lo mira. Por eso la interfaz no se abre al conectarse, sino con la primera tecla que se pulsa tras `docker compose attach java-simulator`. `Q` la cierra y devuelve el modo de líneas. Si el proceso arranca sin terminal, se queda en modo de líneas.
 
 ### 9.5 Reglas de carga
 
@@ -568,11 +570,19 @@ Flink verá cambios físicos de múltiples tablas originados por las transaccion
 | Lectura de CSV | Apache Commons CSV 1.14.1 | Respeta comillas y saltos de línea dentro de celdas |
 | Acceso a PostgreSQL | JDBC 42.7.14 | Transacciones explícitas |
 
-En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: true` para que la interfaz pueda abrirse con `docker compose attach java-simulator`. Se sale de la interfaz sin detener el contenedor con la secuencia de desconexión de Docker (`Ctrl-P`, `Ctrl-Q`) o con `Q`.
+En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: true` para que la interfaz pueda abrirse con `docker compose attach java-simulator`. Cómo se usa, comprobado en la validación 10:
+
+- **Abrir:** tras conectarse se ven pasar las líneas del modo de líneas; cualquier tecla abre la interfaz.
+- **Salir:** primero `Q`, que cierra la interfaz, y después la secuencia de desconexión de Docker (`Ctrl-P`, `Ctrl-Q`). Desconectarse con la interfaz abierta no detiene nada, pero deja restos de la pantalla en la terminal; se limpian con `clear`.
+- **`Ctrl-C` no detiene el simulador.** Lanterna lo deja pasar por defecto y eso mata el proceso y el contenedor; la terminal se crea con `CtrlCBehaviour.TRAP` para recibirlo como una tecla más.
+- **Repintado.** Lanterna solo reescribe las celdas que cambian, así que quien se conecta con la interfaz ya abierta vería la pantalla a medias. La interfaz hace un refresco completo cada 2 segundos y en cada cambio de tamaño.
+- **Tamaño.** La interfaz sigue los cambios de tamaño de la ventana. Por debajo del tamaño mínimo muestra un aviso en lugar de la pantalla.
+- **Arranque.** Sin nadie conectado, Lanterna tarda unos 5 segundos en inicializar la terminal, porque espera una respuesta de tamaño que no llega, y supone 80×24. Se ajusta sola cuando alguien se conecta.
+- **Logs.** Con la interfaz abierta, `docker compose logs` recibe también las secuencias de dibujo, cerca de 1 KB por segundo, y deja de ser legible. El servicio limita el tamaño de su log en el Compose (`logging`, con `max-size`) y las líneas de transacción del RF-11 se escriben además en un archivo.
 
 El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
 
-> ⚠️ **Por validar antes de implementar.** Dos puntos de esta sección no se han probado: que una interfaz Lanterna funcione dentro del contenedor a través de `docker compose attach`, también desde una terminal de Windows; y que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figuran como validaciones 10 y 11 en el documento de decisiones y validaciones, y su ejecución está en el plan (F0-14 y F0-15).
+> ⚠️ **Por validar antes de implementar.** Falta probar que DuckDB JDBC 1.5.6.0 adjunte el catálogo y lea Bronze desde Java 25. Figura como validación 11 en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md), y su ejecución está en el plan (F0-15).
 
 ## 10. 🐘 PostgreSQL 19
 
@@ -2353,5 +2363,6 @@ Este documento describe el diseño vigente. Aquel explica por qué es así y qu�
 | `MERGE` SCD2 de Silver y mantenimiento a volumen | Superadas |
 | Pérdida de checkpoints | Falla si se repite el snapshot sobre Bronze. Se resuelve reconstruyendo Bronze (sección 38): comprobado |
 | Validación 12, inicio de sesión en Airflow | Superada |
-| Validaciones 10 y 11, del simulador | Pendientes |
-| Decisiones abiertas | 1 |
+| Validación 10, consola Lanterna con `docker compose attach` | Superada, con ajustes al diseño |
+| Validación 11, DuckDB JDBC desde Java 25 | Pendiente |
+| Decisiones abiertas | Ninguna |
