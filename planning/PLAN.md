@@ -32,7 +32,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
 
-El tablero no se edita a mano: lo recalcula `python planning/update_progress.py` a partir de las casillas marcadas.
+El tablero no se edita a mano: lo recalcula `python planning/update_progress.py` a partir de las casillas marcadas. El mismo script, con `--done`, registra cada actividad terminada e imprime el avance de su fase y el global (regla 6 de la sección 2).
 
 Significado del estado global:
 
@@ -49,10 +49,10 @@ Estas reglas valen igual para una persona que para un agente de programación (C
 3. **Lee antes de hacer.** Abre la referencia que cita la actividad; ahí está el detalle.
 4. **No cambies el diseño por tu cuenta.** Si una actividad no se puede cumplir como está escrita, anótalo en la sección 6 y detente.
 5. **Comprueba antes de marcar.** Una actividad está hecha cuando cumple la definición de terminado de la sección 4.
-6. **Registra el avance en el mismo cambio que el trabajo:**
-   - marca la actividad cambiando `[ ]` por `[x]`;
-   - ejecuta `python planning/update_progress.py` para recalcular el tablero;
-   - añade una línea a la bitácora de la sección 5.
+6. **Registra y reporta el avance al terminar cada actividad**, en el mismo cambio que el trabajo:
+   - ejecuta `python planning/update_progress.py --done F3-04 --note "qué se hizo y cómo se comprobó"`. El script marca la actividad, recalcula el tablero, añade la línea a la bitácora de la sección 5 con el avance y lo imprime;
+   - **comunica ese avance a la persona responsable** en tu mensaje de cierre, tal como lo imprime el script: el de la fase y el global, en actividades y en porcentaje. Por ejemplo: «F3 · PostgreSQL operacional: 3 de 15 actividades (20 %). Global: 42 de 222 actividades (19 %)»;
+   - si terminas varias actividades seguidas, repórtalo tras cada una o, como mínimo, al final con el avance de cada fase tocada.
 7. **Al cerrar una fase**, comprueba su «Terminada cuando». Si no se cumple, la fase sigue abierta aunque todas sus casillas estén marcadas: añade la actividad que falte.
 8. **Si aparece trabajo que el plan no prevé**, añádelo como actividad nueva dentro de su fase, en la posición en que deba hacerse, con el siguiente número libre. No renumeres las existentes: el número identifica la actividad, no indica su orden.
 9. **Activa la skill de la actividad antes de empezarla.** Cada fase indica la suya; el detalle y la forma de activarla en cada agente están en [AGENTS.md](../AGENTS.md).
@@ -442,38 +442,39 @@ Los jobs one-shot no llevan healthcheck: el Compose espera a que terminen con `s
 
 ## 5. Bitácora de avance
 
-Una línea por cada actividad o grupo de actividades terminado. La más reciente va arriba.
+Una línea por cada actividad o grupo de actividades terminado. La más reciente va arriba. La columna «Avance» guarda el avance de la fase y el global al cerrar esa línea; la escribe `update_progress.py --done`. Las líneas con «—» son anteriores a esta columna o no cierran ninguna actividad.
 
-| Fecha | Actividades | Quién | Nota |
-|---|---|---|---|
-| 2026-11-22 | F3-02 | Agente | `postgresql/init/03-shared-entities.sql` con las 7 entidades compartidas: claves del dataset sin secuencias, nombre único salvo en `collection` y `keyword`, y fechas con `now()` en `collection`, `keyword` y `person`. Cargan sus 7 CSV (116,097 filas) y las restricciones responden como pide el diseño |
-| 2026-11-22 | F3-01 | Agente | `postgresql/init/01-schema.sql` crea el esquema `catalog` y `02-catalogs.sql` los 4 catálogos, con la restricción de dos letras en `original_language`. Aplicados en un PostgreSQL 19.0 desechable: cargan sus 4 CSV (72 filas) y rechazan claves repetidas y códigos de idioma mal formados |
-| 2026-11-22 | F2 | Agente | Fase terminada. Revisión desde cero: `docker compose config` valida, `volumes-init` termina con 0, `metadata-db` queda sano en 32 s con sus dos bases, ningún secreto fuera de `.env.example`. `docker compose up --wait` sin nombrar servicio devuelve error al terminar un job one-shot; anotado en el diseño (§40) |
-| 2026-11-22 | F2-09 | Agente | Sano en 35 s con PostgreSQL 19.0. Bases `airflow` y `superset`, cada una de su cuenta; desde otro contenedor de la red cada cuenta entra solo en la suya y se rechaza una contraseña errónea. Al reiniciar no repite la inicialización y conserva las bases |
-| 2026-11-22 | F2-08 | Agente | Servicio `metadata-db` (`postgres:19.0`, 512 MB, sin puertos) y `metadata-db/init/01-create-databases.sh`, que crea las cuentas `airflow` y `superset` con su base cada una y retira a PUBLIC la conexión; contraseñas desde `.env`. Healthcheck `pg_isready` por TCP |
-| 2026-11-22 | F2-07 | Agente | Tras `volumes-init`, cada uno de los cinco directorios tiene el UID:GID de su servicio y ese usuario puede escribir en él (`stat` y `test -w` desde un contenedor con ese usuario). Probado solo en Docker Desktop sobre Windows |
-| 2026-11-22 | F2-06 | Agente | `docker compose config` valida el Compose sin errores, con `.env` y sin él (valores por defecto) |
-| 2026-11-22 | F2-05 | Agente | Job `volumes-init` en el Compose: imagen de RustFS como root, `chown` de los cinco directorios de la sección 45.2 y límite de 64 MB. Ejecutado dos veces con `docker compose up`: termina con código 0, sin política de reinicio, y no deja cambios en Git |
-| 2026-11-22 | F2-04 | Agente | Los ocho puertos del host, en el campo de extensión `x-host-ports` del Compose, ligados a `127.0.0.1` y con un ancla por servicio (`*ports-<servicio>`) que cada servicio usará al añadirse. Comprobado con servicios de prueba fuera del repositorio: toman los valores de `.env`, los valores por defecto sin él y un cambio de variable |
-| 2026-11-22 | F2-03 | Agente | `docker-compose.yml` con `name: elastiflix-cdc-lakehouse`, las reglas de la sección 39 en su cabecera y aún sin servicios. `docker compose config` lo valida y el nombre se mantiene al lanzarlo desde otro directorio |
-| 2026-11-22 | Plan | Responsable y agente | Resuelta la duda de F2-01: `.env.example` puede llevar valores de laboratorio (decisión 66). Se ajustan la definición de terminado y `AGENTS.md` |
-| 2026-11-22 | F2-01 y F2-02 | Agente | `.env.example` con las 37 variables de las secciones 45.5, 39 y 9.6 del diseño, con secretos de laboratorio generados al azar; `.env` local copiado de él e ignorado por Git. Queda una duda en la sección 6 |
-| 2026-11-22 | Plan y documentación | Responsable y agente | Superset se entrega vacío: quien usa el laboratorio conecta la base y crea sus gráficos con la guía del diseño §35. Se retiran la validación 13 (F0-22), F10-07, F10-09 a F10-13, F10-18 y F10-19; F0 vuelve a estar terminada. Nuevas: F10-20, F10-21 y F11-13. Se cierra el riesgo R9 |
-| 2026-11-22 | Plan y documentación | Responsable y agente | Decididos los ocho puntos de la segunda revisión y el arranque del simulador tras un reinicio (decisiones 57 a 65). F0 se reabre con la validación 13 (F0-22), que F10 espera. Nuevas: F0-22, F3-15, F6-42 a F6-45, F9-19, F9-20, F10-19 y F11-12. Se abre el riesgo R9 |
-| 2026-11-22 | Plan y documentación | Agente | Segunda revisión de coherencia: se corrigen 23 hallazgos. Nuevas: F2-09 y F10-18; F6-37 pasa antes de F6-26. Quedan ocho puntos para decidir |
-| 2026-11-22 | Plan | Responsable y agente | Decisiones D-8 a D-16 tomadas (vigentes 48 a 56). F6 depende de F1 y F5 y F10 de F8 y F9; `metadata-db` pasa a F2 (F2-08, se retira F9-01) y la comprobación de DuckDB a F10 (F10-17, se retira F8-11). Nuevas: F6-41, F7-35 y F10-16 |
-| 2026-11-22 | Plan y documentación | Agente | Revisión de coherencia de la documentación: se corrigen los hallazgos que no dependían de una decisión y quedan nueve decisiones abiertas (D-8 a D-16). Ocho actividades nuevas: F5-17 a F5-20, F6-40, F7-34, F9-18 y F10-15 |
-| 2026-11-22 | Plan | Responsable y agente | Cada fase indica su skill. Se añade F4-07 (consola de RustFS) y se retira F11-10 (arranque en Linux): el laboratorio corre en un solo equipo. Decisiones 41 a 43 |
-| 2026-11-22 | Riesgos | Agente | Medición de memoria con los 13 servicios a la vez: 7.9 GB de máximo. Se cierra R3; Airflow reparte sus 3 GB en 0.5, 2 y 0.5 |
-| 2026-11-22 | F0-15 | Responsable y agentes | Validación 11 superada con ajustes al diseño; decisiones 33 y 34. Fase F0 terminada. Se cierra el riesgo R6 |
-| 2026-11-22 | Riesgos | Agente | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |
-| 2026-11-22 | F0-14 | Agente | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
-| 2026-11-22 | F1-04 a F1-09 | Responsable, agente y GrokBot | Dataset regenerado recibido, validado, cargado en PostgreSQL 19 y confirmado como definitivo. Fase F1 terminada |
-| 2026-11-22 | F0-19 a F0-21 | Agente | Reconstrucción de Bronze comprobada con las 20 tablas; leyenda del linaje corregida y diagramas de arquitectura y de arranque regenerados |
-| 2026-11-22 | F0-16 y F0-17 | Responsable y agente | Validación 12 superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
-| 2026-11-22 | F0-12, F0-13 y F0-18 | Responsable y agente | Decisiones tomadas: reconstruir Bronze, `updated_at` como primer origen de `effective_from` y una sola clave de RustFS. Diseño en Revisión 6 |
-| 2026-11-22 | F1-01 a F1-03 | Agente y GrokBot | Primera versión del dataset generada y validada; se pidió regenerarla |
-| 2026-11-22 | F0-01 a F0-11 | Agente | Diseño en Revisión 5; validaciones 1 a 9, de volumen y de Silver ejecutadas |
+| Fecha | Actividades | Quién | Avance | Nota |
+|---|---|---|---|---|
+| 2026-11-22 | Plan | Responsable y agente | — | El avance no se estaba reportando al terminar cada actividad: el tablero lo registraba, pero el script solo imprimía el global y ninguna regla pedía comunicarlo. `update_progress.py` gana `--done`, que marca, registra en la bitácora e imprime el avance de la fase y el global; la bitácora gana la columna «Avance» y la regla 6 obliga a reportarlo |
+| 2026-11-22 | F3-02 | Agente | F3 13 % · Global 18 % | `postgresql/init/03-shared-entities.sql` con las 7 entidades compartidas: claves del dataset sin secuencias, nombre único salvo en `collection` y `keyword`, y fechas con `now()` en `collection`, `keyword` y `person`. Cargan sus 7 CSV (116,097 filas) y las restricciones responden como pide el diseño |
+| 2026-11-22 | F3-01 | Agente | F3 7 % · Global 18 % | `postgresql/init/01-schema.sql` crea el esquema `catalog` y `02-catalogs.sql` los 4 catálogos, con la restricción de dos letras en `original_language`. Aplicados en un PostgreSQL 19.0 desechable: cargan sus 4 CSV (72 filas) y rechazan claves repetidas y códigos de idioma mal formados |
+| 2026-11-22 | F2 | Agente | F2 100 % · Global 18 % | Fase terminada. Revisión desde cero: `docker compose config` valida, `volumes-init` termina con 0, `metadata-db` queda sano en 32 s con sus dos bases, ningún secreto fuera de `.env.example`. `docker compose up --wait` sin nombrar servicio devuelve error al terminar un job one-shot; anotado en el diseño (§40) |
+| 2026-11-22 | F2-09 | Agente | F2 100 % · Global 18 % | Sano en 35 s con PostgreSQL 19.0. Bases `airflow` y `superset`, cada una de su cuenta; desde otro contenedor de la red cada cuenta entra solo en la suya y se rechaza una contraseña errónea. Al reiniciar no repite la inicialización y conserva las bases |
+| 2026-11-22 | F2-08 | Agente | F2 89 % · Global 17 % | Servicio `metadata-db` (`postgres:19.0`, 512 MB, sin puertos) y `metadata-db/init/01-create-databases.sh`, que crea las cuentas `airflow` y `superset` con su base cada una y retira a PUBLIC la conexión; contraseñas desde `.env`. Healthcheck `pg_isready` por TCP |
+| 2026-11-22 | F2-07 | Agente | F2 78 % · Global 17 % | Tras `volumes-init`, cada uno de los cinco directorios tiene el UID:GID de su servicio y ese usuario puede escribir en él (`stat` y `test -w` desde un contenedor con ese usuario). Probado solo en Docker Desktop sobre Windows |
+| 2026-11-22 | F2-06 | Agente | F2 67 % · Global 16 % | `docker compose config` valida el Compose sin errores, con `.env` y sin él (valores por defecto) |
+| 2026-11-22 | F2-05 | Agente | F2 56 % · Global 16 % | Job `volumes-init` en el Compose: imagen de RustFS como root, `chown` de los cinco directorios de la sección 45.2 y límite de 64 MB. Ejecutado dos veces con `docker compose up`: termina con código 0, sin política de reinicio, y no deja cambios en Git |
+| 2026-11-22 | F2-04 | Agente | F2 44 % · Global 15 % | Los ocho puertos del host, en el campo de extensión `x-host-ports` del Compose, ligados a `127.0.0.1` y con un ancla por servicio (`*ports-<servicio>`) que cada servicio usará al añadirse. Comprobado con servicios de prueba fuera del repositorio: toman los valores de `.env`, los valores por defecto sin él y un cambio de variable |
+| 2026-11-22 | F2-03 | Agente | F2 33 % · Global 15 % | `docker-compose.yml` con `name: elastiflix-cdc-lakehouse`, las reglas de la sección 39 en su cabecera y aún sin servicios. `docker compose config` lo valida y el nombre se mantiene al lanzarlo desde otro directorio |
+| 2026-11-22 | Plan | Responsable y agente | — | Resuelta la duda de F2-01: `.env.example` puede llevar valores de laboratorio (decisión 66). Se ajustan la definición de terminado y `AGENTS.md` |
+| 2026-11-22 | F2-01 y F2-02 | Agente | F2 22 % · Global 14 % | `.env.example` con las 37 variables de las secciones 45.5, 39 y 9.6 del diseño, con secretos de laboratorio generados al azar; `.env` local copiado de él e ignorado por Git. Queda una duda en la sección 6 |
+| 2026-11-22 | Plan y documentación | Responsable y agente | — | Superset se entrega vacío: quien usa el laboratorio conecta la base y crea sus gráficos con la guía del diseño §35. Se retiran la validación 13 (F0-22), F10-07, F10-09 a F10-13, F10-18 y F10-19; F0 vuelve a estar terminada. Nuevas: F10-20, F10-21 y F11-13. Se cierra el riesgo R9 |
+| 2026-11-22 | Plan y documentación | Responsable y agente | — | Decididos los ocho puntos de la segunda revisión y el arranque del simulador tras un reinicio (decisiones 57 a 65). F0 se reabre con la validación 13 (F0-22), que F10 espera. Nuevas: F0-22, F3-15, F6-42 a F6-45, F9-19, F9-20, F10-19 y F11-12. Se abre el riesgo R9 |
+| 2026-11-22 | Plan y documentación | Agente | — | Segunda revisión de coherencia: se corrigen 23 hallazgos. Nuevas: F2-09 y F10-18; F6-37 pasa antes de F6-26. Quedan ocho puntos para decidir |
+| 2026-11-22 | Plan | Responsable y agente | — | Decisiones D-8 a D-16 tomadas (vigentes 48 a 56). F6 depende de F1 y F5 y F10 de F8 y F9; `metadata-db` pasa a F2 (F2-08, se retira F9-01) y la comprobación de DuckDB a F10 (F10-17, se retira F8-11). Nuevas: F6-41, F7-35 y F10-16 |
+| 2026-11-22 | Plan y documentación | Agente | — | Revisión de coherencia de la documentación: se corrigen los hallazgos que no dependían de una decisión y quedan nueve decisiones abiertas (D-8 a D-16). Ocho actividades nuevas: F5-17 a F5-20, F6-40, F7-34, F9-18 y F10-15 |
+| 2026-11-22 | Plan | Responsable y agente | — | Cada fase indica su skill. Se añade F4-07 (consola de RustFS) y se retira F11-10 (arranque en Linux): el laboratorio corre en un solo equipo. Decisiones 41 a 43 |
+| 2026-11-22 | Riesgos | Agente | — | Medición de memoria con los 13 servicios a la vez: 7.9 GB de máximo. Se cierra R3; Airflow reparte sus 3 GB en 0.5, 2 y 0.5 |
+| 2026-11-22 | F0-15 | Responsable y agentes | — | Validación 11 superada con ajustes al diseño; decisiones 33 y 34. Fase F0 terminada. Se cierra el riesgo R6 |
+| 2026-11-22 | Riesgos | Agente | — | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |
+| 2026-11-22 | F0-14 | Agente | — | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
+| 2026-11-22 | F1-04 a F1-09 | Responsable, agente y GrokBot | — | Dataset regenerado recibido, validado, cargado en PostgreSQL 19 y confirmado como definitivo. Fase F1 terminada |
+| 2026-11-22 | F0-19 a F0-21 | Agente | — | Reconstrucción de Bronze comprobada con las 20 tablas; leyenda del linaje corregida y diagramas de arquitectura y de arranque regenerados |
+| 2026-11-22 | F0-16 y F0-17 | Responsable y agente | — | Validación 12 superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
+| 2026-11-22 | F0-12, F0-13 y F0-18 | Responsable y agente | — | Decisiones tomadas: reconstruir Bronze, `updated_at` como primer origen de `effective_from` y una sola clave de RustFS. Diseño en Revisión 6 |
+| 2026-11-22 | F1-01 a F1-03 | Agente y GrokBot | — | Primera versión del dataset generada y validada; se pidió regenerarla |
+| 2026-11-22 | F0-01 a F0-11 | Agente | — | Diseño en Revisión 5; validaciones 1 a 9, de volumen y de Silver ejecutadas |
 
 ## 6. Bloqueos, defectos y dudas
 

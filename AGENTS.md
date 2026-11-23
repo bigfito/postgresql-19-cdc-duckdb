@@ -18,7 +18,7 @@ Un laboratorio local de ingeniería de datos: PostgreSQL 19 → Flink CDC → Ap
 
 1. Sigue las reglas de la sección 2 de `planning/PLAN.md`. Son obligatorias.
 2. Trabaja una actividad del plan a la vez y respeta sus dependencias.
-3. Al terminar una actividad: márcala en el plan, ejecuta `python planning/update_progress.py` y añade una línea a la bitácora.
+3. Al terminar cada actividad, registra y reporta el avance: ejecuta `python planning/update_progress.py --done <actividad> --note "qué se hizo y cómo se comprobó"`, que la marca, recalcula el tablero y añade la línea a la bitácora; y comunica a la persona responsable el avance que imprime, el de la fase y el global, en actividades y en porcentaje.
 4. No cambies el diseño por tu cuenta. Si una actividad no se puede cumplir como está escrita, anótalo en la sección 6 del plan y detente.
 5. No escribas contraseñas ni claves en ningún archivo versionado. Las credenciales salen de `.env`, que no se versiona. La única excepción es `.env.example`, que lleva valores de laboratorio para que el entorno arranque tal cual.
 6. Para dudas sobre una librería o herramienta, consulta su documentación vigente antes de escribir código; no te fíes de la memoria. Di de dónde salió cada dato.
