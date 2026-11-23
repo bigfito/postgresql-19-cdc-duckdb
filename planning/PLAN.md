@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: 🟢 Verde.** No hay bloqueos. En la sección 6 hay un defecto intermitente en observación, un problema de rendimiento de RustFS que hay que resolver antes de la fase F9 y tres dudas abiertas.
+**Estado global: 🟢 Verde.** No hay bloqueos. En la sección 6 hay un defecto intermitente en observación, un problema de rendimiento de RustFS que hay que resolver antes de la fase F9 y tres dudas abiertas, una de ellas sobre las columnas de Gold.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -22,12 +22,12 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F5 | Flink CDC hacia Bronze | 20 | 20 | 100 % | ✅ Terminada |
 | F6 | Event Simulator | 45 | 45 | 100 % | ✅ Terminada |
 | F7 | Spark y capa Silver | 35 | 35 | 100 % | ✅ Terminada |
-| F8 | Capa Gold | 10 | 0 | 0 % | ⏳ Pendiente |
+| F8 | Capa Gold | 10 | 10 | 100 % | ✅ Terminada |
 | F9 | Orquestación con Airflow | 19 | 0 | 0 % | ⏳ Pendiente |
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **161** | **73 %** | 🔄 En curso |
+| | **Global** | **222** | **171** | **77 %** | 🔄 En curso |
 
 Actualizado el 2026-11-23.
 <!-- tablero:fin -->
@@ -327,16 +327,16 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/python-developer`
 - **Terminada cuando:** Los siete productos Gold existen y se reemplazan completos en cada corrida.
 
-- [ ] **F8-01** Definir las columnas y los indicadores de los siete productos. _(diseño §33)_
-- [ ] **F8-02** Crear el esqueleto de `silver_to_gold.py`. _(diseño §32)_
-- [ ] **F8-03** Crear `gold.movie_current_overview`. _(diseño §33)_
-- [ ] **F8-04** Crear `gold.genre_performance`. _(diseño §33)_
-- [ ] **F8-05** Crear `gold.collection_performance`. _(diseño §33)_
-- [ ] **F8-06** Crear `gold.financial_performance`. _(diseño §33)_
-- [ ] **F8-07** Crear `gold.release_trends`. _(diseño §33)_
-- [ ] **F8-08** Crear `gold.cast_analysis`. _(diseño §33)_
-- [ ] **F8-09** Crear `gold.data_quality_coverage`. _(diseño §33)_
-- [ ] **F8-10** Comprobar que cada corrida reemplaza las tablas completas. _(diseño §32)_
+- [x] **F8-01** Definir las columnas y los indicadores de los siete productos. _(diseño §33)_
+- [x] **F8-02** Crear el esqueleto de `silver_to_gold.py`. _(diseño §32)_
+- [x] **F8-03** Crear `gold.movie_current_overview`. _(diseño §33)_
+- [x] **F8-04** Crear `gold.genre_performance`. _(diseño §33)_
+- [x] **F8-05** Crear `gold.collection_performance`. _(diseño §33)_
+- [x] **F8-06** Crear `gold.financial_performance`. _(diseño §33)_
+- [x] **F8-07** Crear `gold.release_trends`. _(diseño §33)_
+- [x] **F8-08** Crear `gold.cast_analysis`. _(diseño §33)_
+- [x] **F8-09** Crear `gold.data_quality_coverage`. _(diseño §33)_
+- [x] **F8-10** Comprobar que cada corrida reemplaza las tablas completas. _(diseño §32)_
 
 ### F9 · Orquestación con Airflow
 
@@ -446,6 +446,10 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | F8 | Agente | F8 100 % · Global 77 % | Fase terminada. Su criterio de cierre está comprobado: los siete productos de Gold existen y cada corrida los reemplaza completos, en un snapshot de operación `overwrite` y sin archivos de borrado. 38 comprobaciones contra Silver, leídas con DuckDB, en cero. Las columnas de los productos las definió el agente y quedan a revisión de la persona responsable (sección 6). La duda sobre `has_homepage` queda resuelta: Gold lo toma de la versión vigente de `dim_movie` |
+| 2026-11-23 | F8-10 | Agente | F8 100 % · Global 77 % | Segunda corrida, tras poner Silver al día: cada tabla gana un snapshot con operación `overwrite` que borra todas las filas anteriores y escribe las nuevas, en un solo archivo de datos y sin archivos de borrado; las filas no se duplican y `gold_processed_at` tiene un único valor. 125 s con RustFS recién arrancado y 238 s la primera vez. No se probó con consultas concurrentes durante la recarga |
+| 2026-11-23 | F8-03, F8-04, F8-05, F8-06, F8-07, F8-08 y F8-09 | Agente | F8 90 % · Global 77 % | Los siete productos: 6,899 películas vivas, 19 géneros, 1,039 colecciones, 4,067 películas con presupuesto y recaudación, 531 meses de estreno, 95,050 personas y 41 métricas de cobertura. Comprobados contra Silver con DuckDB, 38 de 38 en cero: títulos, colecciones y géneros vigentes, medidas iguales al último snapshot, conteos y totales de cada agregado, y cifras repartidas por peso que suman el total salvo 12.53 USD de redondeo sobre 954 mil millones |
+| 2026-11-23 | F8-01 y F8-02 | Agente | F8 20 % · Global 73 % | Definidas las columnas de los siete productos, que el diseño solo nombraba; quedan en la sección 33 y pendientes de que la persona responsable las ajuste. Todos describen las películas vivas con sus nombres vigentes y solo usan tipos simples. `silver_to_gold.py`, sin UDF de Python, con `--run-ts` y los errores `GOLD-001` y `GOLD-002`; pasa `ruff check` |
 | 2026-11-23 | F7 | Agente | F7 100 % · Global 73 % | Fase terminada. Su criterio de cierre está comprobado: Silver tiene sus 14 dimensiones, 2 hechos y 6 bridges, con las columnas del diseño, y una corrida sin cambios no escribe nada. Verificación aparte de la del agente que la implementó, leyendo Silver con DuckDB: los casos de la sección 31 sobre películas reales y 117 comprobaciones de calidad, 115 en cero y 2 informativas. Dos hallazgos, en la sección 6: RustFS se degrada a los 60 minutos de arrancar y multiplica por cinco la duración del job, y el job no sobrevive a la pérdida del ejecutor |
 | 2026-11-23 | F7-34 | Agente | F7 100 % · Global 73 % | Comprobación propia: una película insertada y borrada entre dos corridas queda en Bronze como tombstone y no deja ninguna fila en `dim_movie` ni en el hecho; el job termina bien |
 | 2026-11-23 | F7-35 | Agente | F7 97 % · Global 72 % | Comprobación propia: al renombrar una keyword y una colección solo cambian `dim_keyword` y `dim_collection`. Los 9 bridges que usan la keyword conservan su versión anterior, y las películas afectadas no reciben versión ni snapshot |
@@ -548,8 +552,8 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 | Fecha | Actividad | Qué pasa | Qué se necesita |
 |---|---|---|---|
+| 2026-11-23 | F8-01 | Duda de diseño, no defecto. El diseño solo nombraba los siete productos de Gold; sus columnas las definió el agente al implementar la fase y están en la sección 33. No bloquea | Revisarlas y decir si falta o sobra algún indicador antes de construir visualizaciones en Superset (F10) |
 | 2026-11-23 | F7 | RustFS se degrada a los 60 minutos de arrancar: su `scanner` empieza a recorrer el directorio de datos, que llega al contenedor como V9FS, y desde entonces registra miles de avisos de disco lento por hora y responde 503 por ráfagas. No se recupera solo. `bronze_to_silver` pasa de unos 90 s a entre 6 y 9 minutos. No bloquea F8, pero condiciona F9 y F11 (riesgo R11) | Decidir el arreglo. Lo primero a probar: `RUSTFS_SCANNER_ENABLED=false` o `RUSTFS_SCANNER_SPEED=slowest` en el servicio `rustfs`, comprobando que la 1.0.6 las acepta y dejando el laboratorio más de una hora en marcha. Si no basta, pasar `rustfs/data` a un volumen con nombre (contingencia de R10) |
-| 2026-11-23 | F7-28 | Duda de diseño, no defecto. `has_homepage` del hecho puede quedar desfasado: el UPDATE descriptivo del simulador cambia `homepage` y, por diseño (§31), no crea snapshot. No bloquea | Decidir en F8 si Gold lo deriva de `dim_movie.homepage` o si se acepta el desfase |
 | 2026-11-23 | F7-06 | El job de Silver no tiene pruebas versionadas: el diseño (§7) no prevé un directorio de pruebas para `pyspark/`, y las comprobaciones de F7 se hicieron con scripts que no están en el repositorio. No bloquea | Decidir si se quiere una suite de pruebas versionada para los jobs |
 | 2026-11-22 | F4-06 | En un arranque completo desde cero, `postgresql` terminó con error al inicializarse: `could not write to file … No space left on device`, con 1.8 TB libres en el disco. No se repitió en cuatro arranques completos seguidos; reapareció una vez en la fase F6 y tampoco se repitió al reintentar, y repetir `docker compose up` lo recupera. Todo apunta a la capa que comparte con los contenedores los directorios de Windows; la causa no está confirmada. No bloquea | Vigilar si reaparece al añadir servicios (riesgo R10). Si se repite, decidir si los datos pasan a volúmenes con nombre de Docker |
 | 2026-11-23 | F6-45 | Duda de diseño, no defecto. La regla de reanudación (RF-13) da por borradas las películas anteriores a la última presente. Si alguien inserta a mano la última película de `movie.csv` y después reinicia el contenedor, no queda ninguna pendiente: el simulador pasa a reinsertar las que faltaban, en el orden de la semilla. Es lo que dice el diseño (§9.5) y está documentado ahí. No bloquea | Decidir si se deja así o si la reanudación debe distinguir las películas que nunca se insertaron. Mientras tanto, no insertar a mano películas lejanas antes de un reinicio |
@@ -564,7 +568,7 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 |---|---|---|---|---|
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
 | R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
-| R11 | Una corrida del DAG no cabe en su intervalo de 10 minutos: con RustFS degradado, `bronze_to_silver` solo ya tarda entre 6 y 9 minutos, y faltan Gold, las validaciones y el mantenimiento | Resolver la degradación de RustFS antes de F9 (sección 6) y medir la corrida completa del DAG en F9-16 | Alargar el intervalo del DAG, lo que cambia el diseño (§18) | Corridas del DAG que se encolan o que terminan después de que empiece la siguiente |
+| R11 | Una corrida del DAG no cabe en su intervalo de 10 minutos: con RustFS degradado, `bronze_to_silver` solo ya tarda entre 6 y 9 minutos, y faltan Gold (de 2 a 4 minutos), las validaciones y el mantenimiento. Hay una segunda causa: Bronze sin compactar. Tras un día de simulador sumaba 2,088 archivos de datos y 3,447 de borrado, y el job tardó 515 s con RustFS recién arrancado | Resolver la degradación de RustFS antes de F9 (sección 6), dejar que `iceberg_maintenance` compacte Bronze (F9-15) y medir la corrida completa del DAG en F9-16 | Alargar el intervalo del DAG, lo que cambia el diseño (§18) | Corridas del DAG que se encolan o que terminan después de que empiece la siguiente |
 | R10 | Los directorios de datos montados desde Windows fallan bajo carga: a los contenedores les llegan como V9FS, RustFS los declara no soportados para producción `postgresql` falló una vez al inicializarse con un falso «sin espacio» y tardó minutos en volcar a disco una transacción grande. En F5, RustFS y los checkpoints de Flink aguantaron el dataset completo sin errores. En F7 se vio que RustFS se degrada a los 60 minutos de arrancar, cuando su `scanner` empieza a recorrer el directorio, y que el motor de Docker se congeló una vez cerca de un minuto con dos lecturas pesadas a la vez | Las comprobaciones de F5 con las 20 tablas (F5-10 a F5-13), el arranque desde cero de F11-03 y la medición de F11-09 | Guardar los datos en volúmenes con nombre de Docker, lo que cambia la regla de persistencia del diseño (§7) | Errores de lectura o escritura en los logs, un servicio que no se inicializa, o commits de Iceberg que fallan |
 
 ### Riesgos cerrados

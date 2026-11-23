@@ -1364,7 +1364,7 @@ Comprobado en la fase F7.
 - **Dimensiones.** Las filas 0 y -1 llevan `Unknown` y `Not Applicable` en las columnas de texto que nombran al miembro y nulo en el resto; en las SCD2 figuran como vigentes; `dim_date` también las tiene. Una dimensión Tipo 1 solo se reescribe si cambia un atributo: un `cdc_op_ts` distinto, como el que deja reconstruir Bronze, no la toca.
 - **Datos de referencia.** `Soviet Union` y `Czechoslovakia` quedan como `unmapped`, porque no tienen código ISO 3166-1 vigente; `No Language` lleva el código `xx` y el cantonés `cn`, que son los de TMDB.
 - **Registro.** `pyspark/conf/log4j2.properties` silencia el aviso de Spark sobre ventanas sin partición, que salía más de cien veces por corrida por el `max(SK) + row_number()` de las claves sustitutas.
-- **Duración.** Con el dataset completo (6,899 películas) y RustFS recién arrancado, la primera corrida tarda unos 110 s, una incremental unos 97 s y una sin cambios unos 85 s; de ellos, unos 50 s son leer las 20 tablas Bronze. Con RustFS degradado (sección 15) son entre 330 y 540 s. Las cifras con RustFS sano son de una versión del job anterior a dos retoques menores; el código final solo se midió con RustFS degradado.
+- **Duración.** Con el dataset completo (6,899 películas) y RustFS recién arrancado, la primera corrida tarda unos 110 s, una incremental unos 97 s y una sin cambios unos 85 s; de ellos, unos 50 s son leer las 20 tablas Bronze. Con RustFS degradado (sección 15) son entre 330 y 540 s. Las cifras con RustFS sano son de una versión del job anterior a dos retoques menores; el código final solo se midió con RustFS degradado. La duración crece también con Bronze: sin compactar, tras un día de simulador sus 20 tablas sumaban 2,088 archivos de datos y 3,447 de borrado, y leerlas costó 340 s con RustFS recién arrancado (515 s la corrida). Compactar Bronze es trabajo de `iceberg_maintenance` (sección 38).
 - **Memoria.** Máximos medidos: 0.29 GiB en `spark-master`, 2.18 GiB en `spark-worker` y 1.76 GiB en el contenedor del driver, con 1 GB de heap.
 - **Lo que no se probó.** El job lanzado desde Airflow (fase F9); una reconstrucción real de Bronze, porque el cierre por ausencia se probó quitando de Bronze las filas de claves de prueba; la rama que actualiza un atributo de una dimensión Tipo 1; la adopción tardía de una ruta canónica en `dim_collection`; dos corridas simultáneas; y la imagen para `arm64`.
 
@@ -1999,6 +1999,18 @@ Gold no obligará a Superset a resolver directamente la complejidad SCD2 o de br
 
 Estrategia de escritura: **recarga completa en cada corrida**. Con unos miles de películas, recalcular cada producto y reemplazar la tabla es más simple y más seguro que un MERGE incremental, y deja archivos sin deletes, que es lo que mejor lee DuckDB. Cada reemplazo se publica como un snapshot Iceberg atómico, así que una consulta debería ver la carga anterior o la nueva, nunca una mezcla. No se ha probado con consultas concurrentes durante una recarga.
 
+### Cómo está implementado
+
+Comprobado en la fase F8.
+
+- **Forma.** Un solo archivo, sin UDF de Python. Primero calcula las películas vivas, que es la base de todos los productos, una sola vez y la guarda en caché; aquí sí vale `cache()`, porque el job no usa `MERGE`. Después calcula y escribe los siete productos, uno tras otro.
+- **Película viva.** La que tiene versión vigente en `dim_movie` y cuyo último snapshot no es de borrado. Los atributos descriptivos salen de la versión vigente y las medidas y los conteos, del último snapshot. El título, el nombre de la colección y los géneros son los vigentes, buscados por la clave de negocio (sección 19).
+- **Escritura.** La primera corrida crea cada tabla, en formato Iceberg v2. Las siguientes sobrescriben todas sus filas en un solo snapshot, de operación `overwrite`: borra las filas anteriores y escribe las nuevas, sin archivos de borrado y en un único archivo de datos por tabla. Cada corrida añade un snapshot aunque Silver no haya cambiado; los expira `iceberg_maintenance` (sección 38).
+- **Cómo se lanza a mano.** Mientras no exista Airflow, desde la raíz del repositorio: `docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/silver_to_gold.py`. Va después de `bronze_to_silver.py`.
+- **Argumentos y códigos de salida.** `--run-ts` es el timestamp lógico de la corrida y el valor de `gold_processed_at`. Sale con `0` si terminó bien, con `2` si `--run-ts` no es una fecha ISO 8601 (`GOLD-001`) y con `1` en cualquier otro error, entre ellos `GOLD-002`: falta una tabla de Silver, y entonces no se escribe nada.
+- **Duración.** 238 s la primera corrida y 125 s la segunda, con el dataset completo. La mayor parte es leer Silver.
+- **Lo que no se probó.** El job lanzado desde Airflow (fase F9); consultas concurrentes durante una recarga; y un cambio en las columnas de un producto, que obligaría a borrar su tabla antes de la corrida, porque el job no altera esquemas.
+
 ## 33. 🥇 Capa GOLD
 
 Gold contendrá resultados materializados mediante PySpark. Aunque conceptualmente operen como vistas materializadas del negocio, la implementación local será mediante tablas Iceberg materializadas por el job PySpark.
@@ -2027,6 +2039,203 @@ boolean
 date
 timestamp
 ```
+
+### Qué contiene cada producto
+
+Definidos en la fase F8. Todos describen el catálogo tal como está ahora: solo las películas vivas, con sus nombres vigentes (sección 32). Todas las tablas terminan con `gold_processed_at`, el timestamp lógico de la corrida que las cargó.
+
+| Producto | Una fila por | Para qué sirve |
+|---|---|---|
+| `movie_current_overview` | película viva | Explorar el catálogo: la ficha completa de cada película |
+| `genre_performance` | género | Comparar géneros por volumen, dinero y valoración |
+| `collection_performance` | colección con alguna película viva | Comparar sagas |
+| `financial_performance` | película viva con presupuesto y recaudación | Rankings y distribución de ganancia y ROI |
+| `release_trends` | mes de estreno | Series temporales de estrenos |
+| `cast_analysis` | persona con alguna película viva | Trayectoria y peso de cada intérprete |
+| `data_quality_coverage` | conjunto de datos y métrica | Qué tan completos están los datos |
+
+Reglas comunes de los agregados:
+
+- **El dinero ausente no cuenta como cero.** Cada total suma solo las películas que traen el dato; `movies_with_financials` dice cuántas traen presupuesto y recaudación.
+- **`roi_percentage` de un grupo** se calcula sobre las películas con presupuesto mayor que cero y recaudación: suma de sus ganancias entre suma de sus presupuestos, por cien. Es la misma regla que la de cada película (sección 27).
+- **Relaciones N:M.** Una película con tres géneros cuenta en los tres, así que los `total_*` de dos géneros no se pueden sumar. Las columnas `weighted_*` reparten cada película con `allocation_weight` y sí se pueden sumar; coinciden con el total salvo el redondeo del peso a diez decimales (12.53 USD sobre 954 mil millones en la fase F8).
+
+#### `gold.movie_current_overview`
+
+```text
+movie_id
+imdb_id
+title
+original_title
+release_date
+release_year
+release_month
+release_decade
+original_language_code
+original_language_name
+status_code
+rating_code
+collection_id
+collection_name
+primary_genre
+genres
+runtime_minutes
+budget_usd
+revenue_usd
+profit_usd
+roi_percentage
+popularity
+user_score
+vote_average
+vote_count
+genre_count
+keyword_count
+cast_count
+company_count
+country_count
+spoken_language_count
+has_collection
+has_budget
+has_revenue
+has_homepage
+adult
+version_number
+last_changed_at
+gold_processed_at
+```
+
+- `genres` es la lista de géneros vigentes, en el orden de `source_position`, como texto separado por comas; `primary_genre` es el primero.
+- Una película sin colección lleva `collection_id` nulo y `Not Applicable` en `collection_name`; una sin rating, `Unknown` en `rating_code` (sección 30).
+- `has_homepage` sale del `homepage` vigente de `dim_movie`, no del snapshot: un cambio de `homepage` crea versión y no crea snapshot (sección 31).
+- `version_number` es el número de la versión vigente y `last_changed_at`, la fecha más reciente entre el inicio de esa versión y el último snapshot.
+
+#### `gold.genre_performance`
+
+```text
+genre_id
+genre_name
+movie_count
+weighted_movie_count
+total_budget_usd
+total_revenue_usd
+total_profit_usd
+weighted_revenue_usd
+weighted_profit_usd
+roi_percentage
+movies_with_financials
+avg_popularity
+avg_vote_average
+avg_user_score
+avg_runtime_minutes
+gold_processed_at
+```
+
+#### `gold.collection_performance`
+
+```text
+collection_id
+collection_name
+movie_count
+first_release_date
+last_release_date
+total_budget_usd
+total_revenue_usd
+total_profit_usd
+roi_percentage
+movies_with_financials
+avg_popularity
+avg_vote_average
+avg_user_score
+avg_runtime_minutes
+total_vote_count
+gold_processed_at
+```
+
+#### `gold.financial_performance`
+
+```text
+movie_id
+title
+release_date
+release_year
+release_decade
+primary_genre
+original_language_name
+rating_code
+collection_name
+budget_usd
+revenue_usd
+profit_usd
+roi_percentage
+is_profitable
+budget_band
+budget_band_order
+profit_rank
+gold_processed_at
+```
+
+- `budget_band` agrupa el presupuesto en cinco tramos (`< 1M`, `1M - 10M`, `10M - 50M`, `50M - 100M` y `>= 100M`) y `budget_band_order` los ordena del 1 al 5.
+- `profit_rank` ordena por ganancia, de mayor a menor; el `movie_id` desempata para que el orden no cambie entre corridas.
+
+#### `gold.release_trends`
+
+```text
+period_start
+release_year
+release_month
+release_decade
+movie_count
+total_budget_usd
+total_revenue_usd
+total_profit_usd
+roi_percentage
+movies_with_financials
+avg_popularity
+avg_vote_average
+avg_user_score
+avg_runtime_minutes
+gold_processed_at
+```
+
+`period_start` es el primer día del mes de estreno, una fecha que Superset puede usar como eje de tiempo.
+
+#### `gold.cast_analysis`
+
+```text
+person_id
+person_name
+movie_count
+top_billed_count
+avg_billing_order
+first_release_date
+last_release_date
+career_span_years
+total_revenue_usd
+weighted_revenue_usd
+avg_popularity
+avg_vote_average
+avg_user_score
+gold_processed_at
+```
+
+`top_billed_count` cuenta las películas en las que la persona encabeza el reparto, es decir, tiene el menor `billing_order` de la película. No hay otra regla de «reparto principal» (sección 28).
+
+#### `gold.data_quality_coverage`
+
+```text
+dataset
+metric
+total_count
+covered_count
+coverage_percentage
+gold_processed_at
+```
+
+Tres grupos de filas:
+
+- `dataset = movie`: una fila por atributo opcional de la película (`imdb_id`, `overview`, `tagline`, `homepage`, `poster_path`, `backdrop_path`, `runtime_minutes`, `budget_usd`, `revenue_usd`, `user_score`, `vote_average`, `rating_code` y `collection`), con cuántas películas vivas lo traen.
+- `dataset` igual al nombre de una dimensión con datos de referencia (sección 24) y `metric = reference_mapped`: cuántos de sus valores tienen equivalencia, es decir, `quality_status` distinto de `unmapped`.
+- `dataset = movie_enrichment`: una fila por campo de procedencia (sección 29), con cuántas películas vivas tienen procedencia registrada para ese campo.
 
 ## 34. 🦆 DuckDB
 
