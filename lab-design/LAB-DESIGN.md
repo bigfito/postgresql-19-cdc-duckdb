@@ -1171,9 +1171,11 @@ Los demás servicios no manipularán directamente ese directorio. Accederán med
 
 Detalles de operación:
 
-- Imagen `rustfs/rustfs:1.0.6`; API S3 en el puerto 9000 y consola en el 9001.
+- Imagen `rustfs/rustfs:1.0.6`; API S3 en el puerto 9000 y consola en el 9001. La consola se abre en `/rustfs/console/`; la raíz del 9001 responde 403.
 - El contenedor corre como `10001:10001`; `rustfs/data/` debe ser escribible por ese usuario.
-- Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`.
+- Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`, que no pide credenciales.
+- Logs por la salida estándar, con `RUSTFS_OBS_LOG_STDOUT_ENABLED=true`, como en el quickstart de Iceberg; así se ven con `docker compose logs rustfs`.
+- **Aviso de sistema de archivos.** En Docker Desktop sobre Windows, `rustfs/data` llega al contenedor como V9FS, y RustFS avisa al arrancar de que solo admite sistemas de archivos POSIX locales para producción. Es un aviso, no un error: en la fase F4 arrancó, guardó y devolvió objetos, uno de ellos de 20 MB, y los conservó tras recrear el contenedor. Queda por ver bajo la carga de Flink; es el riesgo R10 del plan.
 - El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store: reutiliza la propia imagen `rustfs/rustfs`, que incluye `curl`, y firma con `curl --aws-sigv4`. No hace falta una imagen de cliente S3 aparte.
 - Todos los clientes (Flink, Spark, DuckDB y el catálogo) usan el mismo endpoint interno `http://rustfs:9000` con acceso path-style.
 - RustFS 1.0 incluye un Iceberg REST Catalog propio («S3 Tables»), pero está marcado como *preview*. No se usa en este laboratorio; el catálogo es un servicio aparte (sección 16).
@@ -2476,7 +2478,7 @@ Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 |---|---|---|---|
 | Superset | `http://127.0.0.1:8088` | Administrador | `superset-init`, con `superset fab create-admin`. Comprobado en la validación 7 |
 | Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`, con `airflow users create`. Comprobado en la validación 12 |
-| Consola de RustFS | `http://127.0.0.1:9001` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Se comprueba al implementar el servicio (actividad F4-07 del plan) |
+| Consola de RustFS | `http://127.0.0.1:9001/rustfs/console/` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Se comprueba al implementar el servicio (actividad F4-07 del plan) |
 | PostgreSQL operacional | `127.0.0.1:5432` | `postgres` para administrar; `elastiflix_app` para consultar como la aplicación | `postgresql/init/` |
 | Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
 | Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |

@@ -167,7 +167,7 @@ docker compose up -d --build
 
 Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ Hoy ese comando solo levanta tres piezas: el job `volumes-init`, que prepara los directorios de datos; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; y `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; e `iceberg-rest`, el catálogo de tablas (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
 Mientras no exista el simulador, las tablas se pueden llenar de una vez con la carga de desarrollo, que mete los 20 CSV (438,925 filas) con el servicio `postgresql` en marcha. Es solo para desarrollar; el detalle está en la [sección 39 del diseño](lab-design/LAB-DESIGN.md#datos-de-desarrollo):
 

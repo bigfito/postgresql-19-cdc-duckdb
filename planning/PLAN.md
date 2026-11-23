@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: 🟢 Verde.** No hay bloqueos ni decisiones abiertas.
+**Estado global: 🟢 Verde.** No hay bloqueos ni decisiones abiertas. Hay un defecto intermitente en observación, en la sección 6.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -18,7 +18,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
 | F3 | PostgreSQL operacional | 15 | 15 | 100 % | ✅ Terminada |
-| F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
+| F4 | Almacenamiento y catálogo | 7 | 6 | 86 % | 🔄 En curso |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
 | F7 | Spark y capa Silver | 35 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **54** | **24 %** | 🔄 En curso |
+| | **Global** | **222** | **60** | **27 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -188,12 +188,12 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/solution-architect`
 - **Terminada cuando:** El bucket `warehouse` y los namespaces `bronze`, `silver` y `gold` existen y sobreviven a recrear los contenedores.
 
-- [ ] **F4-01** Añadir el servicio `rustfs` con su healthcheck. _(diseño §15)_
-- [ ] **F4-02** Añadir el job `rustfs-init` que crea el bucket `warehouse`. _(diseño §15)_
-- [ ] **F4-03** Añadir el servicio `iceberg-rest` con su catálogo guardado en `iceberg/data/`. _(diseño §16)_
-- [ ] **F4-04** Añadir el job `iceberg-init` que crea los tres namespaces. _(diseño §16)_
-- [ ] **F4-05** Comprobar que el bucket y los namespaces existen. _(diseño §15 y §16)_
-- [ ] **F4-06** Comprobar que los namespaces siguen ahí tras recrear `iceberg-rest`. _(diseño §16)_
+- [x] **F4-01** Añadir el servicio `rustfs` con su healthcheck. _(diseño §15)_
+- [x] **F4-02** Añadir el job `rustfs-init` que crea el bucket `warehouse`. _(diseño §15)_
+- [x] **F4-03** Añadir el servicio `iceberg-rest` con su catálogo guardado en `iceberg/data/`. _(diseño §16)_
+- [x] **F4-04** Añadir el job `iceberg-init` que crea los tres namespaces. _(diseño §16)_
+- [x] **F4-05** Comprobar que el bucket y los namespaces existen. _(diseño §15 y §16)_
+- [x] **F4-06** Comprobar que los namespaces siguen ahí tras recrear `iceberg-rest`. _(diseño §16)_
 - [ ] **F4-07** Comprobar que se entra a la consola web de RustFS con la clave del servicio. _(diseño §45.4)_
 
 ### F5 · Flink CDC hacia Bronze
@@ -446,6 +446,12 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F4-06 | Agente | F4 86 % · Global 27 % | Con una tabla de prueba en `bronze`: tras recrear solo `iceberg-rest`, solo `rustfs`, y tras `docker compose down` y un arranque completo, siguen el bucket, los tres namespaces y la tabla, que se carga bien; los dos jobs informan de que todo existía. En ese arranque completo `postgresql` falló una vez al inicializarse; anotado en la sección 6 |
+| 2026-11-22 | F4-05 | Agente | F4 71 % · Global 27 % | Con la cadena levantada desde cero: RustFS lista el bucket `warehouse` y el catálogo, los namespaces `bronze`, `silver` y `gold`, vacíos, tanto desde el host como desde otro contenedor de la red. En el host aparecen `rustfs/data/warehouse` e `iceberg/data/iceberg_catalog.db` |
+| 2026-11-22 | F4-04 | Agente | F4 57 % · Global 26 % | Job `iceberg-init` con la imagen de RustFS y `curl`, tras `iceberg-rest` sano. Desde cero crea `bronze`, `silver` y `gold` con `POST /v1/namespaces`; la segunda ejecución recibe 409 en los tres y termina igualmente con 0. Toda la cadena, desde `volumes-init`, tarda 10 s |
+| 2026-11-22 | F4-03 | Agente | F4 43 % · Global 26 % | Servicio `iceberg-rest` (`apache/iceberg-rest-fixture:1.10.1`, 512 MB, usuario 1000, puerto 8181 en `127.0.0.1`) tras `rustfs-init`, con el healthcheck de la imagen y el SQLite en `iceberg/data/`. Sano a los 2 s de arrancar. Crea un namespace y una tabla en formato v2 cuyo `metadata.json` aparece en `s3://warehouse/`; los conserva tras recrear el contenedor; el borrado con purga limpia RustFS; un namespace repetido devuelve 409 |
+| 2026-11-22 | F4-02 | Agente | F4 29 % · Global 25 % | Job `rustfs-init` con la imagen de RustFS y `curl --aws-sigv4`, tras `rustfs` sano. La primera ejecución crea el bucket `warehouse` y la segunda informa de que ya existe; las dos terminan con 0. Con una clave errónea falla con 403 y código distinto de cero |
+| 2026-11-22 | F4-01 | Agente | F4 14 % · Global 25 % | Servicio `rustfs` (`rustfs/rustfs:1.0.6`, 1 GB, usuario 10001, puertos 9000 y 9001 en `127.0.0.1`) tras `volumes-init`, con healthcheck contra `/health/ready`. Sano en 7 s; acepta la clave y rechaza peticiones sin firma o con secreto erróneo; guarda y devuelve objetos y los conserva tras recrear el contenedor. La consola está en `/rustfs/console/`. Avisa de que el montaje de Windows (V9FS) no está soportado para producción: se abre el riesgo R10 |
 | 2026-11-22 | F3 | Agente | F3 100 % · Global 24 % | Fase terminada. Comprobación desde cero en el Compose: `postgresql` y `metadata-db` quedan sanos en 46 s, 20 tablas con identidad completa y publicadas, y los 20 CSV cargan con el script de desarrollo en 24 s (438,925 filas). Lo de F2 sigue funcionando y ningún secreto sale de `.env.example` |
 | 2026-11-22 | F3-14 | Agente | F3 100 % · Global 24 % | Con el servicio del Compose recién creado, el comando documentado, lanzado desde PowerShell, carga los 20 CSV sin errores: 438,925 filas, las mismas que los archivos tabla por tabla. Una segunda ejecución se detiene con un mensaje y no toca nada |
 | 2026-11-22 | F3-15 | Agente | F3 93 % · Global 24 % | `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` en orden de claves foráneas y en una sola transacción, con la cuenta `elastiflix_app`; se niega si `catalog` ya tiene datos y termina con el conteo por tabla. Su cabecera lleva el comando para lanzarlo desde un contenedor temporal |
@@ -496,7 +502,7 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 | Fecha | Actividad | Qué pasa | Qué se necesita |
 |---|---|---|---|
-| — | — | Sin bloqueos abiertos | — |
+| 2026-11-22 | F4-06 | En un arranque completo desde cero, `postgresql` terminó con error al inicializarse: `could not write to file … No space left on device`, con 1.8 TB libres en el disco. No se repitió en cuatro arranques completos seguidos, y repetir `docker compose up` lo recupera. Todo apunta a la capa que comparte con los contenedores los directorios de Windows; la causa no está confirmada. No bloquea | Vigilar si reaparece al añadir servicios (riesgo R10). Si se repite, decidir si los datos pasan a volúmenes con nombre de Docker |
 
 ## 7. Riesgos
 
@@ -508,6 +514,7 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 |---|---|---|---|---|
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
 | R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
+| R10 | Los directorios de datos montados desde Windows fallan bajo carga: a los contenedores les llegan como V9FS, RustFS los declara no soportados para producción y `postgresql` falló una vez al inicializarse con un falso «sin espacio» | Las comprobaciones de F5 con las 20 tablas (F5-10 a F5-13), el arranque desde cero de F11-03 y la medición de F11-09 | Guardar los datos en volúmenes con nombre de Docker, lo que cambia la regla de persistencia del diseño (§7) | Errores de lectura o escritura en los logs, un servicio que no se inicializa, o commits de Iceberg que fallan |
 
 ### Riesgos cerrados
 

@@ -173,3 +173,132 @@ services:
       retries: 12
       start_period: 30s
     mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # rustfs (diseño, secciones 15 y 39)
+  # ---------------------------------------------------------------------------
+  # Almacenamiento de objetos compatible con S3: guarda los archivos Iceberg de
+  # las tres capas en el bucket warehouse. API S3 en el 9000 y consola web en
+  # el 9001. Todos los clientes usan el endpoint interno http://rustfs:9000 con
+  # acceso path-style.
+  # Corre como el usuario rustfs (10001:10001) de la imagen; por eso espera a
+  # volumes-init, que le deja rustfs/data con ese dueño.
+  rustfs:
+    image: rustfs/rustfs:1.0.6
+    environment:
+      # Una sola clave para todos los clientes y para la consola (sección 45.3).
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+      # Logs por la salida estándar, para verlos con docker compose logs.
+      RUSTFS_OBS_LOG_STDOUT_ENABLED: "true"
+    ports: *ports-rustfs
+    volumes:
+      - ./rustfs/data:/data
+    depends_on:
+      volumes-init:
+        condition: service_completed_successfully
+    # /health/ready no pide credenciales y solo responde bien cuando el
+    # almacenamiento ya acepta peticiones.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:9000/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # rustfs-init (job one-shot; diseño, sección 15)
+  # ---------------------------------------------------------------------------
+  # Crea el bucket warehouse si no existe, con una petición S3 firmada. Reutiliza
+  # la imagen de RustFS, que trae curl con --aws-sigv4; no hace falta una imagen
+  # de cliente S3. Es idempotente: si el bucket ya existe, no hace nada.
+  rustfs-init:
+    image: rustfs/rustfs:1.0.6
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        endpoint=http://rustfs:9000
+        bucket=warehouse
+        s3() {
+          curl --silent --show-error --fail --output /dev/null \
+               --aws-sigv4 "aws:amz:$${AWS_REGION}:s3" \
+               --user "$${RUSTFS_ACCESS_KEY}:$${RUSTFS_SECRET_KEY}" "$$@"
+        }
+        if s3 --head "$$endpoint/$$bucket" 2>/dev/null; then
+          echo "El bucket $$bucket ya existe."
+        else
+          s3 --request PUT "$$endpoint/$$bucket"
+          echo "Bucket $$bucket creado."
+        fi
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    mem_limit: 64m
+
+  # ---------------------------------------------------------------------------
+  # iceberg-rest (diseño, sección 16)
+  # ---------------------------------------------------------------------------
+  # Catálogo REST de Iceberg, compartido por Flink, Spark y DuckDB: registra
+  # las tablas de las tres capas, cuyos archivos viven en RustFS. Es la imagen
+  # de referencia del proyecto Iceberg, pensada para pruebas. No pide
+  # credenciales; solo es alcanzable dentro de la red y en 127.0.0.1.
+  # Corre como el usuario iceberg (1000:1000) de la imagen. Arranca tras
+  # rustfs-init: sin bucket no hay donde crear tablas.
+  # El healthcheck es el que ya declara la imagen (curl a /v1/config).
+  iceberg-rest:
+    image: apache/iceberg-rest-fixture:1.10.1
+    environment:
+      # Dónde se guardan las tablas y cómo se llega a RustFS.
+      CATALOG_WAREHOUSE: s3://warehouse/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://rustfs:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+      # El catálogo es un archivo SQLite. Por defecto la imagen lo deja en /tmp,
+      # que se pierde al recrear el contenedor; aquí va a iceberg/data/.
+      CATALOG_URI: jdbc:sqlite:/catalog/iceberg_catalog.db
+      # La clave única de RustFS (sección 45.3).
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    ports: *ports-iceberg-rest
+    volumes:
+      - ./iceberg/data:/catalog
+    depends_on:
+      rustfs-init:
+        condition: service_completed_successfully
+    mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # iceberg-init (job one-shot; diseño, sección 16)
+  # ---------------------------------------------------------------------------
+  # Crea en el catálogo los namespaces bronze, silver y gold, uno por capa.
+  # Reutiliza la imagen de RustFS, que trae curl, igual que rustfs-init. Es
+  # idempotente: si un namespace ya existe, el catálogo responde 409 y cuenta
+  # como éxito. El catálogo no pide credenciales.
+  iceberg-init:
+    image: rustfs/rustfs:1.0.6
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        catalog=http://iceberg-rest:8181/v1
+        for ns in bronze silver gold; do
+          code=$$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                       --request POST --header 'Content-Type: application/json' \
+                       --data "{\"namespace\": [\"$$ns\"]}" "$$catalog/namespaces")
+          case "$$code" in
+            200) echo "Namespace $$ns creado." ;;
+            409) echo "El namespace $$ns ya existe." ;;
+            *)   echo "No se pudo crear el namespace $$ns: HTTP $$code" >&2; exit 1 ;;
+          esac
+        done
+    depends_on:
+      iceberg-rest:
+        condition: service_healthy
+    mem_limit: 64m
