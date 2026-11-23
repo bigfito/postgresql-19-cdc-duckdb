@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "Qué demuestra el laboratorio y qué no",
+    "locale": "es",
+    "output": "wiki-alcance-y-limites.html",
+    "quality_profile": "showcase",
+    "feedback_links": false
+  },
+  "layout": { "direction": "right" },
+  "nodes": [
+    { "id": "lab", "label": "El laboratorio", "sublabel": "una demostración, no un producto" },
+    { "id": "si", "label": "Demuestra", "parent": "lab", "sublabel": "comprobado en las pruebas" },
+    { "id": "no", "label": "No demuestra", "parent": "lab", "sublabel": "queda fuera de su alcance" },
+    { "id": "si1", "label": "El recorrido completo", "parent": "si", "sublabel": "de la operación al tablero" },
+    { "id": "si2", "label": "Frescura", "parent": "si", "sublabel": "15 minutos como mucho" },
+    { "id": "si3", "label": "Historia del dato", "parent": "si", "sublabel": "versiones con fecha" },
+    { "id": "si4", "label": "Que se repite igual", "parent": "si", "sublabel": "desde cero, con una orden" },
+    { "id": "no1", "label": "Datos reales", "parent": "no", "sublabel": "el catálogo es inventado" },
+    { "id": "no2", "label": "Gran volumen", "parent": "no", "sublabel": "miles de películas, no millones" },
+    { "id": "no3", "label": "Servicio sin cortes", "parent": "no", "sublabel": "corre en un solo equipo" },
+    { "id": "no4", "label": "Seguridad de empresa", "parent": "no", "sublabel": "claves de ejemplo, uso local" }
+  ]
+}

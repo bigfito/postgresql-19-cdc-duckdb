@@ -30,4 +30,4 @@ La etapa Oro tiene siete tablas de resultados. Cada una está pensada para un ti
 - **No responden preguntas sobre el pasado por sí solas.** Dicen cómo están las cosas ahora. La historia está en Plata, y sacarla requiere una consulta aparte.
 - **No son datos reales.** Las películas, las cifras y las personas son inventadas; sirven para mostrar el mecanismo, no para sacar conclusiones sobre cine.
 
-Volver al [inicio](Home.md).
+Siguiente página: [La memoria del dato](La-memoria-del-dato.md).

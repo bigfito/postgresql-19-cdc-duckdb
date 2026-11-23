@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "La memoria del dato: una película cambia de título",
+    "locale": "es",
+    "output": "wiki-memoria-del-dato.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "lanes": [
+    { "id": "tablero", "label": "Lo que muestra el tablero" },
+    { "id": "plata", "label": "Lo que recuerda Plata" }
+  ],
+  "mainPath": ["v1", "cierre", "v2"],
+  "nodes": [
+    { "id": "antes", "lane": "tablero", "col": 0, "type": "frontend", "label": "Título original", "sublabel": "hasta las 22:05" },
+    { "id": "despues", "lane": "tablero", "col": 2, "type": "frontend", "label": "Título nuevo", "sublabel": "desde la siguiente actualización" },
+    { "id": "v1", "lane": "plata", "col": 0, "type": "database", "label": "Versión 1", "sublabel": "vigente desde las 21:43" },
+    { "id": "cierre", "lane": "plata", "col": 1, "type": "database", "label": "Versión 1, cerrada", "sublabel": "valió hasta las 22:05:25" },
+    { "id": "v2", "lane": "plata", "col": 2, "type": "database", "label": "Versión 2", "sublabel": "vigente desde las 22:05:25" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "v1", "to": "cierre", "label": "cambia el título", "variant": "emphasis" },
+    { "id": "e2", "from": "cierre", "to": "v2", "variant": "emphasis" },
+    { "id": "e3", "from": "antes", "to": "despues", "label": "se actualiza" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "El tablero", "items": ["Muestra solo lo vigente", "No sabe que hubo otro título"] },
+    { "dot": "violet", "title": "Plata", "items": ["Guarda las dos versiones, cada una con sus fechas", "Permite preguntar qué decía el dato en cualquier momento"] }
+  ]
+}

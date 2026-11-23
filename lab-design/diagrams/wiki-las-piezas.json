@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Las piezas del laboratorio y el trabajo de cada una",
+    "locale": "es",
+    "output": "wiki-las-piezas.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "layout": { "mode": "auto" },
+  "components": [
+    { "id": "simulador", "type": "external", "label": "Simulador", "sublabel": "hace de usuarios (Java)" },
+    { "id": "operacion", "type": "database", "label": "Base de la operación", "sublabel": "PostgreSQL" },
+    { "id": "captura", "type": "messagebus", "label": "Captura de cambios", "sublabel": "Flink CDC" },
+    { "id": "almacen", "type": "database", "label": "Almacén de tablas", "sublabel": "Iceberg sobre RustFS" },
+    { "id": "calculo", "type": "backend", "label": "Motor de cálculo", "sublabel": "Spark" },
+    { "id": "reloj", "type": "backend", "label": "Reloj y vigilante", "sublabel": "Airflow" },
+    { "id": "consulta", "type": "backend", "label": "Motor de consulta", "sublabel": "DuckDB" },
+    { "id": "tableros", "type": "frontend", "label": "Tableros", "sublabel": "Superset" }
+  ],
+  "connections": [
+    { "id": "c1", "from": "simulador", "to": "operacion", "label": "registra", "variant": "emphasis" },
+    { "id": "c2", "from": "operacion", "to": "captura", "label": "cada cambio", "variant": "emphasis" },
+    { "id": "c3", "from": "captura", "to": "almacen", "label": "copia", "variant": "emphasis" },
+    { "id": "c4", "from": "calculo", "to": "almacen", "label": "ordena y resume" },
+    { "id": "c5", "from": "reloj", "to": "calculo", "label": "pone en marcha", "variant": "dashed" },
+    { "id": "c6", "from": "consulta", "to": "almacen", "label": "lee" },
+    { "id": "c7", "from": "tableros", "to": "consulta", "label": "pregunta" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Entrada", "items": ["El simulador y la base hacen de empresa en funcionamiento", "La captura copia cada cambio sin tocar la operación"] },
+    { "dot": "violet", "title": "Almacén", "items": ["Guarda Bronce, Plata y Oro", "El motor de cálculo trabaja cuando el reloj lo indica"] },
+    { "dot": "cyan", "title": "Salida", "items": ["Los tableros preguntan y el motor de consulta lee", "Ninguno de los dos puede modificar el dato"] }
+  ]
+}

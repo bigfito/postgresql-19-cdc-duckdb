@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Qué pasa en cada actualización, cada 10 minutos",
+    "locale": "es",
+    "output": "wiki-frescura-y-confianza.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "entries": {
+        "security": { "label": "Revisión" },
+        "backend": { "label": "Trabajo sobre el dato" },
+        "external": { "label": "Aviso" }
+      }
+    }
+  },
+  "lanes": [
+    { "id": "ciclo", "label": "Actualización" },
+    { "id": "aviso", "label": "Si algo falla" }
+  ],
+  "mainPath": ["rev1", "plata", "rev2", "oro", "rev3", "limpieza"],
+  "nodes": [
+    { "id": "rev1", "lane": "ciclo", "col": 0, "type": "security", "label": "Revisar Bronce", "sublabel": "¿llegó todo?" },
+    { "id": "plata", "lane": "ciclo", "col": 1, "type": "backend", "label": "Ordenar en Plata", "sublabel": "con su historia" },
+    { "id": "rev2", "lane": "ciclo", "col": 2, "type": "security", "label": "Revisar Plata", "sublabel": "¿es coherente?" },
+    { "id": "oro", "lane": "ciclo", "col": 3, "type": "backend", "label": "Resumir en Oro", "sublabel": "las siete tablas" },
+    { "id": "rev3", "lane": "ciclo", "col": 4, "type": "security", "label": "Revisar Oro", "sublabel": "¿se puede consultar?" },
+    { "id": "limpieza", "lane": "ciclo", "col": 5, "type": "backend", "label": "Ordenar el almacén", "sublabel": "siempre al final" },
+    { "id": "error", "lane": "aviso", "col": 5, "type": "external", "label": "Queda marcada", "sublabel": "como fallida" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "rev1", "to": "plata", "variant": "emphasis" },
+    { "id": "e2", "from": "plata", "to": "rev2", "variant": "emphasis" },
+    { "id": "e3", "from": "rev2", "to": "oro", "variant": "emphasis" },
+    { "id": "e4", "from": "oro", "to": "rev3", "variant": "emphasis" },
+    { "id": "e5", "from": "rev3", "to": "limpieza", "variant": "emphasis" },
+    { "id": "e6", "from": "limpieza", "to": "error", "label": "si algo falló", "variant": "dashed", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Tres revisiones", "items": ["Si falla la de Bronce o la de Plata, lo siguiente no se toca", "Los tableros siguen con lo último que estaba bien"] },
+    { "dot": "emerald", "title": "Ritmo", "items": ["Empieza sola cada 10 minutos", "Tarda entre 4 y 5 minutos"] }
+  ]
+}

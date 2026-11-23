@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Una demostración en seis momentos",
+    "locale": "es",
+    "output": "wiki-demostracion.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "lanes": [
+    { "id": "demo", "label": "Lo que se ve, en orden" }
+  ],
+  "mainPath": ["m1", "m2", "m3", "m4", "m5", "m6"],
+  "nodes": [
+    { "id": "m1", "lane": "demo", "col": 0, "type": "backend", "label": "1. Todo arranca", "sublabel": "con una sola orden" },
+    { "id": "m2", "lane": "demo", "col": 1, "type": "external", "label": "2. La empresa trabaja", "sublabel": "altas, cambios y bajas" },
+    { "id": "m3", "lane": "demo", "col": 2, "type": "database", "label": "3. Los cambios llegan", "sublabel": "a la copia, en segundos" },
+    { "id": "m4", "lane": "demo", "col": 3, "type": "backend", "label": "4. El dato se ordena", "sublabel": "sin que nadie lo pida" },
+    { "id": "m5", "lane": "demo", "col": 4, "type": "frontend", "label": "5. Se arma un gráfico", "sublabel": "sobre los resultados" },
+    { "id": "m6", "lane": "demo", "col": 5, "type": "frontend", "label": "6. Se sigue un cambio", "sublabel": "hasta verlo en el gráfico" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "m1", "to": "m2", "variant": "emphasis" },
+    { "id": "e2", "from": "m2", "to": "m3", "variant": "emphasis" },
+    { "id": "e3", "from": "m3", "to": "m4", "variant": "emphasis" },
+    { "id": "e4", "from": "m4", "to": "m5", "variant": "emphasis" },
+    { "id": "e5", "from": "m5", "to": "m6", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Duración", "items": ["Unos 25 minutos en total", "Casi todo es esperar a dos actualizaciones"] },
+    { "dot": "cyan", "title": "El momento que importa", "items": ["El sexto: un dato cambia en la operación", "y minutos después cambia en el gráfico, solo"] }
+  ]
+}

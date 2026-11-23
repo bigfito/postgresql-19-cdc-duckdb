@@ -16,7 +16,7 @@ Este laboratorio muestra, con un ejemplo que funciona de verdad, cómo un cambio
 
 Para quien necesita entender qué hace el laboratorio y qué valor tiene, sin entrar en cómo está construido. No hay comandos ni código. Quien quiera el detalle técnico lo tiene en el [README del repositorio](../README.md) y en el [documento de diseño](../lab-design/LAB-DESIGN.md).
 
-## Por dónde empezar
+## Las páginas
 
 | Página | Pregunta que responde |
 |---|---|
@@ -24,8 +24,15 @@ Para quien necesita entender qué hace el laboratorio y qué valor tiene, sin en
 | [El recorrido de un cambio](El-recorrido-de-un-cambio.md) | ¿Qué pasa desde que alguien cambia un dato hasta que aparece en un tablero? |
 | [Bronce, plata y oro](Bronce-plata-y-oro.md) | ¿Por qué el dato pasa por tres etapas y qué gana en cada una? |
 | [Qué preguntas responde](Qué-preguntas-responde.md) | ¿Qué se puede saber del catálogo con lo que el laboratorio prepara? |
+| [La memoria del dato](La-memoria-del-dato.md) | ¿Cómo sabemos qué decía un dato antes y cuándo cambió? |
+| [Frescura y confianza](Frescura-y-confianza.md) | ¿Qué tan al día está lo que veo y cómo sé que es correcto? |
+| [Las piezas y por qué se eligieron](Las-piezas-y-por-qué-se-eligieron.md) | ¿Qué hace cada herramienta, en una línea, y por qué esa? |
+| [Ver una demostración](Ver-una-demostración.md) | ¿Qué voy a ver en una demostración y en qué fijarme? |
+| [Alcance y límites](Alcance-y-límites.md) | ¿Qué demuestra el laboratorio y qué no? |
+| [Preguntas frecuentes](Preguntas-frecuentes.md) | Las dudas más habituales, en corto. |
+| [Glosario](Glosario.md) | ¿Qué significa cada término? |
 
-Están en preparación otras siete páginas: la memoria del dato, frescura y confianza, las piezas y por qué se eligieron, cómo ver una demostración, alcance y límites, preguntas frecuentes y un glosario.
+Las cinco primeras cuentan la historia completa y conviene leerlas en orden. Las demás se pueden consultar sueltas.
 
 ## El laboratorio en cifras
 
