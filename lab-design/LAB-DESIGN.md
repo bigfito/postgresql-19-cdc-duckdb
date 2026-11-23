@@ -300,7 +300,7 @@ Notas sobre la estructura:
 
 ### Regla de persistencia
 
-Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/`, `pyspark/conf/` y `pyspark/reference/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
+Cada bind mount o volumen de datos persistentes deberá residir dentro del directorio del servicio propietario. Hay una excepción: los datos de RustFS van en el volumen con nombre `rustfs-data`, que vive en el disco de Docker y no en `rustfs/data/` (sección 15, decisión 67). La regla no aplica a los montajes de solo lectura de código o configuración que un servicio toma de otro: `pyspark/jobs/`, `pyspark/conf/` y `pyspark/reference/` en Airflow, `duckdb/init/` en Superset, en el simulador y en el contenedor de línea de comandos, y `raw_data/` en el simulador.
 
 Ejemplos:
 
@@ -315,7 +315,7 @@ metadata-db:
 
 rustfs:
   volumes:
-    - ./rustfs/data:/data
+    - rustfs-data:/data        # la excepción: volumen con nombre
 
 flink-jobmanager:
   volumes:
@@ -1167,22 +1167,21 @@ s3://warehouse/
 
 Los archivos físicos Iceberg, incluyendo datos Parquet y metadata asociada, residirán en RustFS.
 
-Persistencia local:
-
-```text
-rustfs/data/
-```
+Persistencia: el volumen con nombre `rustfs-data` de Docker, no un directorio del repositorio (ver más abajo).
 
 Los demás servicios no manipularán directamente ese directorio. Accederán mediante el endpoint S3.
 
 Detalles de operación:
 
 - Imagen `rustfs/rustfs:1.0.6`; API S3 en el puerto 9000 y consola en el 9001. La consola se abre en `/rustfs/console/`; la raíz del 9001 responde 403.
-- El contenedor corre como `10001:10001`; `rustfs/data/` debe ser escribible por ese usuario.
+- El contenedor corre como `10001:10001`; su volumen de datos debe ser escribible por ese usuario, y `volumes-init` se lo deja así.
 - Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`, que no pide credenciales.
 - Logs por la salida estándar, con `RUSTFS_OBS_LOG_STDOUT_ENABLED=true`, como en el quickstart de Iceberg; así se ven con `docker compose logs rustfs`.
 - **Aviso de sistema de archivos.** En Docker Desktop sobre Windows, `rustfs/data` llega al contenedor como V9FS, y RustFS avisa al arrancar de que solo admite sistemas de archivos POSIX locales para producción. Es un aviso, no un error: en la fase F4 arrancó, guardó y devolvió objetos, uno de ellos de 20 MB, y los conservó tras recrear el contenedor. En la fase F5 aguantó el dataset completo bajo la carga de Flink. Es el riesgo R10 del plan.
-- **Degradación a los 60 minutos de arrancar, observada en la fase F7.** A la hora de arrancar, el proceso de fondo `scanner` de RustFS empieza a recorrer `/data`. Sobre V9FS, desde ese momento RustFS registra entre 10,000 y 42,000 avisos por hora (`disk_operation_slow`, `disk_health_check_failed`), responde 503 por ráfagas y no se recupera solo: seguía igual siete horas después, con el simulador parado. El contenedor sigue figurando sano, Flink sigue en `RUNNING` y los jobs terminan bien porque el cliente S3 reintenta, pero `bronze_to_silver` pasa de unos 90 s a entre 6 y 9 minutos (sección 19). La documentación de RustFS describe variables para apagar o frenar el `scanner` (`RUSTFS_SCANNER_ENABLED`, `RUSTFS_SCANNER_SPEED`; consultada en Context7, corresponde a la rama principal); no se ha comprobado que la 1.0.6 las acepte. Qué hacer está por decidir: sección 6 del plan.
+- **RustFS no aguanta la carga del laboratorio sobre este montaje; observado en las fases F7 y F9.** Bajo carga de escritura y borrado deja de responder a tiempo, registra miles de avisos (`disk_operation_slow`, `disk_health_check_failed`), marca su disco como defectuoso y devuelve 503 por ráfagas. El contenedor sigue figurando sano. Consecuencias medidas: `bronze_to_silver` pasa de unos 90 s a entre 5 y 9 minutos; un 503 termina el TaskManager de Flink con un error fatal, y el pipeline queda parado hasta que se arranca a mano; los borrados por lote de `iceberg_maintenance` agotan la espera del cliente; y una lectura de un archivo de 22 KB llegó a tardar 25 s. En la fase F7 pareció que la causa era el proceso de fondo `scanner`, que arranca a la hora; en la F9 se descartó que sea la única: con `RUSTFS_SCANNER_ENABLED=false` el fallo apareció igual a los 34 minutos, y añadiendo `RUSTFS_DURABILITY_MODE=relaxed`, a los 17. Las dos variables existen en la 1.0.6 (comprobado en su código y en el binario) y ninguna se dejó en el Compose. La explicación más probable, respaldada por una microprueba y no demostrada: sobre el montaje de Windows renombrar y borrar cuesta unas 13 veces más que sobre el disco de Docker, y RustFS guarda cada objeto como un directorio con varios archivos. Por eso los datos pasaron a un volumen con nombre.
+- **Datos en el volumen `rustfs-data`, desde la fase F9 (decisión 67).** Es la única excepción a la regla de un directorio por servicio (sección 7). En el volumen los datos viven en el disco de Docker, sin cruzar la capa que comparte directorios con Windows. Medido con la misma carga que antes lo tumbaba, con Flink y el simulador escribiendo a la vez: `iceberg_maintenance` completo en 193 s la primera vez y 123 s la segunda, sin ninguna respuesta 503, sin lotes de borrado fallidos y sin avisos de lentitud; el TaskManager no cayó; contar `bronze.movie_cast` con DuckDB pasó de 87–89 s a 3 s; y borrar las 20 tablas de Bronze, de 49 s a 19 s. Lo que se pierde: los datos no se ven desde Windows ni están dentro del repositorio, y se borran con `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`, no vaciando un directorio. Los 18,447 archivos que había en `rustfs/data/` se copiaron al volumen con todo detenido; tardó 32 minutos. La copia antigua se borró después: `rustfs/data/` queda vacío, solo con su `.gitkeep`.
+- **Sustituto evaluado: SeaweedFS 4.55.** En un entorno de Compose aparte, con sus datos en un directorio de la unidad E:, pasó 81 minutos de carga continua sin ninguna respuesta 5xx: borra 250 objetos en 0.6 s, `bronze_to_silver` tardó entre 68 y 82 s en 25 corridas sin degradarse, usó como máximo 750 MiB de 1 GiB y mantuvo entre 91 y 117 archivos en su directorio, porque empaqueta los objetos en pocos archivos que solo crecen. Adoptarlo conservaría la regla de un directorio por servicio. Tres condiciones: apagar su telemetría (`-master.telemetry=false`), vigilar su memoria, que subía despacio, y decidir aparte si `flink-taskmanager` debe reiniciarse solo. No se adoptó: la persona responsable decidió seguir con RustFS sobre el volumen, que ya estaba hecho y probado y es el cambio menor (decisión 67). El entorno de prueba se eliminó una vez tomada la decisión.
+- **El montaje de Windows sigue siendo un riesgo para los demás servicios.** Durante la copia de esos 18,447 archivos, con dos laboratorios trabajando a la vez sobre la unidad E:, el PostgreSQL operacional y el del entorno de evaluación se detuvieron en el mismo minuto con «Cannot allocate memory» al escribir y al leer sus archivos. No fue falta de memoria de los contenedores. Los dos se recuperaron solos al arrancar. Es el riesgo R10 del plan.
 - El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store: reutiliza la propia imagen `rustfs/rustfs`, que incluye `curl`, y firma con `curl --aws-sigv4`. No hace falta una imagen de cliente S3 aparte.
 - Todos los clientes (Flink, Spark, DuckDB y el catálogo) usan el mismo endpoint interno `http://rustfs:9000` con acceso path-style.
 - RustFS 1.0 incluye un Iceberg REST Catalog propio («S3 Tables»), pero está marcado como *preview*. No se usa en este laboratorio; el catálogo es un servicio aparte (sección 16).
@@ -1209,6 +1208,7 @@ DuckDB será cliente del catálogo, no propietario exclusivo de este.
 - **Configuración.** La imagen traduce variables `CATALOG_*` a propiedades del catálogo. Las que usa el quickstart oficial de Iceberg son `CATALOG_WAREHOUSE=s3://warehouse/`, `CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO`, `CATALOG_S3_ENDPOINT=http://rustfs:9000` y `CATALOG_S3_PATH__STYLE__ACCESS=true`, además de las credenciales `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION`.
 - **Persistencia.** La imagen trae `CATALOG_URI=jdbc:sqlite:/tmp/iceberg_catalog.db`: el catálogo es un archivo dentro del contenedor. Sobrevive a un reinicio, pero se pierde al recrear el contenedor (`docker compose down` o un cambio en el servicio), y entonces las tablas dejarían de existir para los motores aunque sus archivos siguieran en RustFS. Se fija `CATALOG_URI=jdbc:sqlite:/catalog/iceberg_catalog.db` y se monta `./iceberg/data` en `/catalog`. La validación 4 confirmó que así las tablas sobreviven a la recreación del contenedor, también con el directorio en una unidad NTFS de Windows.
 - **Healthcheck.** La imagen ya declara uno (`curl` contra `/v1/config`); el Compose puede usar `condition: service_healthy` sin definirlo.
+- **Una sola conexión a SQLite** (`CATALOG_CLIENTS: "1"`). Con las dos que la imagen abre por defecto, cuando el catálogo arranca sobre un archivo que ya existe una de ellas se queda con un bloqueo de lectura permanente, y los commits que le tocan a la otra fallan con «database is locked» tras agotar su espera. Cada commit rechazado reinicia el pipeline de Flink, que entra en un bucle. Observado en la fase F9, la primera vez que el catálogo se reinició con Flink escribiendo; el bloqueo se ve en `/proc/locks` del contenedor. Con una conexión no volvió a ocurrir. No se ha investigado por qué esa conexión conserva el bloqueo.
 - El job one-shot `iceberg-init` crea los namespaces `bronze`, `silver` y `gold` con `POST /v1/namespaces` contra el catálogo, desde la imagen de RustFS, que trae `curl`, igual que `rustfs-init`. Si un namespace ya existe, la respuesta `409` cuenta como éxito, así que el job es idempotente.
 - Sin autenticación: el catálogo solo es alcanzable dentro de la red del Compose y, desde la propia máquina, en `127.0.0.1`.
 - Alternativas si la imagen de referencia se queda corta: Lakekeeper o Apache Polaris. Cambiar de catálogo no altera el resto del diseño porque todos los motores hablan el protocolo REST.
@@ -1290,6 +1290,7 @@ Tareas:
 | `silver_to_gold` | `SparkSubmitOperator` sobre `silver_to_gold.py` | Se reintenta; Gold se recarga completo |
 | `validate_gold` | Conteos mínimos y columnas clave sin nulos | El DAG queda en error; Superset sigue mostrando la carga anterior |
 | `iceberg_maintenance` | Compacta Bronze y expira los snapshots antiguos de Bronze, Silver y Gold, conservando los 5 últimos de cada tabla. Corre siempre al final, aunque falle una tarea anterior (`trigger_rule = all_done`), y omite las tablas que todavía no existen | No bloquea la corrida siguiente |
+| `mark_run_failed` | No lanza ningún job. Solo se ejecuta si alguna tarea anterior falló, y entonces falla ella: deja la corrida en error. Airflow decide el estado de una corrida por sus tareas finales, y `iceberg_maintenance` corre siempre y suele terminar bien; sin esta tarea, una corrida con una validación fallida figuraría como correcta | Si todas las tareas van bien se omite y la corrida queda en `success` |
 
 Si una validación falla, las tareas siguientes no corren, salvo `iceberg_maintenance`. Las validaciones son jobs PySpark cortos con aserciones, uno por tarea (`validate_bronze.py`, `validate_silver.py` y `validate_gold.py` en `pyspark/jobs/`), lanzados con `SparkSubmitOperator` como las transformaciones. No se añade un framework de calidad de datos.
 
@@ -1312,6 +1313,21 @@ Airflow no gobernará cada evento CDC.
 - Metadatos en `metadata-db` (base `airflow`).
 - **Programación.** El DAG corre cada 10 minutos (`schedule=timedelta(minutes=10)`) y queda activo desde que se crea (`is_paused_upon_creation=False`; por defecto Airflow crea los DAG en pausa). Lleva `catchup=False`, que en Airflow 3 ya es el valor por defecto, y `max_active_runs=1`, para que dos corridas no escriban Silver a la vez. También se puede lanzar a mano en cualquier momento. La duración de una corrida completa no se ha medido; en las validaciones, el `MERGE` de `dim_movie` tardó unos 10 s y el mantenimiento de las 20 tablas de Bronze, 62 s. Si una corrida se alarga más de 10 minutos, la siguiente espera en lugar de solaparse.
 - **Primera corrida.** Con un `schedule` de tipo `timedelta` y sin `catchup`, Airflow crea una corrida en cuanto el DAG queda activo. Si Bronze todavía no tiene sus 20 tablas, esa corrida falla en `validate_bronze` sin consecuencias, y la siguiente llega 10 minutos después. Gold existe desde la primera corrida que termina bien; hasta entonces Superset no tiene nada que mostrar.
+
+### Cómo está implementado
+
+Comprobado en la fase F9.
+
+- **Imagen.** `airflow/Dockerfile` parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` y `pyspark-client` 4.1.4, el proveedor de Spark 6.3.4 y los dos JAR de Iceberg 1.12.0, con su SHA-1 comprobado. Pesa 4.77 GB; la base, 3.25 GB. Monta `pyspark/conf`, `pyspark/jobs` y `pyspark/reference` en las mismas rutas que la imagen de Spark, bajo `/opt/spark`.
+- **Servicios.** `airflow-init` migra la base y crea el administrador, y es idempotente; `airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor` esperan a que termine. Los tres quedan sanos en unos 16 s. El de la API se comprueba con `/api/v2/monitor/health`, que no pide credenciales; los otros dos, con `airflow jobs check`.
+- **DAG.** `airflow/dags/elastiflix_medallion.py`. Cada tarea de Spark es un `SparkSubmitOperator` que lanza el job del mismo nombre que la tarea, con `spark.driver.host=airflow-scheduler` y `spark.driver.bindAddress=0.0.0.0`. Las dos transformaciones llevan dos reintentos, con un minuto de espera; las validaciones y el mantenimiento, ninguno.
+- **Timestamp de la corrida.** Las dos transformaciones reciben `--run-ts {{ dag_run.run_after.isoformat() }}`. Las filas nuevas de Silver y todas las de Gold llevan exactamente ese instante.
+- **Arranque sin intervención.** El DAG nace activo y el scheduler crea su primera corrida sin que nadie lo active. Un archivo de DAG nuevo tarda hasta 5 minutos en aparecer: es cada cuánto `airflow-dag-processor` busca archivos nuevos. Si el archivo ya está al arrancar, lo lee de inmediato.
+- **Duración de una corrida completa.** Entre 4 y 5 minutos con el dataset completo y el simulador en marcha: `validate_bronze` 15–18 s, `bronze_to_silver` 59–70 s, `validate_silver` 34–35 s, `silver_to_gold` 41–42 s, `validate_gold` 28–29 s e `iceberg_maintenance` 63–98 s. Cabe en el intervalo de 10 minutos. Medido con RustFS sobre el volumen de Docker (sección 15) y con Bronze compactado en cada corrida.
+- **Validaciones.** `validate_bronze.py` falla con `VBRONZE-001` si falta alguna de las 20 tablas y con `VBRONZE-002` si el pipeline de Flink no está en `RUNNING`. `validate_silver.py` hace 24 comprobaciones y falla con `VSILVER-001`; las referencias en 0 las anota sin fallar. `validate_gold.py` exige que cada producto exista, tenga filas y no traiga claves nulas ni repetidas, y falla con `VGOLD-001`.
+- **Cuando una validación falla.** Comprobado con `validate_bronze`, deteniendo el TaskManager de Flink: las cuatro tareas siguientes quedan en `upstream_failed` sin ejecutarse, `iceberg_maintenance` corre, `mark_run_failed` deja la corrida en `failed`, y Silver y Gold no cambian.
+- **Memoria.** Con el driver de Spark dentro, `airflow-scheduler` llegó a 1.88 GiB de su límite de 2 GiB en una corrida completa. No falló, pero el margen es muy justo: riesgo R12 del plan.
+- **Lo que no se probó.** El fallo de `validate_silver` y de `validate_gold`; un reintento real de una transformación; el inicio de sesión en la interfaz web desde un navegador, que se comprobó por la API; y la imagen para `arm64`.
 
 ## 19. ⚡ Job PySpark #1: Bronze → Silver
 
@@ -2433,10 +2449,14 @@ CALL lake.system.rewrite_data_files(
     options => map('rewrite-all', 'true', 'remove-dangling-deletes', 'true'));
 CALL lake.system.rewrite_position_delete_files(
     table => 'bronze.movie', options => map('rewrite-all', 'true'));
-CALL lake.system.expire_snapshots(table => 'bronze.movie', retain_last => 5);
+CALL lake.system.expire_snapshots(
+    table => 'bronze.movie', older_than => TIMESTAMP '2026-11-23 19:45:00', retain_last => 5);
 ```
 
-- La compactación puede correr con Flink escribiendo: no hubo conflictos de commit ni reinicios del job.
+- **`older_than` es obligatorio.** Por defecto `expire_snapshots` solo expira snapshots de más de cinco días, así que en un laboratorio que lleva horas en marcha `retain_last` por sí solo no expira ninguno. El job pasa la hora en que arranca.
+- **La compactación corre con Flink escribiendo, pero a veces se cruzan.** Si Flink confirma un checkpoint entre la reescritura y la retirada de los deletes sobrantes, Iceberg rechaza esta última («Cannot remove dangling deletes: current snapshot changed»). No se pierde nada. `iceberg_maintenance.py` repite la compactación de esa tabla hasta tres veces y, si no lo consigue, la deja para la corrida siguiente. Pasó una vez en 49 tablas en la fase F9.
+- **Si una tabla falla por otra causa**, el job lo anota, sigue con las demás y termina con código 1.
+- **Efecto medido en la fase F9.** Tras un día de simulador sin mantenimiento, Bronze tenía 2,088 archivos de datos y 3,447 de borrado; una corrida los dejó en 67 y 82. Con el mantenimiento en cada corrida del DAG, leer las 20 tablas Bronze cuesta unos 20 s.
 - `rewrite-all` tiene sentido mientras las tablas sean pequeñas, como en este laboratorio; con tablas grandes se sustituye por `delete-file-threshold`.
 - Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda: se conservan los 5 últimos snapshots.
 
@@ -2457,7 +2477,7 @@ Qué implica:
 - **No aparecen versiones nuevas por la recarga.** Todas las filas vuelven con `cdc_op_type = '+I'` y un `cdc_op_ts` nuevo, pero su contenido y su `updated_at` no cambian, así que el hash de atributos coincide con el de la versión vigente.
 - **El paso 1 no es opcional.** Con el DAG activo, una corrida que encuentre Bronze vacío o incompleto cerraría versiones de filas que siguen existiendo.
 
-Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto. Repetido en la fase F5 con el laboratorio ya construido: 49 s el borrado y 110 s desde el envío hasta que Bronze volvió a coincidir con PostgreSQL en las 20 tablas.
+Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto. Repetido en la fase F5 con el laboratorio ya construido: 49 s el borrado y 110 s desde el envío hasta que Bronze volvió a coincidir con PostgreSQL en las 20 tablas. Repetido en la fase F9 con el DAG, pausándolo antes y reanudándolo después: 19 s el borrado y 187 s hasta que Bronze coincidió (439,937 filas); la corrida siguiente del DAG no escribió nada en Silver, cuyas 22 tablas conservaron su snapshot y sus filas.
 
 **Slot de replicación invalidado.** Si PostgreSQL invalida el slot `elastiflix_cdc` porque Flink estuvo parado más de lo que permite `max_slot_wal_keep_size` (sección 10), el pipeline no puede reanudar desde su checkpoint. Se aplica el mismo procedimiento, con dos pasos más antes del paso 3: borrar el slot (`pg_drop_replication_slot`) y borrar los checkpoints retenidos de `flink/data/`, para que `flink-cdc-submit` haga un envío nuevo. No se ha probado. Mientras las tablas no existen, `bronze_to_silver` falla con «tabla no encontrada» en lugar de cerrar versiones; eso no sustituye al paso 1, porque no cubre el intervalo en que unas tablas ya se recrearon y otras no.
 
@@ -2545,10 +2565,10 @@ Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha
 | Spark master | 0.5 GB | 0.29 GB |
 | Spark worker | 3 GB | 2.18 GB |
 | `airflow-apiserver` | 0.5 GB | 0.33 GB |
-| `airflow-scheduler` | 2 GB | 1.41 GB |
+| `airflow-scheduler` | 2 GB | 1.88 GB |
 | `airflow-dag-processor` | 0.5 GB | 0.37 GB |
 | Superset | 2 GB | 1.15 GB |
-| RustFS | 1 GB | 0.11 GB |
+| RustFS | 1 GB | 0.73 GB |
 | Iceberg REST | 0.5 GB | 0.24 GB |
 | Event Simulator | 0.5 GB | 0.12 GB, medido con una sonda que no carga el dataset; el simulador real suma unos 100 MB |
 
@@ -2556,7 +2576,7 @@ Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB
 
 - **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 3 GB de Airflow se reparten 0.5, 2 y 0.5.
 - **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso. Ofrece al clúster 1500 MB y 4 núcleos (`SPARK_WORKER_MEMORY`, `SPARK_WORKER_CORES`), lo justo para un ejecutor, así que corre una aplicación a la vez. El master y el worker limitan su propio proceso con `SPARK_DAEMON_MEMORY=256m`; sin ese valor cada uno pediría 1 GB.
-- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB: hay que volver a medirlo en la fase F9, con el driver dentro del scheduler.
+- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB: medido en la fase F9, con el driver dentro del scheduler: 1.88 GiB en una corrida completa del DAG, a un 6 % del límite. Es el riesgo R12 del plan.
 - Si el host tiene menos de 16 GB, se puede detener el simulador o Superset mientras corre el DAG.
 
 ### Datos de desarrollo
@@ -2590,7 +2610,7 @@ docker compose up -d --no-deps java-simulator
 Para dejar el laboratorio como recién clonado, sin perder las imágenes construidas ni el `.env`:
 
 1. `docker compose down`, que detiene y elimina los contenedores y la red.
-2. Vaciar los directorios de datos, conservando su `.gitkeep`: `postgresql/data/`, `metadata-db/data/`, `flink/data/`, `iceberg/data/`, `rustfs/data/`, `superset/data/` y `airflow/logs/`.
+2. Vaciar los directorios de datos, conservando su `.gitkeep`: `postgresql/data/`, `metadata-db/data/`, `flink/data/`, `iceberg/data/`, `superset/data/` y `airflow/logs/`. Los datos de RustFS están en un volumen (sección 15): se borra con `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`.
 3. `docker compose up -d`.
 
 Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laboratorio incoherente: un catálogo que apunta a archivos que ya no están en RustFS, o checkpoints de Flink que remiten a un slot de replicación que ya no existe. Se usa antes de la prueba de extremo a extremo (fase F11) y cada vez que haga falta repetir la demostración desde el principio. El procedimiento no se ha probado como tal; lo comprueba la actividad F11-12 del plan.
@@ -2693,7 +2713,7 @@ Ningún servicio de larga duración corre como `root`. Comprobado sobre las imá
 | `spark-master`, `spark-worker` | `spark` | 185:185 | Ninguno |
 | `airflow-*` | `airflow` | 50000:0 | `airflow/logs` |
 | `superset` | `superset` | 1000:1000 | `superset/data` |
-| `rustfs` | `rustfs` | 10001:10001 | `rustfs/data` |
+| `rustfs` | `rustfs` | 10001:10001 | El volumen `rustfs-data` |
 | `iceberg-rest` | `iceberg` | 1000:1000 | `iceberg/data` |
 | `java-simulator` | `simulator` | 10002:10002 | Ninguno; lee `raw_data/` en solo lectura |
 

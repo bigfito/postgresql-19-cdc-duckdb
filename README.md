@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F8 dejaron el camino del dato hasta Gold: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, sobre RustFS y el catálogo Iceberg, y dos jobs de Spark construyen el modelo dimensional de Silver y los siete productos analíticos de Gold. Esos jobs todavía se lanzan a mano: Airflow y Superset llegan fase a fase según el [plan de trabajo](planning/PLAN.md).
+> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F9 dejaron el camino del dato hasta Gold y su orquestación: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, y el DAG `elastiflix_medallion` de Airflow lanza cada 10 minutos los jobs de Spark que actualizan Silver y Gold, con sus validaciones y el mantenimiento de Iceberg. Falta Superset, que llega con el resto de fases del [plan de trabajo](planning/PLAN.md).
 
 | Elemento | Estado |
 |---|---|
@@ -24,7 +24,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
-| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/` y `duckdb/` |
+| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/`, `airflow/` y `duckdb/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
@@ -34,7 +34,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Event Simulator: transacciones reales, interfaz de consola y seguimiento de cada cambio hasta Bronze | ✅ Fase F6 terminada |
 | Spark y capa Silver: imagen, clúster y el job que mantiene 14 dimensiones, 2 hechos y 6 bridges con historial | ✅ Fase F7 terminada |
 | Capa Gold: el job que recarga los siete productos analíticos | ✅ Fase F8 terminada |
-| Implementación del resto (DAG y Superset) | ⏳ Fases F9 a F12; ver el [plan de trabajo](planning/PLAN.md) |
+| Orquestación con Airflow: imagen, servicios, DAG `elastiflix_medallion`, validaciones y mantenimiento de Iceberg | ✅ Fase F9 terminada |
+| Implementación del resto (Superset, integración y cierre) | ⏳ Fases F10 a F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -133,7 +134,7 @@ postgresql-19-cdc-duckdb/
         `-- end-to-end-change-path.{json,html,svg}
 ```
 
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización, `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación, `postgresql/scripts/` la carga de desarrollo, `flink/` la imagen, la configuración y el pipeline CDC, `java-simulator/` el proyecto Maven del simulador y su imagen, `pyspark/` la imagen de Spark, su configuración, los datos de referencia y los jobs de Silver y de Gold, y `duckdb/init/` el SQL con el que DuckDB adjunta el lakehouse; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización, `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación, `postgresql/scripts/` la carga de desarrollo, `flink/` la imagen, la configuración y el pipeline CDC, `java-simulator/` el proyecto Maven del simulador y su imagen, `pyspark/` la imagen de Spark, su configuración, los datos de referencia y los jobs de Silver, de Gold, de validación y de mantenimiento, `airflow/` la imagen de Airflow y el DAG, y `duckdb/init/` el SQL con el que DuckDB adjunta el lakehouse; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/
@@ -176,7 +177,7 @@ docker compose up -d --build
 
 Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; `iceberg-rest`, el catálogo de tablas; y Flink (`flink-jobmanager`, `flink-taskmanager` y el job `flink-cdc-submit`), que deja corriendo el pipeline que replica PostgreSQL en Bronze; `java-simulator`, que empieza a insertar películas en cuanto el pipeline está en marcha; y `spark-master` y `spark-worker`, el clúster que ejecuta los jobs por lotes (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; `iceberg-rest`, el catálogo de tablas; y Flink (`flink-jobmanager`, `flink-taskmanager` y el job `flink-cdc-submit`), que deja corriendo el pipeline que replica PostgreSQL en Bronze; `java-simulator`, que empieza a insertar películas en cuanto el pipeline está en marcha; `spark-master` y `spark-worker`, el clúster que ejecuta los jobs por lotes; y Airflow (`airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor` y el job `airflow-init`), que los lanza (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
 ### El simulador
 
@@ -193,15 +194,34 @@ El simulador arranca solo y escribe una línea por transacción. Para verlo y ma
 
 La columna `Bronze` de la interfaz dice si cada cambio ya llegó al lakehouse y cuánto tardó: entre 11 y 50 segundos. Al detenerlo, el contenedor queda en `Exited (143)`; es lo normal. El detalle está en la [sección 9 del diseño](lab-design/LAB-DESIGN.md#9--aplicación-java-25-event-simulator).
 
+### El DAG de Airflow
+
+Airflow está en <http://127.0.0.1:8080>. El usuario y la contraseña son `AIRFLOW_ADMIN_USER` y `AIRFLOW_ADMIN_PASSWORD` de `.env`.
+
+El DAG `elastiflix_medallion` corre solo cada 10 minutos desde el primer arranque, sin activarlo. Cada corrida tarda entre 4 y 5 minutos y hace esto, en orden:
+
+| Tarea | Qué hace |
+|---|---|
+| `validate_bronze` | Comprueba que existen las 20 tablas Bronze y que el pipeline de Flink está en marcha |
+| `bronze_to_silver` | Actualiza el modelo dimensional de Silver |
+| `validate_silver` | Comprueba que Silver es coherente |
+| `silver_to_gold` | Recarga los siete productos de Gold |
+| `validate_gold` | Comprueba que Gold se puede consultar |
+| `iceberg_maintenance` | Compacta Bronze y expira snapshots antiguos; corre siempre |
+
+Si una validación falla, las tareas siguientes no corren, salvo el mantenimiento, y la corrida queda en error. La causa está en el log de la tarea que falló. El detalle está en la sección 18 del diseño, [Apache Airflow](lab-design/LAB-DESIGN.md#despliegue-de-airflow).
+
+> ℹ️ Los datos de RustFS no están en `rustfs/data/`: viven en un volumen de Docker, `rustfs-data`. La razón está en la [sección 15 del diseño](lab-design/LAB-DESIGN.md#15--rustfs). Para borrarlos: `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`, con el laboratorio detenido.
+
 ### Los jobs de Silver y Gold
 
-Mientras no exista Airflow, Silver se construye y se pone al día lanzando su job a mano:
+Airflow lanza estos dos jobs en cada corrida del DAG. También se pueden lanzar a mano, por ejemplo con el DAG en pausa. El de Silver:
 
 ```bash
 docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py
 ```
 
-La primera corrida crea las 22 tablas de Silver; las siguientes solo escriben lo que cambió en Bronze, y una corrida sin cambios no escribe nada. Tarda entre uno y dos minutos con el dataset completo. Si RustFS lleva más de una hora en marcha puede tardar entre 6 y 9 minutos: es un problema conocido, descrito en la [sección 15 del diseño](lab-design/LAB-DESIGN.md#15--rustfs). En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1` al comando. La interfaz de Spark está en <http://127.0.0.1:8082>. El detalle del job está en la [sección 19 del diseño](lab-design/LAB-DESIGN.md#19--job-pyspark-1-bronze--silver).
+La primera corrida crea las 22 tablas de Silver; las siguientes solo escriben lo que cambió en Bronze, y una corrida sin cambios no escribe nada. Tarda alrededor de un minuto con el dataset completo. En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1` al comando. La interfaz de Spark está en <http://127.0.0.1:8082>. El detalle del job está en la [sección 19 del diseño](lab-design/LAB-DESIGN.md#19--job-pyspark-1-bronze--silver).
 
 Con Silver al día, Gold se recarga con el segundo job:
 
@@ -209,7 +229,7 @@ Con Silver al día, Gold se recarga con el segundo job:
 docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/silver_to_gold.py
 ```
 
-Cada corrida reemplaza completas las siete tablas de Gold, que son las que consultará Superset. Tarda entre dos y cuatro minutos. Sus columnas están en la [sección 33 del diseño](lab-design/LAB-DESIGN.md#33--capa-gold).
+Cada corrida reemplaza completas las siete tablas de Gold, que son las que consultará Superset. Tarda menos de un minuto. Sus columnas están en la [sección 33 del diseño](lab-design/LAB-DESIGN.md#33--capa-gold).
 
 ### Carga de desarrollo
 

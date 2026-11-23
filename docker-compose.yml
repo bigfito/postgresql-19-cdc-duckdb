@@ -151,6 +151,20 @@ x-airflow-volumes: &airflow-volumes
   - ./pyspark/jobs:/opt/spark/jobs:ro
   - ./pyspark/reference:/opt/spark/reference:ro
 
+# -----------------------------------------------------------------------------
+# Volúmenes (diseño, secciones 7 y 15)
+# -----------------------------------------------------------------------------
+# rustfs-data es el único volumen con nombre del laboratorio. Los datos de
+# RustFS no van en rustfs/data, como pediría la regla de un directorio por
+# servicio, porque sobre un directorio compartido desde Windows RustFS deja de
+# responder bajo carga y devuelve 503, lo que detiene el pipeline de Flink.
+# En el volumen los datos viven en el disco de Docker: no se ven desde
+# Windows y se borran con `docker volume rm`, no vaciando un directorio.
+# Se evaluó sustituir RustFS por SeaweedFS, que permitiría volver a un
+# directorio; se decidió seguir con RustFS sobre el volumen (decisión 67).
+volumes:
+  rustfs-data:
+
 services:
 
   # ---------------------------------------------------------------------------
@@ -181,7 +195,7 @@ services:
       - ./flink/data:/mnt/flink-data
       - ./airflow/logs:/mnt/airflow-logs
       - ./superset/data:/mnt/superset-data
-      - ./rustfs/data:/mnt/rustfs-data
+      - rustfs-data:/mnt/rustfs-data
       - ./iceberg/data:/mnt/iceberg-data
     mem_limit: 64m
 
@@ -271,7 +285,9 @@ services:
   # el 9001. Todos los clientes usan el endpoint interno http://rustfs:9000 con
   # acceso path-style.
   # Corre como el usuario rustfs (10001:10001) de la imagen; por eso espera a
-  # volumes-init, que le deja rustfs/data con ese dueño.
+  # volumes-init, que le deja su volumen de datos con ese dueño.
+  # Sus datos son la excepción a la regla de un directorio por servicio: van
+  # en el volumen rustfs-data y no en rustfs/data (ver «Volúmenes», arriba).
   rustfs:
     image: rustfs/rustfs:1.0.6
     environment:
@@ -282,7 +298,7 @@ services:
       RUSTFS_OBS_LOG_STDOUT_ENABLED: "true"
     ports: *ports-rustfs
     volumes:
-      - ./rustfs/data:/data
+      - rustfs-data:/data
     depends_on:
       volumes-init:
         condition: service_completed_successfully
@@ -351,6 +367,11 @@ services:
       # El catálogo es un archivo SQLite. Por defecto la imagen lo deja en /tmp,
       # que se pierde al recrear el contenedor; aquí va a iceberg/data/.
       CATALOG_URI: jdbc:sqlite:/catalog/iceberg_catalog.db
+      # Una sola conexión a SQLite. Con las dos que abre por defecto, cuando el
+      # catálogo arranca sobre un archivo que ya existe una de ellas se queda
+      # con un bloqueo de lectura, y los commits que le tocan a la otra fallan
+      # con «database is locked»: cada fallo reinicia el pipeline de Flink.
+      CATALOG_CLIENTS: "1"
       # La clave única de RustFS (sección 45.3).
       AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
       AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
