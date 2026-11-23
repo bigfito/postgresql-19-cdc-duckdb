@@ -6240,6 +6240,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <path data-graph-role="automatic-crossover-underlay" d="M 730 900 L 820 900" fill="none" stroke="var(--mask)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" pointer-events="none"/>
           <path data-edge-from="catalog" data-edge-to="rustfs" data-edge-label="archivos" data-edge-key="15" data-edge-id="catalog-store" data-composition-points="730,900;820,900" data-composition-crossover="halo" data-composition-independent="true" d="M 730 900 L 820 900" class="a-default" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         </g>
+        <path data-edge-from="simulator" data-edge-to="bronze" data-edge-label="consulta bronze.movie" data-edge-key="16" data-edge-id="bronze-check" data-composition-points="250,210;172,210;172,624;250,624" d="M 250 210 L 180 210 Q 172 210 172 218 L 172 616 Q 172 624 180 624 L 250 624" class="a-dashed" data-animate="edge" style="--step:12" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
         <g id="node-csv" data-node-id="csv" data-node-label="raw_data/*.csv" tabindex="0" role="button" aria-label="Enfocar raw_data/*.csv, 20 CSV · 6,899 películas, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="20 CSV · 6,899 películas" data-node-context="Componente de arquitectura">
@@ -6465,6 +6466,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <g data-detail="context" data-edge-from="catalog" data-edge-to="rustfs" data-edge-label="archivos" data-edge-key="15" data-edge-id="catalog-store">
           <rect x="750.8" y="880" width="48.4" height="14" rx="3" class="c-mask"/>
           <text x="775" y="890" class="t-edge-default" font-size="10" font-weight="500" textLength="44.4" lengthAdjust="spacingAndGlyphs" text-anchor="middle">archivos</text>
+        </g>
+        <g data-detail="context" data-edge-from="simulator" data-edge-to="bronze" data-edge-label="consulta bronze.movie" data-edge-key="16" data-edge-id="bronze-check">
+          <rect x="116.6" y="397" width="110.8" height="14" rx="3" class="c-mask"/>
+          <text x="172" y="407" class="t-edge-dashed" font-size="10" font-weight="500" textLength="106.8" lengthAdjust="spacingAndGlyphs" text-anchor="middle">consulta bronze.movie</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
@@ -6709,6 +6714,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <li>El simulador ejecuta transacciones JDBC reales</li>
           <li>Flink CDC confirma en Iceberg en cada checkpoint</li>
           <li>Los DELETE llegan a Bronze como tombstones (cdc_op_type = -D)</li>
+          <li>El simulador consulta bronze.movie con DuckDB embebido, en solo lectura, para seguir cada cambio</li>
         </ul>
       </div>
 

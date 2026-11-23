@@ -55,9 +55,17 @@
   ],
   "nodes": [
     {
-      "id": "rustfs",
+      "id": "volumesInit",
       "lane": "store",
       "col": 0,
+      "type": "messagebus",
+      "label": "volumes-init",
+      "sublabel": "propiedad de directorios"
+    },
+    {
+      "id": "rustfs",
+      "lane": "store",
+      "col": 1,
       "type": "database",
       "label": "rustfs",
       "sublabel": "S3 :9000"
@@ -65,7 +73,7 @@
     {
       "id": "rustfsInit",
       "lane": "store",
-      "col": 1,
+      "col": 2,
       "type": "messagebus",
       "label": "rustfs-init",
       "sublabel": "crea bucket warehouse"
@@ -73,7 +81,7 @@
     {
       "id": "icebergRest",
       "lane": "store",
-      "col": 2,
+      "col": 3,
       "type": "cloud",
       "label": "iceberg-rest",
       "sublabel": "catálogo :8181"
@@ -81,7 +89,7 @@
     {
       "id": "icebergInit",
       "lane": "store",
-      "col": 3,
+      "col": 4,
       "type": "messagebus",
       "label": "iceberg-init",
       "sublabel": "bronze, silver, gold"
@@ -121,7 +129,7 @@
     {
       "id": "metadataDb",
       "lane": "batch",
-      "col": 0,
+      "col": 1,
       "type": "database",
       "label": "metadata-db",
       "sublabel": "airflow + superset"
@@ -129,7 +137,7 @@
     {
       "id": "airflowInit",
       "lane": "batch",
-      "col": 1,
+      "col": 2,
       "type": "messagebus",
       "label": "airflow-init",
       "sublabel": "migra BD y crea admin"
@@ -145,7 +153,7 @@
     {
       "id": "airflow",
       "lane": "batch",
-      "col": 2,
+      "col": 3,
       "type": "backend",
       "label": "airflow",
       "sublabel": "api, scheduler, dags"
@@ -168,6 +176,39 @@
     }
   ],
   "edges": [
+    {
+      "id": "v1",
+      "from": "volumesInit",
+      "to": "rustfs",
+      "label": "completó"
+    },
+    {
+      "id": "v2",
+      "from": "volumesInit",
+      "to": "flink",
+      "label": "completó",
+      "role": "branch",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "v4",
+      "from": "volumesInit",
+      "to": "supersetInit",
+      "label": "completó",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "v3",
+      "from": "volumesInit",
+      "to": "airflowInit",
+      "label": "completó",
+      "role": "branch",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
     {
       "id": "e1",
       "from": "rustfs",
@@ -255,7 +296,8 @@
       "items": [
         "Terminan con código 0 y no se reinician",
         "depends_on usa service_completed_successfully",
-        "Son idempotentes: se pueden relanzar"
+        "Son idempotentes: se pueden relanzar",
+        "volumes-init corre primero, como root, y prepara los directorios de datos"
       ]
     },
     {

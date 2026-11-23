@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Criterio de éxito: recorrido de un cambio de extremo a extremo",
+    "locale": "es",
+    "output": "end-to-end-change-path.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "entries": {
+        "external": {
+          "label": "Fuente de datos"
+        },
+        "backend": {
+          "label": "Cómputo y orquestación"
+        },
+        "database": {
+          "label": "Almacenamiento de datos"
+        },
+        "messagebus": {
+          "label": "Streaming CDC"
+        },
+        "cloud": {
+          "label": "Infraestructura compartida"
+        },
+        "frontend": {
+          "label": "Consumo BI"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "csv",
+      "type": "external",
+      "label": "CSV",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "java",
+      "type": "backend",
+      "label": "Java transaction",
+      "pos": [
+        256,
+        40
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "wal",
+      "type": "database",
+      "label": "PostgreSQL WAL",
+      "pos": [
+        472,
+        40
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "flink",
+      "type": "messagebus",
+      "label": "Flink CDC",
+      "pos": [
+        688,
+        40
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "bronze",
+      "type": "database",
+      "label": "Iceberg Bronze",
+      "pos": [
+        40,
+        180
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "job1",
+      "type": "backend",
+      "label": "Airflow/PySpark",
+      "pos": [
+        256,
+        180
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "silver",
+      "type": "database",
+      "label": "Silver",
+      "sublabel": "dimensional/SCD2",
+      "pos": [
+        472,
+        180
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "job2",
+      "type": "backend",
+      "label": "Airflow/PySpark",
+      "pos": [
+        688,
+        180
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "gold",
+      "type": "database",
+      "label": "Gold",
+      "sublabel": "materializado",
+      "pos": [
+        40,
+        320
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "duckdb",
+      "type": "backend",
+      "label": "DuckDB",
+      "pos": [
+        256,
+        320
+      ],
+      "size": [
+        176,
+        60
+      ]
+    },
+    {
+      "id": "superset",
+      "type": "frontend",
+      "label": "Apache Superset",
+      "pos": [
+        472,
+        320
+      ],
+      "size": [
+        176,
+        60
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "csv-java",
+      "from": "csv",
+      "to": "java",
+      "variant": "emphasis"
+    },
+    {
+      "id": "java-wal",
+      "from": "java",
+      "to": "wal",
+      "variant": "emphasis"
+    },
+    {
+      "id": "wal-flink",
+      "from": "wal",
+      "to": "flink",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flink-bronze",
+      "from": "flink",
+      "to": "bronze",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "bronze-job1",
+      "from": "bronze",
+      "to": "job1",
+      "variant": "emphasis"
+    },
+    {
+      "id": "job1-silver",
+      "from": "job1",
+      "to": "silver",
+      "variant": "emphasis"
+    },
+    {
+      "id": "silver-job2",
+      "from": "silver",
+      "to": "job2",
+      "variant": "emphasis"
+    },
+    {
+      "id": "job2-gold",
+      "from": "job2",
+      "to": "gold",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "gold-duckdb",
+      "from": "gold",
+      "to": "duckdb",
+      "variant": "emphasis"
+    },
+    {
+      "id": "duckdb-superset",
+      "from": "duckdb",
+      "to": "superset",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Criterio de éxito",
+      "items": [
+        "Un revisor externo clona el proyecto y lo levanta con Docker Compose",
+        "Observa un cambio real generado por Java",
+        "El cambio recorre los once pasos, de CSV a Apache Superset"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Airflow/PySpark aparece dos veces",
+      "items": [
+        "De Iceberg Bronze a Silver: bronze_to_silver",
+        "De Silver a Gold: silver_to_gold"
+      ]
+    }
+  ]
+}

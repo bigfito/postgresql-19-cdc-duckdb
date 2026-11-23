@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Calidad de datos: responsabilidad de cada capa",
+    "locale": "es",
+    "output": "quality-by-layer.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "conserva semántica fuente",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        290,
+        64
+      ]
+    },
+    {
+      "id": "bronze",
+      "type": "database",
+      "label": "Bronze",
+      "sublabel": "réplica as-is",
+      "pos": [
+        40,
+        152
+      ],
+      "size": [
+        290,
+        64
+      ]
+    },
+    {
+      "id": "silver",
+      "type": "database",
+      "label": "Silver",
+      "sublabel": "limpia, conforma, historiza",
+      "pos": [
+        40,
+        264
+      ],
+      "size": [
+        290,
+        64
+      ]
+    },
+    {
+      "id": "gold",
+      "type": "database",
+      "label": "Gold",
+      "sublabel": "sirve métricas y productos analíticos",
+      "pos": [
+        40,
+        376
+      ],
+      "size": [
+        290,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "pg-bronze",
+      "from": "postgres",
+      "to": "bronze"
+    },
+    {
+      "id": "bronze-silver",
+      "from": "bronze",
+      "to": "silver"
+    },
+    {
+      "id": "silver-gold",
+      "from": "silver",
+      "to": "gold"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "PostgreSQL y Bronze",
+      "items": [
+        "PostgreSQL y Bronze preservan los valores fuente",
+        "Bronze conserva los problemas de calidad de la fuente",
+        "Las correcciones pertenecen a Silver"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Silver",
+      "items": [
+        "Guadaloupe: posible estandarización, conservando el valor fuente",
+        "Variantes de compañías y personas no se fusionan sin regla",
+        "budget y revenue mantienen null como ausencia"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Gold",
+      "items": [
+        "Sirve métricas y productos analíticos",
+        "Tipos simples y amigables para BI"
+      ]
+    }
+  ]
+}

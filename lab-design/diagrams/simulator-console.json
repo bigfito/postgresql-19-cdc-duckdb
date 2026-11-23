@@ -1,0 +1,453 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Consola del Event Simulator: boceto de la pantalla",
+    "locale": "es",
+    "output": "simulator-console.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "header1",
+      "type": "backend",
+      "icon": "none",
+      "label": "▶ EN MARCHA",
+      "sublabel": "semilla 42",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        213,
+        52
+      ]
+    },
+    {
+      "id": "header2",
+      "type": "external",
+      "icon": "none",
+      "label": "PostgreSQL",
+      "sublabel": "conectado (elastiflix_app)",
+      "pos": [
+        289,
+        70
+      ],
+      "size": [
+        213,
+        52
+      ]
+    },
+    {
+      "id": "header3",
+      "type": "external",
+      "icon": "none",
+      "label": "Bronze",
+      "sublabel": "conectado",
+      "pos": [
+        518,
+        70
+      ],
+      "size": [
+        213,
+        52
+      ]
+    },
+    {
+      "id": "header4",
+      "type": "external",
+      "icon": "none",
+      "label": "Intervalo",
+      "sublabel": "250 ms",
+      "pos": [
+        747,
+        70
+      ],
+      "size": [
+        213,
+        52
+      ]
+    },
+    {
+      "id": "progress5",
+      "type": "external",
+      "icon": "none",
+      "label": "Películas insertadas",
+      "sublabel": "1,284 / 6,899 · 18.6 %",
+      "tag": "███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░",
+      "pos": [
+        60,
+        196
+      ],
+      "size": [
+        400,
+        70
+      ]
+    },
+    {
+      "id": "progress6",
+      "type": "external",
+      "icon": "none",
+      "label": "Vivas en catalog",
+      "sublabel": "1,251",
+      "pos": [
+        60,
+        282
+      ],
+      "size": [
+        192,
+        52
+      ]
+    },
+    {
+      "id": "progress7",
+      "type": "external",
+      "icon": "none",
+      "label": "Ritmo",
+      "sublabel": "3.9 tx/s",
+      "pos": [
+        268,
+        282
+      ],
+      "size": [
+        192,
+        52
+      ]
+    },
+    {
+      "id": "ops8",
+      "type": "external",
+      "icon": "none",
+      "label": "INSERT",
+      "sublabel": "1,284 · peso 70",
+      "pos": [
+        560,
+        196
+      ],
+      "size": [
+        122.66666666666667,
+        70
+      ]
+    },
+    {
+      "id": "ops9",
+      "type": "external",
+      "icon": "none",
+      "label": "UPDATE",
+      "sublabel": "391 · peso 25",
+      "pos": [
+        698.6666666666667,
+        196
+      ],
+      "size": [
+        122.66666666666667,
+        70
+      ]
+    },
+    {
+      "id": "ops10",
+      "type": "external",
+      "icon": "none",
+      "label": "DELETE",
+      "sublabel": "33 · peso 5",
+      "pos": [
+        837.3333333333334,
+        196
+      ],
+      "size": [
+        122.66666666666667,
+        70
+      ]
+    },
+    {
+      "id": "ops11",
+      "type": "external",
+      "icon": "none",
+      "label": "Errores",
+      "sublabel": "0",
+      "pos": [
+        560,
+        282
+      ],
+      "size": [
+        192,
+        52
+      ]
+    },
+    {
+      "id": "ops12",
+      "type": "external",
+      "icon": "none",
+      "label": "Manuales",
+      "sublabel": "2",
+      "pos": [
+        768,
+        282
+      ],
+      "size": [
+        192,
+        52
+      ]
+    },
+    {
+      "id": "tx13",
+      "type": "external",
+      "icon": "none",
+      "label": "14:02:11 · INSERT · 313951 · The Silent Harbor",
+      "sublabel": "61 filas · 18 ms · Bronze ✓ 31 s",
+      "pos": [
+        60,
+        408
+      ],
+      "size": [
+        900,
+        52
+      ]
+    },
+    {
+      "id": "tx14",
+      "type": "external",
+      "icon": "none",
+      "label": "14:02:11 · UPDATE · 27205 · Ashes of Winter (medidas)",
+      "sublabel": "1 fila · 4 ms · Bronze ✓ 29 s",
+      "pos": [
+        60,
+        470
+      ],
+      "size": [
+        900,
+        52
+      ]
+    },
+    {
+      "id": "tx15",
+      "type": "external",
+      "icon": "none",
+      "label": "14:02:10 · DELETE · 550 · Northfall",
+      "sublabel": "44 filas · 9 ms · Bronze … pendiente",
+      "pos": [
+        60,
+        532
+      ],
+      "size": [
+        900,
+        52
+      ]
+    },
+    {
+      "id": "tx16",
+      "type": "external",
+      "icon": "none",
+      "label": "14:02:10 · INSERT · 316393 · Paper Lanterns",
+      "sublabel": "38 filas · 15 ms · Bronze … pendiente",
+      "pos": [
+        60,
+        594
+      ],
+      "size": [
+        900,
+        52
+      ]
+    },
+    {
+      "id": "detail17",
+      "type": "external",
+      "icon": "none",
+      "label": "INSERT 313951",
+      "sublabel": "movie 1 · movie_genre 3 · movie_keyword 16 · movie_cast 38 · …",
+      "pos": [
+        60,
+        720
+      ],
+      "size": [
+        900,
+        52
+      ]
+    },
+    {
+      "id": "key18",
+      "type": "frontend",
+      "icon": "none",
+      "label": "Espacio",
+      "sublabel": "pausar",
+      "pos": [
+        60,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    },
+    {
+      "id": "key19",
+      "type": "frontend",
+      "icon": "none",
+      "label": "+ / -",
+      "sublabel": "velocidad",
+      "pos": [
+        212.66666666666666,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    },
+    {
+      "id": "key20",
+      "type": "frontend",
+      "icon": "none",
+      "label": "P",
+      "sublabel": "pesos",
+      "pos": [
+        365.3333333333333,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    },
+    {
+      "id": "key21",
+      "type": "frontend",
+      "icon": "none",
+      "label": "M",
+      "sublabel": "manual",
+      "pos": [
+        518,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    },
+    {
+      "id": "key22",
+      "type": "frontend",
+      "icon": "none",
+      "label": "↑ ↓",
+      "sublabel": "recorrer",
+      "pos": [
+        670.6666666666666,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    },
+    {
+      "id": "key23",
+      "type": "frontend",
+      "icon": "none",
+      "label": "Q",
+      "sublabel": "salir",
+      "pos": [
+        823.3333333333333,
+        846
+      ],
+      "size": [
+        136.66666666666666,
+        52
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "ElastiFlix Event Simulator",
+      "wraps": [
+        "header1",
+        "header2",
+        "header3",
+        "header4"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Avance",
+      "wraps": [
+        "progress5",
+        "progress6",
+        "progress7"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Operaciones",
+      "wraps": [
+        "ops8",
+        "ops9",
+        "ops10",
+        "ops11",
+        "ops12"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Últimas transacciones",
+      "wraps": [
+        "tx13",
+        "tx14",
+        "tx15",
+        "tx16"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Detalle",
+      "wraps": [
+        "detail17"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Teclas",
+      "wraps": [
+        "key18",
+        "key19",
+        "key20",
+        "key21",
+        "key22",
+        "key23"
+      ]
+    }
+  ],
+  "connections": [],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Cabecera, Avance y Operaciones",
+      "items": [
+        "Cabecera: estado, semilla, conexiones a PostgreSQL y Bronze, e intervalo vigente",
+        "Avance: películas insertadas sobre el total, barra de progreso, vivas en catalog y ritmo",
+        "Operaciones: contadores de INSERT, UPDATE y DELETE con su peso, errores y manuales"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Últimas transacciones y Detalle",
+      "items": [
+        "Una fila por transacción: hora, operación, movie_id, título, filas, duración y estado en Bronze",
+        "Bronze pasa de «pendiente» a «✓» con el tiempo transcurrido",
+        "Detalle: desglose por tabla de la transacción seleccionada"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Teclas",
+      "items": [
+        "Espacio pausa o reanuda; + y - cambian el intervalo",
+        "P abre el diálogo de pesos; M, el de operación manual",
+        "↑ y ↓ recorren la lista; Q sale de la interfaz"
+      ]
+    }
+  ]
+}

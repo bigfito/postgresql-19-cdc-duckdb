@@ -20,12 +20,12 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 | Elemento | Estado |
 |---|---|
-| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 5 |
-| Diagramas de arquitectura, linaje, ERD, DAG y arranque ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Generados |
+| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 6 |
+| Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada (vacía) |
-| Validaciones de compatibilidad entre componentes | ✅ 9 de 9 superadas; resultados en la [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
+| Validaciones de compatibilidad entre componentes | ✅ 10 de 12 superadas; faltan la 10 y la 11, del simulador. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Generado: 6,899 películas sintéticas, 24.5 MB, con su script generador y su [README](raw_data/README.md) |
 | Implementación (simulador, DDL, pipeline CDC, jobs, DAG, dashboards) | ⏳ Pendiente; ver el [plan de trabajo](planning/PLAN.md) |
 
@@ -33,7 +33,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ![Arquitectura end-to-end del laboratorio ElastiFlix: de los CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](lab-design/diagrams/lab-architecture.svg)
 
-> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha); Flink, Spark y DuckDB resuelven las tablas ahí.
+> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. La línea punteada que va del Event Simulator a Bronze no forma parte de ese camino: es la consulta de solo lectura con la que el simulador comprueba que cada cambio llegó. Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha); Flink, Spark y DuckDB resuelven las tablas ahí.
 
 ### Flujo principal
 
@@ -103,7 +103,12 @@ postgresql-19-cdc-duckdb/
         |-- medallion-dataflow.{json,html,svg}
         |-- operational-erd.{json,html,svg}
         |-- airflow-medallion-dag.{json,html,svg}
-        `-- compose-startup-order.{json,html,svg}
+        |-- compose-startup-order.{json,html,svg}
+        |-- plan-phases.{json,html,svg}
+        |-- simulator-console.{json,html,svg}
+        |-- superset-serving-path.{json,html,svg}
+        |-- quality-by-layer.{json,html,svg}
+        `-- end-to-end-change-path.{json,html,svg}
 ```
 
 Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset; los demás están vacíos, con un `.gitkeep` cada uno. `docker-compose.yml`, `.env.example` y el contenido de cada servicio están pendientes. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-propuesta-del-repositorio).
@@ -179,5 +184,10 @@ El trabajo está dividido en 13 fases, de F0 a F12. Las actividades de cada una 
 | [Modelo operacional](lab-design/diagrams/operational-erd.svg) | ERD de las 20 tablas del esquema `catalog` |
 | [DAG de Airflow](lab-design/diagrams/airflow-medallion-dag.svg) | Tareas, jobs y capas que tocan |
 | [Orden de arranque](lab-design/diagrams/compose-startup-order.svg) | Dependencias entre servicios de Docker Compose |
+| [Fases del plan](lab-design/diagrams/plan-phases.svg) | Dependencias entre las 13 fases y camino más largo |
+| [Consola del simulador](lab-design/diagrams/simulator-console.svg) | Boceto de la pantalla del Event Simulator |
+| [Ruta de consumo](lab-design/diagrams/superset-serving-path.svg) | De Superset a los archivos de Gold en RustFS |
+| [Calidad por capa](lab-design/diagrams/quality-by-layer.svg) | Responsabilidad de cada capa sobre el dato |
+| [Recorrido de un cambio](lab-design/diagrams/end-to-end-change-path.svg) | Los once pasos del criterio de éxito |
 
 > 🔍 Cada diagrama tiene también una versión interactiva `.html` y su fuente `.json` en [`lab-design/diagrams/`](lab-design/diagrams/). Para explorarla, descarga el `.html` y ábrelo en un navegador; GitHub muestra su código en lugar de renderizarlo. Los diagramas se generan con [Archify](https://github.com/tt-a1i/archify).

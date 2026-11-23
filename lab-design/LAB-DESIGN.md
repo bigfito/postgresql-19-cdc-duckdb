@@ -12,7 +12,7 @@ El laboratorio simulará actividad transaccional sobre PostgreSQL 19, capturará
 
 Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
-> 📝 **Revisión 5 (2026-11-22):** el simulador pasa a tener una interfaz de consola enriquecida (sección 9), se añade la sección de cuentas y credenciales (sección 45), y las decisiones, las validaciones y el registro de cambios se trasladan a un documento propio. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
+> 📝 **Revisión 6 (2026-11-22):** se cierran cinco decisiones: `effective_from` sale primero de `updated_at` (sección 21), Bronze se reconstruye si se pierden los checkpoints (secciones 14 y 38), RustFS usa una sola clave (sección 45.3), Airflow autentica con Flask AppBuilder (secciones 18 y 45.4) y la leyenda del diagrama de linaje pasa a ser genérica. Los diagramas y bocetos que estaban dibujados en texto pasan a Archify. Ver [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -124,7 +124,7 @@ Los jobs one-shot (`volumes-init`, `rustfs-init`, `iceberg-init` y `airflow-init
 
 ![Arquitectura end-to-end del laboratorio ElastiFlix: de los CSV a Superset pasando por PostgreSQL, Flink CDC, las tres capas Iceberg, PySpark, Airflow y DuckDB](diagrams/lab-architecture.svg)
 
-> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha). Por legibilidad no se dibuja una flecha de cada motor hacia el catálogo: Flink, Spark y DuckDB resuelven las tablas ahí.
+> 🔍 **Cómo leerlo:** la columna central es el camino del dato, de arriba abajo. La línea punteada que va del Event Simulator a Bronze no forma parte de ese camino: es la consulta de solo lectura con la que el simulador comprueba que cada cambio llegó (sección 9.3). Airflow (izquierda) solo lanza los dos jobs PySpark. Las tres capas quedan registradas en el Iceberg REST Catalog y sus archivos viven en RustFS (derecha). Por legibilidad no se dibuja una flecha de cada motor hacia el catálogo: Flink, Spark y DuckDB resuelven las tablas ahí.
 >
 > Versión interactiva: [`diagrams/lab-architecture.html`](diagrams/lab-architecture.html) · Fuente editable: [`diagrams/lab-architecture.json`](diagrams/lab-architecture.json). Los diagramas de este documento se generan con [Archify](https://github.com/tt-a1i/archify); ver [sección 7](#7--estructura-propuesta-del-repositorio).
 
@@ -471,26 +471,9 @@ El simulador hace de aplicación transaccional: lee el dataset de `raw_data/` y 
 
 La pantalla tiene cinco zonas fijas:
 
-```text
-┌ ElastiFlix Event Simulator ───────────────────────────── ▶ EN MARCHA ─ semilla 42 ┐
-│ PostgreSQL: conectado (elastiflix_app)     Bronze: conectado     Intervalo: 250 ms │
-├ Avance ─────────────────────────────────────┬ Operaciones ─────────────────────────┤
-│ Películas insertadas   1,284 / 6,899  18.6% │ INSERT   1,284   peso 70             │
-│ ███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │ UPDATE     391   peso 25             │
-│ Vivas en catalog       1,251                │ DELETE      33   peso  5             │
-│ Ritmo                  3.9 tx/s             │ Errores      0   Manuales  2         │
-├ Últimas transacciones ─────────────────────────────────────────────────────────────┤
-│ Hora      Op      movie_id  Título                    Filas   ms   Bronze          │
-│ 14:02:11  INSERT    313951  The Silent Harbor            61   18   ✓ 31 s          │
-│ 14:02:11  UPDATE     27205  Ashes of Winter (medidas)     1    4   ✓ 29 s          │
-│ 14:02:10  DELETE       550  Northfall                    44    9   … pendiente     │
-│ 14:02:10  INSERT    316393  Paper Lanterns               38   15   … pendiente     │
-├ Detalle ───────────────────────────────────────────────────────────────────────────┤
-│ INSERT 313951: movie 1 · movie_genre 3 · movie_keyword 16 · movie_cast 38 · …      │
-├────────────────────────────────────────────────────────────────────────────────────┤
-│ [Espacio] pausar  [+/-] velocidad  [P] pesos  [M] manual  [↑↓] recorrer  [Q] salir │
-└────────────────────────────────────────────────────────────────────────────────────┘
-```
+![Boceto de la pantalla de consola del Event Simulator, con cinco zonas fijas: cabecera con estado, semilla, conexiones e intervalo; Avance y Operaciones lado a lado; lista de últimas transacciones; Detalle de la transacción seleccionada; y al pie la barra de teclas](diagrams/simulator-console.svg)
+
+> Versión interactiva: [`diagrams/simulator-console.html`](diagrams/simulator-console.html) · Fuente editable: [`diagrams/simulator-console.json`](diagrams/simulator-console.json).
 
 | Zona | Contenido |
 |---|---|
@@ -1023,13 +1006,13 @@ Bronze reproducirá el modelo PostgreSQL tabla por tabla.
 
 Ejemplos:
 
-```text
-catalog.movie                     -> bronze.movie
-catalog.collection                -> bronze.collection
-catalog.movie_genre               -> bronze.movie_genre
-catalog.movie_cast                -> bronze.movie_cast
-catalog.movie_enrichment          -> bronze.movie_enrichment
-```
+| Tabla en PostgreSQL | Tabla en Bronze |
+|---|---|
+| `catalog.movie` | `bronze.movie` |
+| `catalog.collection` | `bronze.collection` |
+| `catalog.movie_genre` | `bronze.movie_genre` |
+| `catalog.movie_cast` | `bronze.movie_cast` |
+| `catalog.movie_enrichment` | `bronze.movie_enrichment` |
 
 Las modificaciones DDL deberán coordinarse deliberadamente entre PostgreSQL y el pipeline; no se asumirán cambios de esquema transparentes desde el WAL. La opción `schema-change.enabled` del conector queda en su valor por defecto (`false`).
 
@@ -1109,10 +1092,10 @@ Puntos que conviene no pasar por alto:
 - **`flink-cdc-submit` idempotente de verdad.** El job one-shot sigue esta regla cada vez que se ejecuta:
   1. Consulta la API REST de Flink. Si ya hay un job en ejecución con el nombre del pipeline, termina sin hacer nada.
   2. Si no lo hay y existe un checkpoint retenido en `flink/data/`, reenvía con `--from-savepoint` hacia el más reciente.
-  3. Solo si no hay ni job ni checkpoint hace un envío nuevo, con snapshot inicial. Si en ese momento Bronze ya tiene tablas, se trata de una pérdida de estado y aplica el punto siguiente.
+  3. Solo si no hay ni job ni checkpoint hace un envío nuevo, con snapshot inicial. Si en ese momento Bronze ya tiene tablas, se trata de una pérdida de estado: el job no envía nada, termina con error y remite a la reconstrucción de Bronze (punto siguiente).
 
   Sin esta regla, repetir `docker compose up` es dañino. Un segundo envío no falla: Flink lo acepta y arranca otro job que repite el snapshot completo sobre las mismas tablas. Bronze sigue cuadrando en filas, pero todas vuelven a `+I` con el `cdc_op_ts` del nuevo snapshot, se pierde la marca `+U` y la fecha real de cada cambio, y se acumula un delete de igualdad por cada fila reescrita.
-- **Perder los checkpoints no es inocuo.** Un envío nuevo repite el snapshot, pero el snapshot solo ve lo que existe: una fila borrada en PostgreSQL mientras no había job no vuelve a leerse y queda en Bronze como viva, sin tombstone. En la prueba del documento de decisiones y validaciones, 3 películas borradas durante la parada y 89 filas de sus relaciones siguieron contando como vivas. Por eso los checkpoints se persisten y, si aun así se pierden, hace falta reconciliar. La forma de reconciliar es la decisión abierta D-2 del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
+- **Perder los checkpoints no es inocuo.** Un envío nuevo repite el snapshot, pero el snapshot solo ve lo que existe: una fila borrada en PostgreSQL mientras no había job no vuelve a leerse y queda en Bronze como viva, sin tombstone. En la prueba del documento de decisiones y validaciones, 3 películas borradas durante la parada y 89 filas de sus relaciones siguieron contando como vivas. Por eso los checkpoints se persisten y, si aun así se pierden, Bronze no se repara: se reconstruye desde cero con el procedimiento de la sección 38, en lugar de repetir el snapshot sobre las tablas existentes.
 
 ## 15. 🪣 RustFS
 
@@ -1267,6 +1250,7 @@ Airflow no gobernará cada evento CDC.
 - **Conexión de Spark.** `AIRFLOW_CONN_SPARK_DEFAULT=spark://spark-master:7077?deploy-mode=client`.
 - **Entre servicios de Airflow 3.** Todos comparten `AIRFLOW__API_AUTH__JWT_SECRET`, y el scheduler alcanza la API de ejecución con `AIRFLOW__CORE__EXECUTION_API_SERVER_URL=http://airflow-apiserver:8080/execution/`.
 - `LocalExecutor`. Servicios de Airflow 3: `airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor`, más el job one-shot `airflow-init` (migra la base y crea el usuario administrador).
+- **Autenticación.** El gestor basado en Flask AppBuilder, con `AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager` en todos los servicios de Airflow. Su proveedor ya viene en la imagen oficial; no hay que instalarlo. `airflow db migrate` crea también sus tablas.
 - Metadatos en `metadata-db` (base `airflow`).
 - Programación: el DAG se dispara a mano durante la demostración y, opcionalmente, cada 10 minutos. `max_active_runs = 1` para que dos corridas no escriban Silver a la vez.
 
@@ -1281,6 +1265,7 @@ pyspark/jobs/bronze_to_silver.py
 Responsabilidades:
 
 - leer el estado actual de Bronze, incluidos los tombstones (`cdc_op_type = '-D'`);
+- tratar como borrada toda versión vigente cuya clave ya no aparece en Bronze, que es lo que queda tras reconstruir Bronze (sección 38);
 - realizar data quality;
 - conformar dimensiones, enriqueciéndolas con los datos de referencia de `pyspark/reference/`;
 - generar surrogate keys de forma determinística;
@@ -1390,11 +1375,13 @@ El procedimiento conceptual será:
 
 Para que el resultado no dependa de la hora en que corre el job, `effective_from` (y `source_updated_at`) se toma en este orden:
 
-1. `cdc_op_ts` de la fila Bronze, cuando es mayor que cero;
-2. `updated_at` de la fila, o `created_at` si no existe `updated_at`;
-3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores.
+1. `updated_at` de la fila Bronze, cuando la fila está viva y la tabla tiene esa columna;
+2. `cdc_op_ts`, para los tombstones (`cdc_op_type = '-D'`) y para las tablas sin `updated_at`;
+3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores. Es el caso de una versión que se cierra porque su clave ya no aparece en Bronze (sección 38).
 
-> ⚠️ **Regla por revisar.** Este orden suponía que `cdc_op_ts` vale `0` en las filas del snapshot inicial, y no es así. La alternativa y su estado son la decisión abierta D-1 del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
+Un tombstone usa `cdc_op_ts` porque lleva la fila tal como estaba antes del borrado: su `updated_at` es la fecha del último cambio, no la del borrado.
+
+> ℹ️ Este orden sustituye al original, que ponía `cdc_op_ts` primero porque suponía que valía `0` en las filas del snapshot inicial. La validación 1 mostró que el conector pone ahí la hora en que leyó la fila, así que toda fila anterior al pipeline habría recibido como inicio de vigencia la hora del snapshot. Es la decisión 26 del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md).
 
 La versión que se cierra recibe como `effective_to` el `effective_from` de la que la reemplaza.
 
@@ -1466,14 +1453,14 @@ Las tres son Tipo 1. «Columnas de auditoría» significa `source_updated_at` y 
 
 Varios atributos de estas dimensiones no existen en PostgreSQL (el nombre de un idioma, el sistema al que pertenece un rating, el código ISO de un país). Provienen de archivos CSV versionados en `pyspark/reference/`, mantenidos a mano como parte del laboratorio:
 
-```text
-pyspark/reference/languages.csv   language_code -> language_name, is_tmdb_specific
-pyspark/reference/statuses.csv    status_code   -> status_description
-pyspark/reference/ratings.csv     rating_code   -> rating_system, rating_description
-pyspark/reference/countries.csv   source_name   -> standard_country_name, country_code
-pyspark/reference/spoken.csv      source_name   -> standard_language_name, language_code
-pyspark/reference/enrichment.csv  field_name    -> field_description
-```
+| Archivo | Columna clave | Atributos que aporta |
+|---|---|---|
+| `pyspark/reference/languages.csv` | `language_code` | `language_name`, `is_tmdb_specific` |
+| `pyspark/reference/statuses.csv` | `status_code` | `status_description` |
+| `pyspark/reference/ratings.csv` | `rating_code` | `rating_system`, `rating_description` |
+| `pyspark/reference/countries.csv` | `source_name` | `standard_country_name`, `country_code` |
+| `pyspark/reference/spoken.csv` | `source_name` | `standard_language_name`, `language_code` |
+| `pyspark/reference/enrichment.csv` | `field_name` | `field_description` |
 
 Cuando un valor fuente no aparece en su archivo de referencia, los atributos derivados quedan en `NULL` y `quality_status = 'unmapped'`. No se inventan equivalencias.
 
@@ -1861,7 +1848,7 @@ Añadir o quitar un género, una keyword o un miembro del reparto:
 
 ### DELETE
 
-Silver detecta el borrado por el tombstone de Bronze (`cdc_op_type = '-D'`) y no elimina físicamente el historial:
+Silver detecta el borrado por el tombstone de Bronze (`cdc_op_type = '-D'`) o, tras una reconstrucción de Bronze, porque la clave ya no aparece (sección 38). En ningún caso elimina físicamente el historial:
 
 1. cerrar la versión vigente de `dim_movie`;
 2. cerrar bridges activos de esa película;
@@ -1995,9 +1982,9 @@ No consultará PostgreSQL, Flink ni Bronze directamente.
 
 Ruta de consumo:
 
-```text
-Superset -> DuckDB -> Iceberg Gold -> RustFS
-```
+![Ruta de consumo en cuatro pasos: Superset consulta por SQL a DuckDB mediante duckdb-engine, DuckDB adjunta el catálogo y lee Iceberg Gold, y los archivos Parquet y la metadata de Gold residen en RustFS](diagrams/superset-serving-path.svg)
+
+> Versión interactiva: [`diagrams/superset-serving-path.html`](diagrams/superset-serving-path.html) · Fuente editable: [`diagrams/superset-serving-path.json`](diagrams/superset-serving-path.json).
 
 Gold será la fuente de verdad para las visualizaciones.
 
@@ -2018,12 +2005,9 @@ Gold será la fuente de verdad para las visualizaciones.
 
 La filosofía acordada es:
 
-```text
-PostgreSQL  -> conserva semántica fuente
-Bronze      -> réplica as-is
-Silver      -> limpia, conforma, historiza
-Gold        -> sirve métricas y productos analíticos
-```
+![Responsabilidad de cada capa, en secuencia: PostgreSQL conserva semántica fuente; Bronze es una réplica as-is; Silver limpia, conforma e historiza; Gold sirve métricas y productos analíticos](diagrams/quality-by-layer.svg)
+
+> Versión interactiva: [`diagrams/quality-by-layer.html`](diagrams/quality-by-layer.html) · Fuente editable: [`diagrams/quality-by-layer.json`](diagrams/quality-by-layer.json).
 
 Ejemplos documentados que podrán resolverse en Silver:
 
@@ -2088,6 +2072,25 @@ CALL lake.system.expire_snapshots(table => 'bronze.movie', retain_last => 5);
 - La compactación puede correr con Flink escribiendo: no hubo conflictos de commit ni reinicios del job.
 - `rewrite-all` tiene sentido mientras las tablas sean pequeñas, como en este laboratorio; con tablas grandes se sustituye por `delete-file-threshold`.
 - Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda; el valor de arriba es una propuesta.
+
+### Reconstrucción de Bronze
+
+Cuando se pierden los checkpoints de Flink, repetir el snapshot sobre las tablas existentes deja vivas en Bronze las filas borradas durante la parada (sección 14). Por eso Bronze se reconstruye:
+
+1. Pausar el DAG de Airflow, para que `bronze_to_silver` no lea un Bronze a medio cargar.
+2. Eliminar las tablas del namespace `bronze`, con sus archivos. Basta la API del catálogo: `DELETE /v1/namespaces/bronze/tables/<tabla>?purgeRequested=true` por cada tabla que devuelve `GET /v1/namespaces/bronze/tables`.
+3. Ejecutar `flink-cdc-submit`. Sin job, sin checkpoint y sin tablas, hace un envío nuevo con snapshot inicial.
+4. Esperar a que el snapshot termine: cada tabla Bronze tiene las mismas filas que su tabla de PostgreSQL.
+5. Reanudar el DAG.
+
+Qué implica:
+
+- **Se pierden los tombstones acumulados en Bronze.** El historial de Silver no se toca.
+- **Los borrados ocurridos durante la parada llegan a Silver por ausencia.** En la corrida siguiente, `bronze_to_silver` cierra toda versión vigente cuya clave ya no está en Bronze, igual que con un tombstone. Como la fecha real del borrado ya no se conoce, `effective_to` es el timestamp lógico de esa corrida (sección 21).
+- **No aparecen versiones nuevas por la recarga.** Todas las filas vuelven con `cdc_op_type = '+I'` y un `cdc_op_ts` nuevo, pero su contenido y su `updated_at` no cambian, así que el hash de atributos coincide con el de la versión vigente.
+- **El paso 1 no es opcional.** Con el DAG activo, una corrida que encuentre Bronze vacío o incompleto cerraría versiones de filas que siguen existiendo.
+
+Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto. Mientras las tablas no existen, `bronze_to_silver` falla con «tabla no encontrada» en lugar de cerrar versiones; eso no sustituye al paso 1, porque no cubre el intervalo en que unas tablas ya se recrearon y otras no.
 
 ## 39. 🐳 Docker Compose
 
@@ -2179,7 +2182,7 @@ Total aproximado: 15 GB. Si el host tiene menos, se puede detener el simulador o
 
 ![Orden de arranque de los servicios de Docker Compose en cuatro carriles: operacional y CDC, almacenamiento y catálogo, batch y orquestación, y consumo](diagrams/compose-startup-order.svg)
 
-> 🔍 **Cómo leerlo:** cada flecha es un `depends_on`. La etiqueta indica la condición: `healthy` espera al healthcheck del servicio y `completó` espera a que un job one-shot termine bien. El camino verde es el crítico: sin bucket no hay catálogo, sin namespaces no se envía el pipeline, y el simulador no emite hasta que el pipeline está corriendo.
+> 🔍 **Cómo leerlo:** cada flecha es un `depends_on`. La etiqueta indica la condición: `healthy` espera al healthcheck del servicio y `completó` espera a que un job one-shot termine bien. `volumes-init` es el primero: de él dependen `rustfs`, Flink, `airflow-init` y `superset-init`, que necesitan sus directorios de datos ya preparados; `iceberg-rest` queda detrás de él a través de `rustfs`. El camino verde es el crítico: sin bucket no hay catálogo, sin namespaces no se envía el pipeline, y el simulador no emite hasta que el pipeline está corriendo.
 >
 > Versión interactiva: [`diagrams/compose-startup-order.html`](diagrams/compose-startup-order.html) · Fuente editable: [`diagrams/compose-startup-order.json`](diagrams/compose-startup-order.json).
 
@@ -2243,19 +2246,9 @@ Este documento no lleva lista de tareas. Lo que falta por validar o decidir tamp
 
 El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/copiar el proyecto, levantarlo con Docker Compose y observar un cambio real generado por Java recorrer de extremo a extremo:
 
-```text
-CSV
- -> Java transaction
- -> PostgreSQL WAL
- -> Flink CDC
- -> Iceberg Bronze
- -> Airflow/PySpark
- -> Silver dimensional/SCD2
- -> Airflow/PySpark
- -> Gold materializado
- -> DuckDB
- -> Apache Superset
-```
+![Recorrido de un cambio de extremo a extremo en once pasos: CSV, Java transaction, PostgreSQL WAL, Flink CDC, Iceberg Bronze, Airflow/PySpark, Silver dimensional/SCD2, Airflow/PySpark, Gold materializado, DuckDB y Apache Superset](diagrams/end-to-end-change-path.svg)
+
+> Versión interactiva: [`diagrams/end-to-end-change-path.html`](diagrams/end-to-end-change-path.html) · Fuente editable: [`diagrams/end-to-end-change-path.json`](diagrams/end-to-end-change-path.json).
 
 El diseño debe ser comprensible desde la estructura de directorios y mantener una separación clara de responsabilidades entre ingestión, CDC, almacenamiento, catálogo, transformación, orquestación, serving y visualización.
 
@@ -2303,7 +2296,7 @@ Cada servicio usa una cuenta propia con el mínimo privilegio que necesita.
 | `superset` | `metadata-db` | Superset | Dueña de la base `superset`, sin acceso a la base `airflow` |
 | Clave de acceso de RustFS | RustFS | `rustfs-init`, `iceberg-rest`, Flink, Spark, DuckDB | Lectura y escritura sobre el bucket `warehouse` |
 
-- **Una sola clave de RustFS.** Todos los clientes comparten la misma clave de acceso, que llega a cada contenedor en las variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Lo deseable sería una clave de solo lectura para DuckDB, que nunca escribe; no se ha comprobado que RustFS 1.0.6 permita crear claves con permisos distintos.
+- **Una sola clave de RustFS.** Todos los clientes comparten la misma clave de acceso, que llega a cada contenedor en las variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Se descartó dar a DuckDB, que nunca escribe, una segunda clave de solo lectura: en un laboratorio local añade un paso de inicialización y dos variables sin reducir un riesgo real. No se llegó a comprobar si RustFS 1.0.6 permite claves con permisos distintos.
 - **Sin autenticación:** el Iceberg REST Catalog, el master de Spark y el clúster de Flink no piden credenciales. Solo son alcanzables dentro de la red del Compose o, sus interfaces web, desde `127.0.0.1`.
 - **Secretos internos**, que no son cuentas pero viven junto a ellas: la `SECRET_KEY` de Superset, y en Airflow el secreto JWT que comparten sus servicios, la clave de la API y la clave Fernet.
 
@@ -2314,13 +2307,14 @@ Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 | Herramienta | Dirección | Cuenta | Cómo se crea |
 |---|---|---|---|
 | Superset | `http://127.0.0.1:8088` | Administrador | `superset-init`, con `superset fab create-admin`. Comprobado en la validación 7 |
-| Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`. El mecanismo está por validar; ver abajo |
+| Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`, con `airflow users create`. Comprobado en la validación 12 |
 | Consola de RustFS | `http://127.0.0.1:9001` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Por validar |
 | PostgreSQL operacional | `127.0.0.1:5432` | `postgres` para administrar; `elastiflix_app` para consultar como la aplicación | `postgresql/init/` |
 | Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
 | Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |
 
-> ⚠️ **Por validar: el administrador de Airflow.** Airflow 3 trae por defecto un gestor de autenticación simple, que define los usuarios en la configuración y genera sus contraseñas, y no ofrece `airflow users create`. Ese comando pertenece al gestor basado en Flask AppBuilder, que es un proveedor aparte. La validación 8 corrió con el gestor por defecto y sin iniciar sesión en la interfaz. Falta decidir cuál de los dos usa el laboratorio y comprobar el inicio de sesión; figura como validación 12, y su ejecución está en el plan (F0-16 y F0-17).
+- **El administrador de Airflow.** Airflow 3 trae por defecto un gestor de autenticación simple, que toma los usuarios de la configuración y guarda las contraseñas en texto plano en un archivo. El laboratorio usa en su lugar el gestor de Flask AppBuilder (sección 18): `airflow-init` crea el administrador con `airflow users create --role Admin`, a partir de `AIRFLOW_ADMIN_USER` y `AIRFLOW_ADMIN_PASSWORD`, y la contraseña queda cifrada en `metadata-db`.
+- **`airflow users create` no es idempotente.** `airflow-init` comprueba antes con `airflow users list` si el usuario ya existe, para que repetir `docker compose up` no falle.
 
 ### 45.5 Dónde se definen
 
@@ -2357,6 +2351,7 @@ Este documento describe el diseño vigente. Aquel explica por qué es así y qu�
 | Validaciones previas de la Fase 0 | 9 de 9 superadas |
 | Validación de volumen con las 20 tablas y el dataset completo | Superada |
 | `MERGE` SCD2 de Silver y mantenimiento a volumen | Superadas |
-| Pérdida de checkpoints | Falla; pendiente de la decisión D-2 |
-| Validaciones nuevas de esta revisión (10, 11 y 12) | Pendientes |
-| Decisiones abiertas | 7 |
+| Pérdida de checkpoints | Falla si se repite el snapshot sobre Bronze. Se resuelve reconstruyendo Bronze (sección 38): comprobado |
+| Validación 12, inicio de sesión en Airflow | Superada |
+| Validaciones 10 y 11, del simulador | Pendientes |
+| Decisiones abiertas | 1 |

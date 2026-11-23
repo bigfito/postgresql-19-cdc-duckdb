@@ -10,7 +10,7 @@
     "legend": {
       "entries": {
         "emphasis": { "label": "Captura continua (CDC)" },
-        "default": { "label": "Carga batch PySpark" },
+        "default": { "label": "Movimiento de datos" },
         "dashed": { "label": "Resolución de claves" }
       }
     }

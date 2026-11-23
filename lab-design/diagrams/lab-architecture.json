@@ -350,6 +350,25 @@
       "from": "catalog",
       "to": "rustfs",
       "label": "archivos"
+    },
+    {
+      "id": "bronze-check",
+      "from": "simulator",
+      "to": "bronze",
+      "label": "consulta bronze.movie",
+      "variant": "dashed",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          172,
+          210
+        ],
+        [
+          172,
+          624
+        ]
+      ]
     }
   ],
   "cards": [
@@ -359,7 +378,8 @@
       "items": [
         "El simulador ejecuta transacciones JDBC reales",
         "Flink CDC confirma en Iceberg en cada checkpoint",
-        "Los DELETE llegan a Bronze como tombstones (cdc_op_type = -D)"
+        "Los DELETE llegan a Bronze como tombstones (cdc_op_type = -D)",
+        "El simulador consulta bronze.movie con DuckDB embebido, en solo lectura, para seguir cada cambio"
       ]
     },
     {

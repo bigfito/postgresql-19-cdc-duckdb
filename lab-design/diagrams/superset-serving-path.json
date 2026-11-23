@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ruta de consumo: de Superset a RustFS",
+    "locale": "es",
+    "output": "superset-serving-path.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "superset",
+      "type": "frontend",
+      "label": "Superset",
+      "sublabel": "datasets sobre vistas",
+      "pos": [
+        84,
+        40
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "duckdb",
+      "type": "backend",
+      "label": "DuckDB",
+      "sublabel": "embebido · en memoria",
+      "pos": [
+        84,
+        178
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "gold",
+      "type": "database",
+      "label": "Iceberg Gold",
+      "sublabel": "namespace gold",
+      "pos": [
+        84,
+        316
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "rustfs",
+      "type": "cloud",
+      "label": "RustFS",
+      "sublabel": "s3://warehouse/",
+      "pos": [
+        84,
+        454
+      ],
+      "size": [
+        180,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "sql",
+      "from": "superset",
+      "to": "duckdb",
+      "label": "SQL vía duckdb-engine"
+    },
+    {
+      "id": "attach",
+      "from": "duckdb",
+      "to": "gold",
+      "label": "adjunta el catálogo y lee"
+    },
+    {
+      "id": "files",
+      "from": "gold",
+      "to": "rustfs",
+      "label": "archivos Parquet y metadata"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Superset",
+      "items": [
+        "No consulta PostgreSQL, Flink ni Bronze",
+        "Cada dataset es una vista main.<producto>",
+        "Cada consulta abre un DuckDB en memoria nuevo"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "DuckDB",
+      "items": [
+        "Corre dentro del contenedor de Superset",
+        "Adjunta el Iceberg REST Catalog como lake",
+        "Nunca escribe en el lakehouse"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Gold y RustFS",
+      "items": [
+        "Gold es la fuente de verdad de las visualizaciones",
+        "Superset solo consulta el namespace gold",
+        "Los archivos de las tablas residen en RustFS"
+      ]
+    }
+  ]
+}

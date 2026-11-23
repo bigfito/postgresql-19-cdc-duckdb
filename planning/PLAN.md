@@ -3,7 +3,7 @@
 Este documento es el **único plan de actividades** del laboratorio, de principio a fin. Dice qué hay que hacer y en qué orden. El cómo está en el diseño:
 
 - [LAB-DESIGN.md](../lab-design/LAB-DESIGN.md): el diseño vigente. Cada actividad cita la sección que la explica.
-- [DECISIONS-AND-VALIDATIONS.md](../lab-design/DECISIONS-AND-VALIDATIONS.md): las decisiones, con las que siguen abiertas (D-1 a D-7), y las validaciones.
+- [DECISIONS-AND-VALIDATIONS.md](../lab-design/DECISIONS-AND-VALIDATIONS.md): las decisiones, con la que sigue abierta (D-5), y las validaciones.
 
 El plan no lleva fechas ni estimaciones de duración: no hay una fecha comprometida. El avance se mide en actividades terminadas.
 
@@ -14,20 +14,20 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
 |---|---|---:|---:|---:|---|
-| F0 | Diseño y validaciones previas | 20 | 11 | 55 % | 🔄 En curso |
+| F0 | Diseño y validaciones previas | 21 | 19 | 90 % | 🔄 En curso |
 | F1 | Dataset de entrada | 9 | 3 | 33 % | 🔄 En curso |
 | F2 | Base del proyecto | 7 | 0 | 0 % | ⏳ Pendiente |
 | F3 | PostgreSQL operacional | 14 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 6 | 0 | 0 % | ⏳ Pendiente |
-| F5 | Flink CDC hacia Bronze | 15 | 0 | 0 % | ⏳ Pendiente |
+| F5 | Flink CDC hacia Bronze | 16 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 32 | 0 | 0 % | ⏳ Pendiente |
-| F7 | Spark y capa Silver | 32 | 0 | 0 % | ⏳ Pendiente |
+| F7 | Spark y capa Silver | 33 | 0 | 0 % | ⏳ Pendiente |
 | F8 | Capa Gold | 11 | 0 | 0 % | ⏳ Pendiente |
 | F9 | Orquestación con Airflow | 17 | 0 | 0 % | ⏳ Pendiente |
 | F10 | DuckDB y Superset | 14 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 11 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **195** | **14** | **7 %** | 🔄 En curso |
+| | **Global** | **198** | **22** | **11 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -60,32 +60,11 @@ Cada actividad tiene un identificador fijo, como `F3-04`: fase 3, actividad 4. �
 
 ## 3. Fases y dependencias
 
-```mermaid
-flowchart LR
-    F0[F0 Diseño y validaciones]
-    F1[F1 Dataset]
-    F2[F2 Base del proyecto] --> F3[F3 PostgreSQL]
-    F2 --> F4[F4 Almacenamiento y catálogo]
-    F3 --> F5[F5 Flink CDC a Bronze]
-    F4 --> F5
-    F3 --> F6[F6 Event Simulator]
-    F5 --> F7[F7 Silver]
-    F7 --> F8[F8 Gold]
-    F8 --> F9[F9 Airflow]
-    F8 --> F10[F10 DuckDB y Superset]
-    F1 --> F11[F11 Integración]
-    F5 --> F11
-    F6 --> F11
-    F9 --> F11
-    F10 --> F11
-    F11 --> F12[F12 Cierre]
-    F0 -.-> F5
-    F0 -.-> F6
-    F0 -.-> F7
-    F0 -.-> F9
-```
+![Dependencias entre las 13 fases del plan, de F0 a F12: en la columna central, de arriba abajo, el camino más largo (F2, F3, F5, F7, F8, F9, F11 y F12); a los lados, las fases F0, F1, F4, F6 y F10 con las fases que dependen de ellas](../lab-design/diagrams/plan-phases.svg)
 
-Las flechas continuas son dependencias entre fases completas. Las punteadas indican que la fase espera a una o dos actividades concretas de F0, no a toda la fase.
+> Versión interactiva: [`../lab-design/diagrams/plan-phases.html`](../lab-design/diagrams/plan-phases.html) · Fuente editable: [`../lab-design/diagrams/plan-phases.json`](../lab-design/diagrams/plan-phases.json).
+
+Las flechas continuas son dependencias entre fases completas; las verdes, además, forman el camino más largo, que ocupa la columna central. Las punteadas indican que la fase espera a una o dos actividades concretas de F0, no a toda la fase.
 
 | Fase | Depende de | Puede avanzar en paralelo con |
 |---|---|---|
@@ -119,7 +98,7 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 
 - **Objetivo:** Tener un diseño completo y probado antes de escribir el laboratorio.
 - **Depende de:** Nada
-- **Terminada cuando:** Las validaciones 10, 11 y 12 están ejecutadas y las decisiones D-1 a D-4 están tomadas.
+- **Terminada cuando:** Las validaciones 10 y 11 están ejecutadas.
 
 - [x] **F0-01** Definir los requisitos y el stack del laboratorio. _(diseño §2 y §3)_
 - [x] **F0-02** Fijar las versiones y comprobar sus imágenes en Docker Hub. _(diseño §3)_
@@ -132,15 +111,16 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 - [x] **F0-09** Validar el `MERGE` SCD2 y el mantenimiento a volumen. _(validaciones, parte 2)_
 - [x] **F0-10** Definir los requisitos y la interfaz del simulador. _(diseño §9)_
 - [x] **F0-11** Definir las cuentas y credenciales. _(diseño §45)_
-- [ ] **F0-12** Decidir cómo reconciliar Bronze si se pierden los checkpoints. _(decisión D-2)_
-- [ ] **F0-13** Decidir el origen de `effective_from`. _(decisión D-1)_
+- [x] **F0-12** Decidir cómo reconciliar Bronze si se pierden los checkpoints. _(decisión 27)_
+- [x] **F0-13** Decidir el origen de `effective_from`. _(decisión 26)_
 - [ ] **F0-14** Ejecutar la validación 10: consola Lanterna dentro del contenedor. _(validaciones, parte 2)_
 - [ ] **F0-15** Ejecutar la validación 11: DuckDB JDBC lee Bronze desde Java 25. _(validaciones, parte 2)_
-- [ ] **F0-16** Ejecutar la validación 12: inicio de sesión del administrador de Airflow. _(validaciones, parte 2)_
-- [ ] **F0-17** Decidir el gestor de autenticación de Airflow. _(decisión D-3)_
-- [ ] **F0-18** Comprobar si RustFS admite una clave de solo lectura. _(decisión D-4)_
-- [ ] **F0-19** Corregir la leyenda del diagrama de linaje. _(decisión D-6)_
-- [ ] **F0-20** Regenerar los diagramas de arquitectura y de orden de arranque. _(decisión D-7)_
+- [x] **F0-16** Ejecutar la validación 12: inicio de sesión del administrador de Airflow. _(validaciones, parte 2)_
+- [x] **F0-17** Decidir el gestor de autenticación de Airflow. _(decisión 30)_
+- [x] **F0-18** Decidir si DuckDB usa una clave de RustFS de solo lectura. _(decisión 28)_
+- [x] **F0-19** Corregir la leyenda del diagrama de linaje. _(decisión 29)_
+- [x] **F0-20** Regenerar los diagramas de arquitectura y de orden de arranque. _(diseño §4 y §40)_
+- [x] **F0-21** Comprobar la reconstrucción de Bronze tras perder los checkpoints. _(diseño §38)_
 
 ### F1 · Dataset de entrada
 
@@ -219,7 +199,7 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 - [ ] **F5-05** Añadir `flink-taskmanager` al Compose. _(diseño §39)_
 - [ ] **F5-06** Escribir el script de envío: no enviar si el job ya está en ejecución. _(diseño §14)_
 - [ ] **F5-07** Escribir el script de envío: reanudar desde el último checkpoint. _(diseño §14)_
-- [ ] **F5-08** Escribir el script de envío: aplicar la decisión D-2 cuando no hay checkpoint. _(decisión D-2)_
+- [ ] **F5-08** Escribir el script de envío: detenerse con error si no hay checkpoint y Bronze ya tiene tablas. _(diseño §14)_
 - [ ] **F5-09** Añadir el job `flink-cdc-submit` al Compose. _(diseño §39)_
 - [ ] **F5-10** Comprobar que las 20 tablas llegan a Bronze. _(diseño §17)_
 - [ ] **F5-11** Comprobar un INSERT en Bronze. _(diseño §17)_
@@ -227,6 +207,7 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 - [ ] **F5-13** Comprobar un DELETE en Bronze. _(diseño §17)_
 - [ ] **F5-14** Comprobar que repetir `docker compose up` no crea un segundo job. _(diseño §14)_
 - [ ] **F5-15** Comprobar que el pipeline se reanuda tras reiniciar el JobManager. _(diseño §14)_
+- [ ] **F5-16** Escribir el script que elimina las tablas Bronze para reconstruirlas. _(diseño §38)_
 
 ### F6 · Event Simulator
 
@@ -305,6 +286,7 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 - [ ] **F7-30** Reparar las referencias que quedaron con clave 0. _(diseño §19 y §30)_
 - [ ] **F7-31** Comprobar que una segunda corrida sin cambios no escribe nada. _(diseño §19)_
 - [ ] **F7-32** Comprobar un INSERT, un UPDATE, un DELETE y una reinserción en Silver. _(diseño §31)_
+- [ ] **F7-33** Cerrar las versiones vigentes cuya clave ya no aparece en Bronze. _(diseño §19 y §38)_
 
 ### F8 · Capa Gold
 
@@ -336,7 +318,7 @@ Las flechas continuas son dependencias entre fases completas. Las punteadas indi
 - [ ] **F9-04** Añadir `airflow-apiserver` al Compose. _(diseño §18)_
 - [ ] **F9-05** Añadir `airflow-scheduler` al Compose. _(diseño §18)_
 - [ ] **F9-06** Añadir `airflow-dag-processor` al Compose. _(diseño §18)_
-- [ ] **F9-07** Crear el administrador de Airflow. _(decisión D-3)_
+- [ ] **F9-07** Crear el administrador de Airflow con `airflow users create`. _(diseño §45.4)_
 - [ ] **F9-08** Escribir el job de mantenimiento de Iceberg. _(diseño §38)_
 - [ ] **F9-09** Crear el DAG `elastiflix_medallion`. _(diseño §18)_
 - [ ] **F9-10** Añadir la tarea `validate_bronze`. _(diseño §18)_
@@ -424,6 +406,9 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | F0-19 a F0-21 | Agente | Reconstrucción de Bronze comprobada con las 20 tablas; leyenda del linaje corregida y diagramas de arquitectura y de arranque regenerados |
+| 2026-11-22 | F0-16 y F0-17 | Responsable y agente | Validación 12 superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
+| 2026-11-22 | F0-12, F0-13 y F0-18 | Responsable y agente | Decisiones tomadas: reconstruir Bronze, `updated_at` como primer origen de `effective_from` y una sola clave de RustFS. Diseño en Revisión 6 |
 | 2026-11-22 | F1-01 a F1-03 | Agente y GrokBot | Primera versión del dataset generada y validada; se pidió regenerarla |
 | 2026-11-22 | F0-01 a F0-11 | Agente | Diseño en Revisión 5; validaciones 1 a 9, de volumen y de Silver ejecutadas |
 
@@ -433,7 +418,6 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 | Fecha | Actividad | Qué pasa | Qué se necesita |
 |---|---|---|---|
-| 2026-11-22 | F0-12, F5-08 | No está decidido cómo reconciliar Bronze si se pierden los checkpoints | Elegir entre las dos opciones de la decisión D-2 |
 | 2026-11-22 | F1-04 | El dataset regenerado aún no está en el repositorio | Esperar la entrega |
 
 ## 7. Riesgos
@@ -445,5 +429,5 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 | R1 | La consola Lanterna no funciona a través de `docker compose attach` | Ejecutar F0-14 antes de empezar la interfaz en F6 | Usar la alternativa de la validación 10 | F0-14 falla |
 | R2 | El dataset regenerado llega tarde o no cumple | El dataset actual sirve para construir F3 a F10 | Seguir con el actual y cambiarlo antes de F11 | F1-05 o F1-06 fallan |
 | R3 | Todo el stack junto no cabe en la memoria prevista | Declarar el límite de cada servicio al añadirlo | Detener el simulador o Superset mientras corre el DAG | F11-09 supera 15 GB |
-| R4 | Una decisión abierta de F0 frena una fase del camino más largo | Tomar primero D-2 y D-1, que desbloquean F5 y F7 | Avanzar F6 en paralelo mientras se decide | F5 o F7 listas para empezar con su decisión sin tomar |
+| R4 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |

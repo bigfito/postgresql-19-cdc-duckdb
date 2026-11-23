@@ -24,3 +24,4 @@ Un laboratorio local de ingeniería de datos: PostgreSQL 19 → Flink CDC → Ap
 6. Para dudas sobre una librería o herramienta, consulta su documentación vigente antes de escribir código; no te fíes de la memoria. Di de dónde salió cada dato.
 7. Haz commit o push solo cuando la persona responsable lo pida.
 8. Escribe la documentación y los mensajes de commit en español.
+9. Los diagramas y los bocetos de pantalla se hacen con [Archify](https://github.com/tt-a1i/archify), no con Mermaid ni con dibujos en texto. Cada uno vive en `lab-design/diagrams/` con tres archivos: la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Si encuentras un diagrama Mermaid, un boceto dibujado con caracteres o un flujo escrito con flechas, conviértelo. Los árboles de directorios sí se quedan como texto, y las correspondencias simples entre dos columnas van en una tabla.
