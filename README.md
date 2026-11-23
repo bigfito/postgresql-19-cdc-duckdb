@@ -24,7 +24,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
-| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/` y `metadata-db/` |
+| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/` y `postgresql/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
@@ -103,6 +103,8 @@ postgresql-19-cdc-duckdb/
 |   `-- <tabla>.csv   (20 archivos)
 |-- metadata-db/
 |   `-- init/01-create-databases.sh
+|-- postgresql/
+|   `-- init/   (esquema, catálogos y entidades compartidas)
 |-- (esqueleto de directorios de los servicios, ver abajo)
 `-- lab-design/
     |-- LAB-DESIGN.md
@@ -120,7 +122,7 @@ postgresql-19-cdc-duckdb/
         `-- end-to-end-change-path.{json,html,svg}
 ```
 
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset y `metadata-db/init/` su script de inicialización; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
+Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización y `postgresql/init/` la primera parte del DDL; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
 
 ```text
 postgresql-19-cdc-duckdb/

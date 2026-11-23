@@ -17,7 +17,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
-| F3 | PostgreSQL operacional | 15 | 0 | 0 % | ⏳ Pendiente |
+| F3 | PostgreSQL operacional | 15 | 2 | 13 % | 🔄 En curso |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **39** | **18 %** | 🔄 En curso |
+| | **Global** | **222** | **41** | **18 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -165,8 +165,8 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/solution-architect`
 - **Terminada cuando:** El servicio arranca sano, crea las 20 tablas y la publicación, y los 20 CSV cargan con `COPY` sin errores.
 
-- [ ] **F3-01** Escribir el DDL de los 4 catálogos. _(diseño §12)_
-- [ ] **F3-02** Escribir el DDL de las 7 entidades compartidas. _(diseño §12)_
+- [x] **F3-01** Escribir el DDL de los 4 catálogos. _(diseño §12)_
+- [x] **F3-02** Escribir el DDL de las 7 entidades compartidas. _(diseño §12)_
 - [ ] **F3-03** Escribir el DDL de `movie` y `movie_collection`. _(diseño §12)_
 - [ ] **F3-04** Escribir el DDL de las 6 tablas de relación y de `movie_enrichment`. _(diseño §12)_
 - [ ] **F3-05** Revisar el DDL con las observaciones de la validación del dataset. _(validaciones, parte 2)_
@@ -446,6 +446,8 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | F3-02 | Agente | `postgresql/init/03-shared-entities.sql` con las 7 entidades compartidas: claves del dataset sin secuencias, nombre único salvo en `collection` y `keyword`, y fechas con `now()` en `collection`, `keyword` y `person`. Cargan sus 7 CSV (116,097 filas) y las restricciones responden como pide el diseño |
+| 2026-11-22 | F3-01 | Agente | `postgresql/init/01-schema.sql` crea el esquema `catalog` y `02-catalogs.sql` los 4 catálogos, con la restricción de dos letras en `original_language`. Aplicados en un PostgreSQL 19.0 desechable: cargan sus 4 CSV (72 filas) y rechazan claves repetidas y códigos de idioma mal formados |
 | 2026-11-22 | F2 | Agente | Fase terminada. Revisión desde cero: `docker compose config` valida, `volumes-init` termina con 0, `metadata-db` queda sano en 32 s con sus dos bases, ningún secreto fuera de `.env.example`. `docker compose up --wait` sin nombrar servicio devuelve error al terminar un job one-shot; anotado en el diseño (§40) |
 | 2026-11-22 | F2-09 | Agente | Sano en 35 s con PostgreSQL 19.0. Bases `airflow` y `superset`, cada una de su cuenta; desde otro contenedor de la red cada cuenta entra solo en la suya y se rechaza una contraseña errónea. Al reiniciar no repite la inicialización y conserva las bases |
 | 2026-11-22 | F2-08 | Agente | Servicio `metadata-db` (`postgres:19.0`, 512 MB, sin puertos) y `metadata-db/init/01-create-databases.sh`, que crea las cuentas `airflow` y `superset` con su base cada una y retira a PUBLIC la conexión; contraseñas desde `.env`. Healthcheck `pg_isready` por TCP |
