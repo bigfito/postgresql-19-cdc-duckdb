@@ -459,6 +459,11 @@ services:
     depends_on:
       volumes-init:
         condition: service_completed_successfully
+      # Flink no necesita a PostgreSQL para arrancar; quien lo necesita es el
+      # pipeline. La dependencia está aquí porque así lo dibuja el orden de
+      # arranque del diseño (sección 40), y solo retrasa a Flink unos segundos.
+      postgresql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:8081/overview"]
       interval: 5s

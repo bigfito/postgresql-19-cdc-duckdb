@@ -2472,14 +2472,15 @@ Procedimientos de Iceberg que usa `iceberg_maintenance`, comprobados en la valid
 
 ```sql
 CALL lake.system.rewrite_data_files(
-    table => 'bronze.movie',
+    table => 'lake.bronze.movie',
     options => map('rewrite-all', 'true', 'remove-dangling-deletes', 'true'));
 CALL lake.system.rewrite_position_delete_files(
-    table => 'bronze.movie', options => map('rewrite-all', 'true'));
+    table => 'lake.bronze.movie', options => map('rewrite-all', 'true'));
 CALL lake.system.expire_snapshots(
-    table => 'bronze.movie', older_than => TIMESTAMP '2026-11-23 19:45:00', retain_last => 5);
+    table => 'lake.bronze.movie', older_than => TIMESTAMP '2026-11-23 19:45:00', retain_last => 5);
 ```
 
+- **La tabla se nombra con el catálogo delante**, `lake.bronze.movie`. Con `bronze.movie` el procedimiento funciona igual, pero Iceberg prueba antes si `bronze` es un catálogo y deja en el log un aviso con su traza por cada llamada: tres por tabla y corrida. Visto y corregido en la fase F11.
 - **`older_than` es obligatorio.** Por defecto `expire_snapshots` solo expira snapshots de más de cinco días, así que en un laboratorio que lleva horas en marcha `retain_last` por sí solo no expira ninguno. El job pasa la hora en que arranca.
 - **La compactación corre con Flink escribiendo, pero a veces se cruzan.** Si Flink confirma un checkpoint entre la reescritura y la retirada de los deletes sobrantes, Iceberg rechaza esta última («Cannot remove dangling deletes: current snapshot changed»). No se pierde nada. `iceberg_maintenance.py` repite la compactación de esa tabla hasta tres veces y, si no lo consigue, la deja para la corrida siguiente. Pasó una vez en 49 tablas en la fase F9.
 - **Si una tabla falla por otra causa**, el job lo anota, sigue con las demás y termina con código 1.
@@ -2593,7 +2594,7 @@ Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha
 | Spark worker | 3 GB | 2.18 GB |
 | `airflow-apiserver` | 0.5 GB | 0.33 GB |
 | `airflow-scheduler` | 2 GB | 1.88 GB |
-| `airflow-dag-processor` | 0.5 GB | 0.37 GB |
+| `airflow-dag-processor` | 0.5 GB | 0.46 GB |
 | Superset | 2 GB | 1.15 GB |
 | RustFS | 1 GB | 0.73 GB |
 | Iceberg REST | 0.5 GB | 0.24 GB |
@@ -2601,6 +2602,7 @@ Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha
 
 Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB en reposo y de 7.9 GB en el momento de mayor carga.
 
+- **Medido con el laboratorio construido (fase F11).** Durante una corrida completa del DAG, con Flink y el simulador escribiendo y unas 2,600 películas cargadas, el laboratorio usó entre 4.7 y 7.4 GiB. Ningún contenedor se detuvo por memoria. Dos quedan a menos de un 10 % de su límite: `airflow-scheduler`, con 1.87 GiB de 2, y `airflow-dag-processor`, con 0.46 de 0.5. Es el riesgo R12 del plan. No se midió con el dataset completo cargado y todos los servicios a la vez.
 - **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 3 GB de Airflow se reparten 0.5, 2 y 0.5.
 - **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso. Ofrece al clúster 1500 MB y 4 núcleos (`SPARK_WORKER_MEMORY`, `SPARK_WORKER_CORES`), lo justo para un ejecutor, así que corre una aplicación a la vez. El master y el worker limitan su propio proceso con `SPARK_DAEMON_MEMORY=256m`; sin ese valor cada uno pediría 1 GB.
 - **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB: medido en la fase F9, con el driver dentro del scheduler: 1.88 GiB en una corrida completa del DAG, a un 6 % del límite. Es el riesgo R12 del plan.
@@ -2640,7 +2642,7 @@ Para dejar el laboratorio como recién clonado, sin perder las imágenes constru
 2. Vaciar los directorios de datos, conservando su `.gitkeep`: `postgresql/data/`, `metadata-db/data/`, `flink/data/`, `iceberg/data/`, `superset/data/` y `airflow/logs/`. Los datos de RustFS están en un volumen (sección 15): se borra con `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`.
 3. `docker compose up -d`.
 
-Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laboratorio incoherente: un catálogo que apunta a archivos que ya no están en RustFS, o checkpoints de Flink que remiten a un slot de replicación que ya no existe. Se usa antes de la prueba de extremo a extremo (fase F11) y cada vez que haga falta repetir la demostración desde el principio. El procedimiento no se ha probado como tal; lo comprueba la actividad F11-12 del plan.
+Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laboratorio incoherente: un catálogo que apunta a archivos que ya no están en RustFS, o checkpoints de Flink que remiten a un slot de replicación que ya no existe. Se usa antes de la prueba de extremo a extremo (fase F11) y cada vez que haga falta repetir la demostración desde el principio. Comprobado en la fase F11: `docker compose down` tarda 8 s, vaciar los seis directorios 1 s, y el laboratorio vuelve a arrancar desde vacío, con 0 películas, el catálogo sin tablas y Superset sin bases conectadas.
 
 ## 40. Orden de dependencias esperado
 
@@ -2656,10 +2658,14 @@ Reglas:
 - Las dependencias sobre jobs one-shot usan `condition: service_completed_successfully`.
 - Los jobs one-shot son idempotentes: `docker compose up` puede repetirse sin romper nada.
 - `docker compose up --wait` sin nombrar servicios no sirve para esperar al laboratorio: devuelve error en cuanto termina un job one-shot, aunque termine con código 0. Para esperar a un servicio se nombra: `docker compose up -d --wait metadata-db`. Comprobado con Compose 5.5.1 en la fase F2.
-- El simulador arranca cuando `flink-cdc-submit` ha terminado, es decir, con el pipeline en `RUNNING` (sección 14). En el primer arranque las tablas de PostgreSQL están vacías (sección 9.5), así que el snapshot inicial es inmediato y las primeras inserciones ya llegan por streaming. Medido en la fase F6, desde cero: `docker compose up -d` deja el simulador arrancado a los 51 o 55 segundos, y su primera transacción llega unos 4 segundos después.
+- El simulador arranca cuando `flink-cdc-submit` ha terminado, es decir, con el pipeline en `RUNNING` (sección 14). En el primer arranque las tablas de PostgreSQL están vacías (sección 9.5), así que el snapshot inicial es inmediato y las primeras inserciones ya llegan por streaming. Medido en la fase F6, desde cero: `docker compose up -d` deja el simulador arrancado a los 51 o 55 segundos, y su primera transacción llega unos 4 segundos después. Repetido en la fase F11 con todos los servicios: el simulador arrancó a los 58 s.
 - Spark arranca después de `iceberg-init`, para que sus jobs encuentren los namespaces.
 - Airflow y Superset no esperan a Spark ni a que Gold tenga datos; solo las corridas del DAG y los datasets los necesitan.
 - Ningún servicio se reinicia solo (sección 39): tras un reinicio del equipo, este orden se recorre de nuevo con `docker compose up -d`.
+- **Flink espera a `postgresql`.** `flink-jobmanager` declara esa dependencia porque así lo dibuja el diagrama. Flink no la necesita para arrancar, solo el pipeline; le cuesta empezar unos 40 s más tarde, sin retrasar el envío del pipeline, que ya esperaba a PostgreSQL.
+- **Arranque completo, medido en la fase F11.** Desde un laboratorio vuelto a cero y con las seis imágenes ya construidas, `docker compose up -d --build` termina con código 0 en 97 s. En segundos desde el primer contenedor: `postgresql`, `metadata-db` y `rustfs` a 0; el catálogo a 7; Spark a 9; Flink a 41; el pipeline enviado a 57; el simulador a 58; Airflow a 67 y Superset a 90. La primera corrida del DAG empieza sola y termina en 4 min 37 s, con Silver y Gold creados.
+- **Repetir el comando no cambia nada.** Con todo en marcha, `docker compose up -d` tarda 23 s y no recrea ningún contenedor. Los seis jobs one-shot vuelven a ejecutarse y terminan con código 0: el bucket, los namespaces, el pipeline y los dos administradores ya existen. Sigue habiendo un solo job de Flink, un slot de replicación y un usuario en cada base de metadatos.
+- **Detener y volver a levantar.** `docker compose down` (7 s) y `docker compose up -d` (40 s): el pipeline se reanuda desde su último checkpoint con un job nuevo, el simulador sigue con la película pendiente siguiente sin repetir altas, el DAG lanza su corrida a su hora y Superset conserva lo creado. Con el simulador en pausa para poder comparar, PostgreSQL y Bronze coincidieron en las 20 tablas. Se detuvo entre dos corridas del DAG; pararlo en mitad de una no se probó.
 
 ## 41. Separación de responsabilidades
 
@@ -2703,6 +2709,20 @@ Una demostración completa deberá poder mostrar:
 14. DuckDB consulta Gold.
 15. En Superset se conecta la base DuckDB y se crea un gráfico sobre un producto Gold (guía de la sección 35); el gráfico refleja los cambios tras la siguiente corrida.
 
+### Comprobado en la fase F11
+
+Los quince pasos se recorrieron con el laboratorio vuelto a cero, y tres cambios del simulador se siguieron por todas las capas. En cada uno se miró el estado antes y después de la corrida del DAG de las 21:36:49 UTC:
+
+| Operación | PostgreSQL | Bronze | Silver, tras la corrida | Gold y Superset, tras la corrida |
+|---|---|---|---|---|
+| INSERT de la película 71001, a las 21:35:54 | La fila existe | Llega con `+I` en segundos | Versión 1 vigente en `dim_movie` y su foto en `fact_movie_snapshot` | Aparece; antes no estaba |
+| UPDATE de medidas de la película 746, a las 21:33:57 | Popularidad 76.012 | La fila pasa a `+U` con el valor nuevo | Una foto nueva en `fact_movie_snapshot`; se conserva la anterior, con 83.513 | Pasa de 83.513 a 76.012 |
+| DELETE de la película 1282, a las 21:31:29 | La fila ya no existe | Queda como tombstone, con `-D` | Su versión de `dim_movie` se cierra a las 21:31:29 y se añade una foto con `is_deleted` | Desaparece |
+
+El gráfico creado con la guía de la sección 35 pasó de 111 a 1,528 películas al recargar el dashboard. Entre un cambio y su aparición en Superset pasan como mucho 15 minutos: hasta 10 de espera a la corrida siguiente y 5 de la corrida.
+
+Lo que no se siguió en esta fase: un UPDATE descriptivo, que abre una versión nueva en `dim_movie`; ese camino se comprobó en la fase F7. Un cambio intermedio que se deshace o se borra antes de la corrida siguiente no deja versión propia en Silver, porque cada corrida lee el último estado de Bronze.
+
 ## 43. 🚀 Trabajo siguiente
 
 El orden de trabajo, las actividades de cada fase y el avance están en el plan: **[planning/PLAN.md](../planning/PLAN.md)**.
@@ -2716,6 +2736,8 @@ El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/co
 ![Recorrido de un cambio de extremo a extremo en once pasos: CSV, Java transaction, PostgreSQL WAL, Flink CDC, Iceberg Bronze, Airflow/PySpark, Silver dimensional/SCD2, Airflow/PySpark, Gold materializado, DuckDB y Apache Superset](diagrams/end-to-end-change-path.svg)
 
 > Versión interactiva: [`diagrams/end-to-end-change-path.html`](diagrams/end-to-end-change-path.html) · Fuente editable: [`diagrams/end-to-end-change-path.json`](diagrams/end-to-end-change-path.json).
+
+Comprobado en la fase F11 sobre un laboratorio vuelto a cero en el equipo de desarrollo, con las imágenes ya construidas (sección 42). Falta repetirlo desde un clon limpio del repositorio, que es la actividad F12-06 del plan.
 
 El diseño debe ser comprensible desde la estructura de directorios y mantener una separación clara de responsabilidades entre ingestión, CDC, almacenamiento, catálogo, transformación, orquestación, serving y visualización.
 

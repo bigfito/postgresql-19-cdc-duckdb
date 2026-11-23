@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F10 dejaron el camino completo del dato: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, el DAG `elastiflix_medallion` de Airflow lanza cada 10 minutos los jobs de Spark que actualizan Silver y Gold, con sus validaciones y el mantenimiento de Iceberg, y Superset consulta Gold con DuckDB. Faltan la prueba de extremo a extremo desde un clon limpio y el cierre, que son las fases F11 y F12 del [plan de trabajo](planning/PLAN.md).
+> 🔄 **Implementación terminada; falta el cierre.** Las fases F2 a F11 dejaron el laboratorio completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Falta la fase F12 del [plan de trabajo](planning/PLAN.md): la documentación final y la comprobación desde un clon limpio.
 
 | Elemento | Estado |
 |---|---|
@@ -36,7 +36,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Capa Gold: el job que recarga los siete productos analíticos | ✅ Fase F8 terminada |
 | Orquestación con Airflow: imagen, servicios, DAG `elastiflix_medallion`, validaciones y mantenimiento de Iceberg | ✅ Fase F9 terminada |
 | DuckDB y Superset: línea de comandos de DuckDB, imagen y servicios de Superset, y la guía para conectar Gold y crear un gráfico, seguida en un navegador | ✅ Fase F10 terminada |
-| Prueba de extremo a extremo, documentación y cierre | ⏳ Fases F11 y F12; ver el [plan de trabajo](planning/PLAN.md) |
+| Integración de extremo a extremo: vuelta a cero, arranque completo, cambios seguidos hasta Superset, reinicio y memoria | ✅ Fase F11 terminada |
+| Documentación final y comprobación desde un clon limpio | ⏳ Fase F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -170,15 +171,15 @@ Antes del primer arranque, copia la plantilla de configuración. Sus valores son
 cp .env.example .env
 ```
 
-Cuando la implementación esté completa, un único comando levantará el laboratorio:
+Un único comando levanta el laboratorio:
 
 ```bash
 docker compose up -d --build
 ```
 
-Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
+Ese comando también ejecuta los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ El Compose ya define todos los servicios, y cada uno se levantó y se comprobó en su fase. Lo que todavía no se ha hecho es el arranque completo desde un clon limpio, con ese único comando: lo comprueba la fase F11 (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ✅ Comprobado en la fase F11, desde un laboratorio vuelto a cero y con las imágenes ya construidas: el comando termina en 97 s y deja los 13 servicios en marcha; el simulador empieza a insertar al minuto y la primera corrida del DAG, que arranca sola, deja Silver y Gold creados unos 6 minutos después del comando. La primera vez hay que sumar la construcción de las seis imágenes. Repetir el comando no duplica nada. Falta comprobarlo desde un clon limpio (fase F12). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
 ### El simulador
 

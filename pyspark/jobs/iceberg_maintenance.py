@@ -87,9 +87,14 @@ def existing_tables(spark: SparkSession, namespace: str) -> list[str]:
 
 
 def call(spark: SparkSession, procedure: str, table: str, arguments: str = "") -> Row:
-    """Ejecuta un procedimiento de Iceberg sobre una tabla y devuelve su resultado."""
+    """Ejecuta un procedimiento de Iceberg sobre una tabla y devuelve su resultado.
+
+    La tabla se pasa con el catálogo delante. Sin él, Iceberg prueba primero
+    si la capa («bronze») es un catálogo, no lo encuentra y deja en el log un
+    aviso con su traza por cada llamada, aunque después la resuelva bien.
+    """
     extra = f", {arguments}" if arguments else ""
-    return spark.sql(f"CALL {CATALOG}.system.{procedure}(table => '{table}'{extra})").first()
+    return spark.sql(f"CALL {CATALOG}.system.{procedure}(table => '{CATALOG}.{table}'{extra})").first()
 
 
 def rewrite_data_files(spark: SparkSession, table: str) -> Row | None:
