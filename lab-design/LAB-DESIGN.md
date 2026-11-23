@@ -288,7 +288,7 @@ Notas sobre la estructura:
 - `AGENTS.md` da a cualquier agente de programación las reglas comunes y lo dirige al plan; `CLAUDE.md` añade lo propio de Claude Code.
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación.
-- `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset.
+- `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset; `metadata-db/init/01-create-databases.sh` crea sus cuentas y sus bases (sección 45.3).
 - `flink/jobs/` contiene el YAML del pipeline CDC y `flink/data/` los checkpoints. Los JAR se descargan en el build, por eso no hay `flink/lib/`.
 - `pyspark/reference/` contiene los datos de referencia versionados que Silver usa para enriquecer catálogos (nombres de idioma, códigos de país, descripción de ratings).
 - `pyspark/jobs/` contiene los dos jobs de transformación, el de mantenimiento (sección 38) y un job corto por cada tarea `validate_*` del DAG (sección 18).
@@ -2276,7 +2276,7 @@ Quien revise el laboratorio puede tener otros entornos Docker en la misma máqui
 - **Nombre de proyecto explícito.** El archivo empieza con `name: elastiflix-cdc-lakehouse`. Sin él, Compose deriva el nombre del directorio donde se clonó el repositorio, y dos clones o un directorio renombrado producirían proyectos distintos sobre los mismos datos.
 - **Sin `container_name`.** Los contenedores toman el nombre que genera Compose (`elastiflix-cdc-lakehouse-postgresql-1`). Un nombre fijo como `elastiflix-postgres` choca con cualquier otro proyecto que use el mismo.
 - **Red propia.** Los servicios se hablan por la red por defecto del proyecto y por nombre de servicio (`postgresql`, `rustfs`, `iceberg-rest`); no se usan redes externas ni `network_mode: host`.
-- **Puertos del host configurables.** Cada puerto publicado se declara como `127.0.0.1:${VAR:-valor}:puerto`, con la variable en `.env.example`. Si el `5432` u otro ya está ocupado, se cambia en `.env` sin tocar el Compose. Las conexiones entre servicios no dependen de esos puertos.
+- **Puertos del host configurables.** Cada puerto publicado se declara como `127.0.0.1:${VAR:-valor}:puerto`, con la variable en `.env.example`. Si el `5432` u otro ya está ocupado, se cambia en `.env` sin tocar el Compose. Las conexiones entre servicios no dependen de esos puertos. Los ocho están juntos en el campo de extensión `x-host-ports` del Compose, con un ancla YAML por servicio: cada servicio los toma con `ports: *ports-<servicio>`.
 
 | Variable | Valor por defecto | Servicio |
 |---|---:|---|
@@ -2350,6 +2350,7 @@ Reglas:
 - Los servicios con estado (`postgresql`, `metadata-db`, `rustfs`, `iceberg-rest`, Flink, Spark) exponen healthcheck.
 - Las dependencias sobre jobs one-shot usan `condition: service_completed_successfully`.
 - Los jobs one-shot son idempotentes: `docker compose up` puede repetirse sin romper nada.
+- `docker compose up --wait` sin nombrar servicios no sirve para esperar al laboratorio: devuelve error en cuanto termina un job one-shot, aunque termine con código 0. Para esperar a un servicio se nombra: `docker compose up -d --wait metadata-db`. Comprobado con Compose 5.5.1 en la fase F2.
 - El simulador arranca cuando `flink-cdc-submit` ha terminado, es decir, con el pipeline en `RUNNING` (sección 14). En el primer arranque las tablas de PostgreSQL están vacías (sección 9.5), así que el snapshot inicial es inmediato y las primeras inserciones ya llegan por streaming.
 - Spark arranca después de `iceberg-init`, para que sus jobs encuentren los namespaces.
 - Airflow y Superset no esperan a Spark ni a que Gold tenga datos; solo las corridas del DAG y los datasets los necesitan.
@@ -2440,7 +2441,7 @@ Ningún servicio de larga duración corre como `root`. Comprobado sobre las imá
 
 - La imagen de PostgreSQL arranca como `root`, ajusta ella misma la propiedad de su directorio de datos y baja a `postgres`. No necesita preparación.
 - El resto no puede cambiar la propiedad de su directorio. En Linux, un directorio recién clonado pertenece al usuario del host y el servicio falla al escribir. En Docker Desktop sobre Windows los directorios montados aparecen escribibles para todos y el problema no se manifiesta.
-- **Job `volumes-init`.** Un job one-shot que corre como `root`, antes que los servicios con estado, y asigna a cada directorio de la tabla el UID:GID de su servicio. Reutiliza una imagen ya presente en el laboratorio. `iceberg-rest` no depende directamente de él, pero arranca después a través de `rustfs` y `rustfs-init` (sección 40), así que `iceberg/data` ya está preparado.
+- **Job `volumes-init`.** Un job one-shot que corre como `root`, antes que los servicios con estado, y asigna a cada directorio de la tabla el UID:GID de su servicio. Reutiliza la imagen de RustFS, ya presente en el laboratorio, que trae `sh` y `chown`. Cambia el dueño del directorio, no el de su contenido, y tiene un límite de 64 MB. `iceberg-rest` no depende directamente de él, pero arranca después a través de `rustfs` y `rustfs-init` (sección 40), así que `iceberg/data` ya está preparado.
 - `java-simulator` es la única imagen propia sin usuario heredado: su Dockerfile crea el usuario `simulator`.
 
 ### 45.3 Cuentas técnicas entre servicios
@@ -2459,6 +2460,7 @@ Cada servicio usa una cuenta propia con el mínimo privilegio que necesita.
 
 - **Una sola clave de RustFS.** Todos los clientes comparten la misma clave de acceso, que llega a cada contenedor en las variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Se descartó dar a DuckDB, que nunca escribe, una segunda clave de solo lectura: en un laboratorio local añade un paso de inicialización y dos variables sin reducir un riesgo real. No se llegó a comprobar si RustFS 1.0.6 permite claves con permisos distintos.
 - **Sin autenticación:** el Iceberg REST Catalog, el master de Spark y el clúster de Flink no piden credenciales. Solo son alcanzables dentro de la red del Compose o, sus interfaces web, desde `127.0.0.1`.
+- **`metadata-db` exige contraseña desde la red.** La imagen oficial de PostgreSQL acepta sin contraseña las conexiones que nacen dentro del propio contenedor (el socket y `127.0.0.1`) y pide `scram-sha-256` a cualquier otra. `metadata-db/init/01-create-databases.sh` crea las cuentas `airflow` y `superset`, cada una dueña de su base, y retira a `PUBLIC` el permiso de conexión en las dos: cada cuenta solo entra en la suya. Comprobado en la fase F2 desde otro contenedor de la red.
 - **Secretos internos**, que no son cuentas pero viven junto a ellas: la `SECRET_KEY` de Superset, y en Airflow el secreto JWT que comparten sus servicios, la clave de la API y la clave Fernet.
 
 ### 45.4 Cuentas de acceso para personas
@@ -2498,7 +2500,7 @@ Todas las credenciales salen de `.env`, que no se versiona. El repositorio inclu
 Reglas:
 
 - Ninguna contraseña se escribe en el `docker-compose.yml`, en un Dockerfile, en el YAML del pipeline ni en el SQL de DuckDB. Todos leen de variables de entorno.
-- Los valores de `.env.example` son de laboratorio y están pensados para una máquina local con los puertos ligados a `127.0.0.1`. Quien exponga el laboratorio fuera de su máquina debe cambiarlos.
+- Los valores de `.env.example` son de laboratorio y están pensados para una máquina local con los puertos ligados a `127.0.0.1`. Quien exponga el laboratorio fuera de su máquina debe cambiarlos. Es el único archivo versionado que lleva credenciales (decisión 66); las contraseñas y los secretos se generaron al azar una sola vez.
 - Las contraseñas de `elastiflix_app` y `elastiflix_cdc` las aplica el script de inicialización de PostgreSQL leyendo las variables; no se versionan dentro del SQL.
 
 ## 46. 📚 Decisiones y validaciones

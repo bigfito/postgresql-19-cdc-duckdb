@@ -1,0 +1,126 @@
+# =============================================================================
+# ElastiFlix CDC Lakehouse Lab
+# =============================================================================
+# Levanta el laboratorio completo con un único comando:
+#
+#   docker compose up -d --build
+#
+# Las credenciales y los puertos del host se leen de .env, copia local de
+# .env.example (diseño, sección 45.5).
+#
+# Reglas de este archivo (diseño, secciones 39 y 40):
+#   - El nombre del proyecto es fijo, para que dos clones o un directorio
+#     renombrado no creen proyectos distintos sobre los mismos datos.
+#   - Ningún servicio declara container_name: los nombres los genera Compose
+#     (elastiflix-cdc-lakehouse-<servicio>-1).
+#   - Los servicios se hablan por la red por defecto del proyecto y por nombre
+#     de servicio; no hay redes externas ni network_mode: host.
+#   - Cada puerto publicado va como 127.0.0.1:${VARIABLE:-valor}:puerto.
+#   - Ningún servicio declara restart.
+#   - Cada servicio guarda sus datos en su propio directorio (sección 7).
+#
+# Los servicios se añaden fase a fase según planning/PLAN.md.
+
+name: elastiflix-cdc-lakehouse
+
+# -----------------------------------------------------------------------------
+# Puertos publicados en el host (diseño, sección 39)
+# -----------------------------------------------------------------------------
+# Todos escuchan solo en 127.0.0.1. El puerto del host sale de .env; si una
+# variable falta, se usa el valor por defecto. Las conexiones entre servicios
+# usan el puerto del contenedor y no dependen de estos valores.
+#
+# Cada servicio los toma con su ancla, por ejemplo:
+#
+#   postgresql:
+#     ports: *ports-postgresql
+#
+# metadata-db no publica ningún puerto: solo lo usan Airflow y Superset dentro
+# de la red del proyecto.
+x-host-ports:
+  # PostgreSQL operacional.
+  postgresql: &ports-postgresql
+    - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+  # Interfaz web y API REST de Flink, en el JobManager.
+  flink-jobmanager: &ports-flink-jobmanager
+    - "127.0.0.1:${FLINK_UI_HOST_PORT:-8081}:8081"
+  # Interfaz web del master de Spark. Escucha en el 8080 dentro del
+  # contenedor, igual que Airflow; por eso se publica en el 8082 del host.
+  spark-master: &ports-spark-master
+    - "127.0.0.1:${SPARK_UI_HOST_PORT:-8082}:8080"
+  # Interfaz web y API de Airflow.
+  airflow-apiserver: &ports-airflow-apiserver
+    - "127.0.0.1:${AIRFLOW_HOST_PORT:-8080}:8080"
+  # Superset.
+  superset: &ports-superset
+    - "127.0.0.1:${SUPERSET_HOST_PORT:-8088}:8088"
+  # RustFS: API S3 y consola web.
+  rustfs: &ports-rustfs
+    - "127.0.0.1:${RUSTFS_API_HOST_PORT:-9000}:9000"
+    - "127.0.0.1:${RUSTFS_CONSOLE_HOST_PORT:-9001}:9001"
+  # Iceberg REST Catalog.
+  iceberg-rest: &ports-iceberg-rest
+    - "127.0.0.1:${ICEBERG_REST_HOST_PORT:-8181}:8181"
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # volumes-init (job one-shot; diseño, sección 45.2)
+  # ---------------------------------------------------------------------------
+  # Asigna a cada directorio de datos el UID:GID del servicio que escribe en él,
+  # antes de que arranquen los servicios con estado. Es el único servicio que
+  # corre como root. Reutiliza la imagen de RustFS, que trae sh y chown.
+  # PostgreSQL y metadata-db no aparecen: su imagen prepara sola su directorio.
+  # Spark y el simulador no escriben en ningún directorio del host.
+  volumes-init:
+    image: rustfs/rustfs:1.0.6
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        prepare() {
+          chown "$$2" "/mnt/$$1"
+          echo "$$1: $$(stat -c '%u:%g' "/mnt/$$1")"
+        }
+        prepare flink-data     9999:9999
+        prepare airflow-logs   50000:0
+        prepare superset-data  1000:1000
+        prepare rustfs-data    10001:10001
+        prepare iceberg-data   1000:1000
+    volumes:
+      - ./flink/data:/mnt/flink-data
+      - ./airflow/logs:/mnt/airflow-logs
+      - ./superset/data:/mnt/superset-data
+      - ./rustfs/data:/mnt/rustfs-data
+      - ./iceberg/data:/mnt/iceberg-data
+    mem_limit: 64m
+
+  # ---------------------------------------------------------------------------
+  # metadata-db (diseño, secciones 39 y 45.3)
+  # ---------------------------------------------------------------------------
+  # PostgreSQL de metadatos de Airflow y Superset, separado de la base
+  # operacional. metadata-db/init/ crea las cuentas airflow y superset y una
+  # base para cada una la primera vez que arranca. No publica ningún puerto.
+  # La imagen arranca como root, prepara su directorio de datos y baja al
+  # usuario postgres (999:999); no necesita volumes-init.
+  metadata-db:
+    image: postgres:19.0
+    environment:
+      POSTGRES_PASSWORD: ${METADATA_DB_PASSWORD:?falta METADATA_DB_PASSWORD en .env}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?falta AIRFLOW_DB_PASSWORD en .env}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:?falta SUPERSET_DB_PASSWORD en .env}
+    volumes:
+      # Desde PostgreSQL 18 el volumen es /var/lib/postgresql (sección 7).
+      - ./metadata-db/data:/var/lib/postgresql
+      - ./metadata-db/init:/docker-entrypoint-initdb.d:ro
+    # Por TCP y no por el socket: durante la inicialización la imagen levanta
+    # un servidor temporal que solo escucha en el socket. Así el servicio solo
+    # está sano cuando las dos bases ya existen.
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    mem_limit: 512m

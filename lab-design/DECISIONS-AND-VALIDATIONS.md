@@ -85,6 +85,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 63 | El tipo de UPDATE se elige con la semilla, con la misma probabilidad entre los que la película admite; el sufijo de renombrado sustituye al anterior; la reinserción automática solo ocurre cuando un INSERT ya no tiene películas pendientes | Es simple, reproducible y no añade variables de configuración | 9.5 | Segunda revisión; Revisión 6 |
 | 64 | El snapshot de un borrado detectado por ausencia lleva como fecha el timestamp lógico de la corrida | Es la fecha que ya recibe `effective_to` en ese caso; la real no se conoce | 27, 31, 38 | Segunda revisión; Revisión 6 |
 | 65 | La tecla `Q` solo cierra la interfaz; el simulador se detiene con `docker compose stop java-simulator` | Detenerlo desde la interfaz terminaría el contenedor, y es lo que se probó en la validación 10 | 9.3 | Segunda revisión; Revisión 6 |
+| 66 | `.env.example` se versiona con valores de laboratorio, generados al azar, para todas las credenciales y secretos; es la única excepción a la regla de no versionar contraseñas ni claves | El entorno debe arrancar tal cual tras copiar la plantilla, y los puertos solo se publican en `127.0.0.1`. Quien exponga el laboratorio fuera de su máquina debe cambiarlos | 45.5 | Responsable; F2-01 |
 
 ### 1.2 Decisiones de versiones
 
@@ -680,6 +681,8 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Implementación de la fase F2 | Diseño sin concretar en estos puntos | Puertos en el campo de extensión `x-host-ports`; `volumes-init` con la imagen de RustFS; script de inicialización de `metadata-db`; aviso sobre `docker compose up --wait` con jobs one-shot | 7, 39, 40, 45.2, 45.3 |
+| Secretos en `.env.example` | La definición de terminado del plan prohibía cualquier clave versionada, en contra de §45.5 | Excepción explícita para `.env.example`, con valores de laboratorio (decisión 66) | 45.5 |
 | Datos de desarrollo y vuelta a cero | Sin definir; `postgresql/scripts/` sin uso | `load_dev_data.sql` carga el dataset a mano para desarrollar; procedimiento de vuelta a cero | 7, 39 |
 | Programación del DAG | A mano y, opcionalmente, cada 10 minutos | Cada 10 minutos, activo desde que se crea; también a mano | 18 |
 | Reinicio de los servicios | Sin definir | Sin reinicio automático; se repite `docker compose up -d` | 39, 40 |

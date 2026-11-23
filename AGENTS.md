@@ -20,7 +20,7 @@ Un laboratorio local de ingeniería de datos: PostgreSQL 19 → Flink CDC → Ap
 2. Trabaja una actividad del plan a la vez y respeta sus dependencias.
 3. Al terminar una actividad: márcala en el plan, ejecuta `python planning/update_progress.py` y añade una línea a la bitácora.
 4. No cambies el diseño por tu cuenta. Si una actividad no se puede cumplir como está escrita, anótalo en la sección 6 del plan y detente.
-5. No escribas contraseñas ni claves en ningún archivo versionado. Las credenciales salen de `.env`, que no se versiona.
+5. No escribas contraseñas ni claves en ningún archivo versionado. Las credenciales salen de `.env`, que no se versiona. La única excepción es `.env.example`, que lleva valores de laboratorio para que el entorno arranque tal cual.
 6. Para dudas sobre una librería o herramienta, consulta su documentación vigente antes de escribir código; no te fíes de la memoria. Di de dónde salió cada dato.
 7. Haz commit o push solo cuando la persona responsable lo pida.
 8. Escribe la documentación y los mensajes de commit en español.

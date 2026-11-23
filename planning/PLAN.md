@@ -16,7 +16,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 |---|---|---:|---:|---:|---|
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
-| F2 | Base del proyecto | 9 | 0 | 0 % | ⏳ Pendiente |
+| F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
 | F3 | PostgreSQL operacional | 15 | 0 | 0 % | ⏳ Pendiente |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **30** | **14 %** | 🔄 En curso |
+| | **Global** | **222** | **39** | **18 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -148,15 +148,15 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/solution-architect`
 - **Terminada cuando:** `docker compose config` valida sin errores, `volumes-init` termina con código 0 y `metadata-db` arranca sano.
 
-- [ ] **F2-01** Crear `.env.example` con todas las variables. _(diseño §45.5, §39, §9.6, §14 y §16)_
-- [ ] **F2-02** Crear el `.env` local a partir de `.env.example`. _(diseño §45.5)_
-- [ ] **F2-03** Crear `docker-compose.yml` con el nombre del proyecto. _(diseño §39)_
-- [ ] **F2-04** Declarar los puertos del host como variables ligadas a `127.0.0.1`. _(diseño §39)_
-- [ ] **F2-05** Añadir el job `volumes-init`. _(diseño §45.2)_
-- [ ] **F2-06** Comprobar que `docker compose config` valida sin errores. _(diseño §39)_
-- [ ] **F2-07** Comprobar que `volumes-init` deja cada directorio con su usuario. _(diseño §45.2)_
-- [ ] **F2-08** Añadir `metadata-db` con las bases `airflow` y `superset`. _(diseño §45.3)_
-- [ ] **F2-09** Comprobar que `metadata-db` arranca sano con sus dos bases. _(diseño §45.3)_
+- [x] **F2-01** Crear `.env.example` con todas las variables. _(diseño §45.5, §39, §9.6, §14 y §16)_
+- [x] **F2-02** Crear el `.env` local a partir de `.env.example`. _(diseño §45.5)_
+- [x] **F2-03** Crear `docker-compose.yml` con el nombre del proyecto. _(diseño §39)_
+- [x] **F2-04** Declarar los puertos del host como variables ligadas a `127.0.0.1`. _(diseño §39)_
+- [x] **F2-05** Añadir el job `volumes-init`. _(diseño §45.2)_
+- [x] **F2-06** Comprobar que `docker compose config` valida sin errores. _(diseño §39)_
+- [x] **F2-07** Comprobar que `volumes-init` deja cada directorio con su usuario. _(diseño §45.2)_
+- [x] **F2-08** Añadir `metadata-db` con las bases `airflow` y `superset`. _(diseño §45.3)_
+- [x] **F2-09** Comprobar que `metadata-db` arranca sano con sus dos bases. _(diseño §45.3)_
 
 ### F3 · PostgreSQL operacional
 
@@ -428,7 +428,7 @@ Una actividad se marca como hecha solo si se cumple todo lo que le aplique:
 - Su resultado existe en el repositorio y hace lo que dice la referencia.
 - Se ejecutó de verdad. «Comprobar» significa haberlo visto funcionar, no haber leído el código.
 - No rompe nada que ya funcionaba: las comprobaciones de las fases anteriores siguen pasando.
-- No deja contraseñas ni claves escritas en ningún archivo versionado.
+- No deja contraseñas ni claves escritas en ningún archivo versionado. La única excepción es `.env.example`, que lleva valores de laboratorio para que el entorno arranque tal cual (diseño §45.5, decisión 66).
 
 Además, toda actividad que añade un servicio al Compose deja ese servicio con:
 
@@ -446,6 +446,16 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | F2 | Agente | Fase terminada. Revisión desde cero: `docker compose config` valida, `volumes-init` termina con 0, `metadata-db` queda sano en 32 s con sus dos bases, ningún secreto fuera de `.env.example`. `docker compose up --wait` sin nombrar servicio devuelve error al terminar un job one-shot; anotado en el diseño (§40) |
+| 2026-11-22 | F2-09 | Agente | Sano en 35 s con PostgreSQL 19.0. Bases `airflow` y `superset`, cada una de su cuenta; desde otro contenedor de la red cada cuenta entra solo en la suya y se rechaza una contraseña errónea. Al reiniciar no repite la inicialización y conserva las bases |
+| 2026-11-22 | F2-08 | Agente | Servicio `metadata-db` (`postgres:19.0`, 512 MB, sin puertos) y `metadata-db/init/01-create-databases.sh`, que crea las cuentas `airflow` y `superset` con su base cada una y retira a PUBLIC la conexión; contraseñas desde `.env`. Healthcheck `pg_isready` por TCP |
+| 2026-11-22 | F2-07 | Agente | Tras `volumes-init`, cada uno de los cinco directorios tiene el UID:GID de su servicio y ese usuario puede escribir en él (`stat` y `test -w` desde un contenedor con ese usuario). Probado solo en Docker Desktop sobre Windows |
+| 2026-11-22 | F2-06 | Agente | `docker compose config` valida el Compose sin errores, con `.env` y sin él (valores por defecto) |
+| 2026-11-22 | F2-05 | Agente | Job `volumes-init` en el Compose: imagen de RustFS como root, `chown` de los cinco directorios de la sección 45.2 y límite de 64 MB. Ejecutado dos veces con `docker compose up`: termina con código 0, sin política de reinicio, y no deja cambios en Git |
+| 2026-11-22 | F2-04 | Agente | Los ocho puertos del host, en el campo de extensión `x-host-ports` del Compose, ligados a `127.0.0.1` y con un ancla por servicio (`*ports-<servicio>`) que cada servicio usará al añadirse. Comprobado con servicios de prueba fuera del repositorio: toman los valores de `.env`, los valores por defecto sin él y un cambio de variable |
+| 2026-11-22 | F2-03 | Agente | `docker-compose.yml` con `name: elastiflix-cdc-lakehouse`, las reglas de la sección 39 en su cabecera y aún sin servicios. `docker compose config` lo valida y el nombre se mantiene al lanzarlo desde otro directorio |
+| 2026-11-22 | Plan | Responsable y agente | Resuelta la duda de F2-01: `.env.example` puede llevar valores de laboratorio (decisión 66). Se ajustan la definición de terminado y `AGENTS.md` |
+| 2026-11-22 | F2-01 y F2-02 | Agente | `.env.example` con las 37 variables de las secciones 45.5, 39 y 9.6 del diseño, con secretos de laboratorio generados al azar; `.env` local copiado de él e ignorado por Git. Queda una duda en la sección 6 |
 | 2026-11-22 | Plan y documentación | Responsable y agente | Superset se entrega vacío: quien usa el laboratorio conecta la base y crea sus gráficos con la guía del diseño §35. Se retiran la validación 13 (F0-22), F10-07, F10-09 a F10-13, F10-18 y F10-19; F0 vuelve a estar terminada. Nuevas: F10-20, F10-21 y F11-13. Se cierra el riesgo R9 |
 | 2026-11-22 | Plan y documentación | Responsable y agente | Decididos los ocho puntos de la segunda revisión y el arranque del simulador tras un reinicio (decisiones 57 a 65). F0 se reabre con la validación 13 (F0-22), que F10 espera. Nuevas: F0-22, F3-15, F6-42 a F6-45, F9-19, F9-20, F10-19 y F11-12. Se abre el riesgo R9 |
 | 2026-11-22 | Plan y documentación | Agente | Segunda revisión de coherencia: se corrigen 23 hallazgos. Nuevas: F2-09 y F10-18; F6-37 pasa antes de F6-26. Quedan ocho puntos para decidir |
