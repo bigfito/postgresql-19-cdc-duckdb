@@ -206,6 +206,7 @@ postgresql-19-cdc-duckdb/
 |-- .gitignore
 |-- AGENTS.md
 |-- CLAUDE.md
+|-- LICENSE
 |-- README.md
 |
 |-- lab-design/
@@ -290,6 +291,7 @@ Notas sobre la estructura:
 - `wiki/` contiene las páginas del wiki de GitHub, escritas para lectores de negocio, sin comandos ni código. El wiki de GitHub es un repositorio aparte; las páginas se escriben y se revisan aquí, y `wiki/publish.sh` las copia allí. Sus dibujos son los diagramas `wiki-*` de `lab-design/diagrams/`. No añaden datos propios: cada cifra que citan sale de este documento.
 - `planning/PLAN.md` es el único plan de actividades del laboratorio, con su tablero de avance por fase y global. `planning/update_progress.py` recalcula ese tablero a partir de las actividades marcadas y, con `--done`, registra cada actividad terminada en la bitácora e imprime el avance de su fase y el global, que es lo que se reporta a la persona responsable.
 - `AGENTS.md` da a cualquier agente de programación las reglas comunes y lo dirige al plan; `CLAUDE.md` añade lo propio de Claude Code.
+- `LICENSE` es el texto de la licencia Apache 2.0, bajo la que se publica el repositorio. Las herramientas que el laboratorio descarga conservan cada una la suya.
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación, en nueve archivos numerados que la imagen ejecuta en orden: esquema, catálogos, entidades compartidas, `movie`, relaciones, cuentas, contraseñas, identidad de réplica y publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset; `metadata-db/init/01-create-databases.sh` crea sus cuentas y sus bases (sección 45.3).

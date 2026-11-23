@@ -97,7 +97,7 @@ Un directorio por servicio, con sus datos dentro:
 postgresql-19-cdc-duckdb/
 |-- docker-compose.yml
 |-- .env.example
-|-- README.md, AGENTS.md, CLAUDE.md
+|-- README.md, AGENTS.md, CLAUDE.md, LICENSE
 |-- lab-design/        diseño, decisiones y validaciones, y los diagramas
 |-- wiki/              páginas del wiki, para lectores de negocio, y el script que las publica
 |-- planning/          plan de actividades y el script que calcula su avance
@@ -335,3 +335,9 @@ El trabajo se dividió en 13 fases, de F0 a F12, y las 13 están terminadas. Las
 | [Recorrido de un cambio](lab-design/diagrams/end-to-end-change-path.svg) | Los once pasos del criterio de éxito |
 
 > 🔍 Cada diagrama tiene también una versión interactiva `.html` y su fuente `.json` en [`lab-design/diagrams/`](lab-design/diagrams/). Para explorarla, descarga el `.html` y ábrelo en un navegador; GitHub muestra su código en lugar de renderizarlo. Los diagramas se generan con [Archify](https://github.com/tt-a1i/archify).
+
+## 11. ⚖️ Licencia
+
+El laboratorio se publica bajo la [licencia Apache 2.0](LICENSE): se puede usar, copiar, modificar y redistribuir, también con fines comerciales, conservando el aviso de licencia y sin garantía de ningún tipo.
+
+La licencia cubre lo que hay en este repositorio: el código, la configuración, la documentación, los diagramas y el dataset de `raw_data/`, que es sintético. Las herramientas que el laboratorio descarga y ejecuta, como PostgreSQL, Flink, Iceberg, Spark, Airflow, DuckDB, Superset y RustFS, conservan cada una su propia licencia.
