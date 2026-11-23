@@ -17,7 +17,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F0 | Diseño y validaciones previas | 21 | 21 | 100 % | ✅ Terminada |
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
-| F3 | PostgreSQL operacional | 15 | 2 | 13 % | 🔄 En curso |
+| F3 | PostgreSQL operacional | 15 | 4 | 27 % | 🔄 En curso |
 | F4 | Almacenamiento y catálogo | 7 | 0 | 0 % | ⏳ Pendiente |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **41** | **18 %** | 🔄 En curso |
+| | **Global** | **222** | **43** | **19 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -167,8 +167,8 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 
 - [x] **F3-01** Escribir el DDL de los 4 catálogos. _(diseño §12)_
 - [x] **F3-02** Escribir el DDL de las 7 entidades compartidas. _(diseño §12)_
-- [ ] **F3-03** Escribir el DDL de `movie` y `movie_collection`. _(diseño §12)_
-- [ ] **F3-04** Escribir el DDL de las 6 tablas de relación y de `movie_enrichment`. _(diseño §12)_
+- [x] **F3-03** Escribir el DDL de `movie` y `movie_collection`. _(diseño §12)_
+- [x] **F3-04** Escribir el DDL de las 6 tablas de relación y de `movie_enrichment`. _(diseño §12)_
 - [ ] **F3-05** Revisar el DDL con las observaciones de la validación del dataset. _(validaciones, parte 2)_
 - [ ] **F3-06** Crear el rol `elastiflix_app`. _(diseño §45.3)_
 - [ ] **F3-07** Crear el rol `elastiflix_cdc`. _(diseño §45.3)_
@@ -446,6 +446,8 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F3-04 | Agente | F3 27 % · Global 19 % | `postgresql/init/05-relations.sql` con las 6 tablas de relación y `movie_enrichment`: clave compuesta, posición única desde 1 y `ON DELETE CASCADE` solo hacia `movie`. Con las 20 tablas cargan los 20 CSV (438,925 filas, igual que los archivos); borrar una película elimina sus 62 filas de relación y deja intactas las entidades compartidas |
+| 2026-11-22 | F3-03 | Agente | F3 20 % · Global 19 % | `postgresql/init/04-movie.sql` con `movie` (tres claves foráneas a catálogos, las diez reglas de la sección 12.2 como `CHECK` e índice único parcial en `imdb_id`) y `movie_collection`. En un PostgreSQL 19.0 desechable cargan sus CSV (6,899 y 1,934 filas) y cada regla rechaza su caso inválido |
 | 2026-11-22 | Plan | Responsable y agente | — | El avance no se estaba reportando al terminar cada actividad: el tablero lo registraba, pero el script solo imprimía el global y ninguna regla pedía comunicarlo. `update_progress.py` gana `--done`, que marca, registra en la bitácora e imprime el avance de la fase y el global; la bitácora gana la columna «Avance» y la regla 6 obliga a reportarlo |
 | 2026-11-22 | F3-02 | Agente | F3 13 % · Global 18 % | `postgresql/init/03-shared-entities.sql` con las 7 entidades compartidas: claves del dataset sin secuencias, nombre único salvo en `collection` y `keyword`, y fechas con `now()` en `collection`, `keyword` y `person`. Cargan sus 7 CSV (116,097 filas) y las restricciones responden como pide el diseño |
 | 2026-11-22 | F3-01 | Agente | F3 7 % · Global 18 % | `postgresql/init/01-schema.sql` crea el esquema `catalog` y `02-catalogs.sql` los 4 catálogos, con la restricción de dos letras en `original_language`. Aplicados en un PostgreSQL 19.0 desechable: cargan sus 4 CSV (72 filas) y rechazan claves repetidas y códigos de idioma mal formados |
