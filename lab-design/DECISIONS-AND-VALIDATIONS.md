@@ -54,6 +54,8 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 32 | El simulador arranca en modo de líneas y abre la interfaz con la primera tecla; atrapa `Ctrl-C` y repinta la pantalla completa cada 2 segundos | El contenedor tiene terminal aunque nadie esté conectado; `Ctrl-C` sin atrapar detiene el contenedor; quien se reconecta ve la pantalla a medias | 9.4, 9.8 | Validación 10; Revisión 6 |
 | 33 | El UPDATE de relaciones actualiza también `updated_at` de la película | Sin eso no toca `movie`, el seguimiento aguas abajo no lo ve nunca y Silver no tiene fecha para el nuevo conteo | 9.3, 9.5, 31 | Validación 11; Revisión 6 |
 | 34 | El seguimiento usa una conexión DuckDB de larga vida con un hilo dueño, `threads=2` y `memory_limit=128MB`; el instante de referencia se toma con `floor`; sondea cada 5 s y avisa a los 120 s | La conexión ve los snapshots nuevos sin reconectar; los valores por defecto de DuckDB no caben en el contenedor; un umbral redondeado pierde transacciones; una parada de Flink debe distinguirse de un retraso normal | 9.3, 9.6, 9.8 | Validación 11; Revisión 6 |
+| 35 | Los 3 GB de Airflow se reparten 0.5 GB al `api-server`, 2 GB al `scheduler` y 0.5 GB al `dag-processor` | En modo cliente el driver de Spark corre dentro del scheduler, que llegó a 1.41 GB | 39 | Medición de memoria; Revisión 6 |
+| 36 | El DAG pasa a los jobs `dag_run.run_after` como timestamp de la corrida | En Airflow 3 una corrida lanzada a mano no tiene `logical_date` y la plantilla falla | 21 | Medición de memoria; Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -174,6 +176,7 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | Reconstrucción de Bronze | 2026-11-22 | ✅ Superada: Bronze vuelve a coincidir con PostgreSQL y Silver cierra las claves ausentes |
 | Dataset regenerado | 2026-11-22 | ✅ Superada, con observaciones menores; queda como dataset definitivo |
 | Lectura de los CSV con Commons CSV | 2026-11-22 | ✅ Superada: los 20 archivos se leen igual que con una lectura de referencia |
+| Memoria con todo el stack | 2026-11-22 | ✅ Superada: 7.9 GB de máximo bajo carga, sin ningún contenedor detenido por memoria |
 | 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
 | 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
 | 11 | 2026-11-22 | ✅ Superada, con ajustes al diseño y dos decisiones nuevas |
@@ -510,6 +513,37 @@ Entorno: una sonda Java 25 con Apache Commons CSV 1.14.1 (`CSVFormat.RFC4180` co
 - **De dónde salió cada dato.** La forma de construir el formato y recorrer los registros, de la documentación de Commons CSV (Context7); el resto, de la prueba.
 - **Lo que no cubre:** la estructura de datos real del simulador, que ocupará menos que guardar todo como texto, y la arquitectura `arm64`.
 
+#### Medición de memoria con todo el stack
+
+Es la primera vez que todas las piezas corren a la vez. Entorno: las imágenes de las validaciones anteriores en un solo Compose, 13 servicios con los límites de la sección 39: PostgreSQL 19, `metadata-db` con las bases de Airflow y Superset, RustFS, el catálogo REST, Flink (JobManager y TaskManager), Spark (master y worker), Airflow con el gestor de Flask AppBuilder (`api-server`, `scheduler` y `dag-processor`), Superset con cuatro workers y la sonda del simulador de la validación 11. La memoria de cada contenedor se muestreó cada 5 segundos durante unos 12 minutos.
+
+Carga aplicada, por fases: reposo; carga de las 438,925 filas y snapshot inicial de Flink; una corrida de un DAG con tres tareas `SparkSubmitOperator` (el prototipo de `bronze_to_silver` para `dim_movie`, dos productos Gold de prueba y el mantenimiento de las 20 tablas Bronze) con el simulador haciendo un UPDATE por segundo y sondeando Bronze; y la misma corrida con, además, ocho clientes consultando Superset por su API.
+
+| Fase | Memoria total a la vez, máximo |
+|---|---:|
+| Reposo, con todo arrancado | 3.4 GB |
+| Carga inicial y snapshot de Flink | 4.5 GB |
+| DAG con el simulador en marcha | 7.4 GB |
+| DAG, simulador y ocho clientes de Superset | **7.9 GB** |
+
+| Comprobación | Resultado |
+|---|---|
+| Arranque de los 13 servicios juntos | 53 s hasta tenerlos sanos |
+| Contenedores detenidos por memoria o reiniciados | Ninguno |
+| Servicio más cerca de su límite | `airflow-scheduler`: 1.41 GB con un límite de 1.5 GB en la prueba; el diseño pasa a darle 2 GB |
+| Resto de servicios | Entre el 11 % y el 72 % de su límite; el detalle está en la sección 39 del diseño |
+| Corrida del DAG | Correcta: 132 s sola y 208 s con la carga de Superset a la vez |
+| Superset | 4,010 de 4,013 consultas correctas; mediana de 275 ms y percentil 95 de 365 ms con ocho clientes |
+| Flink durante toda la prueba | Job en `RUNNING` |
+| Simulador | Siguió detectando sus cambios en Bronze durante las corridas del DAG |
+
+Dos hallazgos ajenos a la memoria:
+
+- **`logical_date` no existe en una corrida manual de Airflow 3.** La primera corrida falló al renderizar la plantilla que pasaba esa fecha al job. Con `dag_run.run_after` funciona (decisión 36).
+- **Tres consultas de Superset fallaron** con un error interno del motor (`'NoneType' object has no attribute 'push'`), un 0.07 %. Ocurrieron con el DAG reemplazando las tablas Gold a la vez; la causa no se investigó.
+
+- **Lo que no cubre:** los jobs reales, que construyen 14 dimensiones, 2 hechos y 6 bridges en lugar de una dimensión; el simulador real, que además guarda los CSV en memoria (unos 100 MB más); dashboards de Superset abiertos en un navegador; una ejecución de horas; y un host con solo 16 GB, porque la máquina de la prueba tiene 32 GB. La actividad F11-09 del plan repite la medición con el laboratorio construido.
+
 #### Validación 10: consola Lanterna con `docker compose attach`
 
 Entorno: una sonda Java con Lanterna 3.1.5 que dibuja las cinco zonas de la sección 9.3 con datos simulados y responde a las teclas. Se compiló con `maven:3.10.0-eclipse-temurin-25` y corre en `eclipse-temurin:25.0.5.1_2-jre` con el usuario `simulator`, en un servicio con `tty: true` y `stdin_open: true`. Se manejó desde dos terminales reales: `tmux` en Ubuntu (WSL2), que permite enviar teclas y capturar la pantalla, y una terminal PowerShell de Windows.
@@ -612,6 +646,8 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Clave de RustFS | Una sola, con la de solo lectura como deseable sin comprobar | Una sola, por decisión | 45.3 |
 | Seguimiento aguas abajo | Regla sin detalle: «`cdc_op_ts` igual o posterior», sondeo «cada pocos segundos» | Instante de referencia truncado, sondeo cada 5 s, aviso de demora a los 120 s y conexión DuckDB de larga vida con límites | 9.3, 9.6, 9.8, 34 |
 | UPDATE de relaciones | No tocaba la tabla `movie` | Actualiza también `updated_at` de la película | 9.5, 31 |
+| Presupuesto de memoria | Reparto orientativo, sin medir; Airflow con 3 GB sin repartir | Máximos medidos por servicio; Airflow repartido en 0.5, 2 y 0.5 GB | 39 |
+| Timestamp de la corrida de Airflow | «Timestamp lógico», sin concretar | `dag_run.run_after` | 21 |
 | Memoria del simulador | Sin indicación sobre el heap | La JVM fija su heap de forma explícita | 9.8 |
 | Interfaz del simulador | Se abría al conectarse con `docker compose attach`; sin TTY no dibujaba | Arranca en modo de líneas y se abre con una tecla; atrapa `Ctrl-C`; refresco completo cada 2 s; log del servicio limitado | 9.1, 9.4, 9.8 |
 | Autenticación de Airflow | Mecanismo por validar | Gestor de Flask AppBuilder; el administrador se crea con `airflow users create` | 18, 45.4 |

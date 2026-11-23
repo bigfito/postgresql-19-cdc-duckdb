@@ -413,6 +413,7 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | Riesgos | Agente | Medición de memoria con los 13 servicios a la vez: 7.9 GB de máximo. Se cierra R3; Airflow reparte sus 3 GB en 0.5, 2 y 0.5 |
 | 2026-11-22 | F0-15 | Responsable y agentes | Validación 11 superada con ajustes al diseño; decisiones 33 y 34. Fase F0 terminada. Se cierra el riesgo R6 |
 | 2026-11-22 | Riesgos | Agente | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |
 | 2026-11-22 | F0-14 | Agente | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
@@ -439,7 +440,6 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 
 | # | Riesgo | Qué lo reduce | Si ocurre | Señal de alerta |
 |---|---|---|---|---|
-| R3 | Todo el stack junto no cabe en la memoria prevista | Declarar el límite de cada servicio al añadirlo | Detener el simulador o Superset mientras corre el DAG | F11-09 supera 15 GB |
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
 | R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
 
@@ -449,6 +449,7 @@ Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar 
 |---|---|---|---|
 | R1 | La consola Lanterna no funciona a través de `docker compose attach` | 2026-11-22 | La validación 10 pasó desde una terminal de Linux y otra de Windows (F0-14) |
 | R2 | El dataset regenerado llega tarde o no cumple | 2026-11-22 | El dataset regenerado se recibió, se validó y quedó como definitivo (F1-04 a F1-09) |
+| R3 | Todo el stack junto no cabe en la memoria prevista | 2026-11-22 | Los 13 servicios corrieron a la vez con sus límites: 7.9 GB de máximo bajo carga, sin ningún contenedor detenido por memoria. F11-09 repetirá la medición con el laboratorio construido |
 | R4 | Una decisión abierta de F0 frena una fase del camino más largo | 2026-11-22 | No queda ninguna decisión abierta |
 | R6 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | 2026-11-22 | La validación 11 pasó: adjunta el catálogo, lee `bronze.movie` y detecta los cambios (F0-15) |
 | R7 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | 2026-11-22 | Apache Commons CSV 1.14.1 lee los 20 CSV desde Java 25 con el mismo contenido, celda por celda, que una lectura de referencia |

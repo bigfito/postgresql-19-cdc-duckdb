@@ -1405,7 +1405,7 @@ Para que el resultado no dependa de la hora en que corre el job, `effective_from
 
 1. `updated_at` de la fila Bronze, cuando la fila está viva y la tabla tiene esa columna;
 2. `cdc_op_ts`, para los tombstones (`cdc_op_type = '-D'`) y para las tablas sin `updated_at`;
-3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores. Es el caso de una versión que se cierra porque su clave ya no aparece en Bronze (sección 38).
+3. el timestamp lógico de la corrida de Airflow, solo si no hay ninguno de los anteriores. Es el caso de una versión que se cierra porque su clave ya no aparece en Bronze (sección 38). En Airflow 3 una corrida lanzada a mano no tiene `logical_date`; el DAG pasa al job `dag_run.run_after`, que existe siempre.
 
 Un tombstone usa `cdc_op_ts` porque lleva la fila tal como estaba antes del borrado: su `updated_at` es la fecha del último cambio, no la del borrado.
 
@@ -2192,20 +2192,29 @@ Quien revise el laboratorio puede tener otros entornos Docker en la misma máqui
 
 ### Presupuesto de memoria
 
-Con 16 GB en el host, cada servicio declara un límite. Reparto orientativo, a ajustar tras la primera ejecución:
+Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha es el máximo medido con todo el stack en marcha y bajo carga ([documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md)):
 
-| Servicio | Límite |
-|---|---:|
-| PostgreSQL operacional | 1 GB |
-| `metadata-db` | 0.5 GB |
-| Flink JobManager + TaskManager | 1 GB + 2 GB |
-| Spark master + worker | 0.5 GB + 3 GB |
-| Airflow (tres servicios) | 3 GB |
-| Superset | 2 GB |
-| RustFS + Iceberg REST | 1 GB + 0.5 GB |
-| Event Simulator | 0.5 GB |
+| Servicio | Límite | Máximo medido |
+|---|---:|---:|
+| PostgreSQL operacional | 1 GB | 0.15 GB |
+| `metadata-db` | 0.5 GB | 0.16 GB |
+| Flink JobManager | 1 GB | 0.56 GB |
+| Flink TaskManager | 2 GB | 1.10 GB |
+| Spark master | 0.5 GB | 0.25 GB |
+| Spark worker | 3 GB | 2.17 GB |
+| `airflow-apiserver` | 0.5 GB | 0.33 GB |
+| `airflow-scheduler` | 2 GB | 1.41 GB |
+| `airflow-dag-processor` | 0.5 GB | 0.37 GB |
+| Superset | 2 GB | 1.15 GB |
+| RustFS | 1 GB | 0.11 GB |
+| Iceberg REST | 0.5 GB | 0.24 GB |
+| Event Simulator | 0.5 GB | 0.12 GB |
 
-Total aproximado: 15 GB. Si el host tiene menos, se puede detener el simulador o Superset mientras corre el DAG.
+Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB en reposo y de 7.9 GB en el momento de mayor carga.
+
+- **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 3 GB de Airflow se reparten 0.5, 2 y 0.5.
+- **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso.
+- Si el host tiene menos de 16 GB, se puede detener el simulador o Superset mientras corre el DAG.
 
 ## 40. Orden de dependencias esperado
 
