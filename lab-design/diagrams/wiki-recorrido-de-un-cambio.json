@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "El recorrido de un cambio, de la operación al tablero",
+    "locale": "es",
+    "output": "wiki-recorrido-de-un-cambio.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "lanes": [
+    { "id": "operacion", "label": "Operación" },
+    { "id": "almacen", "label": "Almacén analítico" },
+    { "id": "negocio", "label": "Negocio" }
+  ],
+  "mainPath": ["cambio", "registro", "bronce", "plata", "oro", "tablero"],
+  "nodes": [
+    { "id": "cambio", "lane": "operacion", "col": 0, "type": "external", "label": "Alguien cambia un dato", "sublabel": "por ejemplo, un título" },
+    { "id": "registro", "lane": "operacion", "col": 1, "type": "database", "label": "Queda registrado", "sublabel": "en la base de la operación" },
+    { "id": "bronce", "lane": "almacen", "col": 2, "type": "database", "label": "Llega a Bronce", "sublabel": "en segundos" },
+    { "id": "plata", "lane": "almacen", "col": 3, "type": "database", "label": "Se ordena en Plata", "sublabel": "y guarda la versión anterior" },
+    { "id": "oro", "lane": "almacen", "col": 4, "type": "database", "label": "Se resume en Oro", "sublabel": "listo para consultar" },
+    { "id": "tablero", "lane": "negocio", "col": 5, "type": "frontend", "label": "Aparece en el tablero", "sublabel": "en 15 minutos como mucho" }
+  ],
+  "edges": [
+    { "id": "e1", "from": "cambio", "to": "registro", "variant": "emphasis" },
+    { "id": "e2", "from": "registro", "to": "bronce", "label": "copia continua", "variant": "emphasis" },
+    { "id": "e3", "from": "bronce", "to": "plata", "label": "cada 10 min", "variant": "emphasis" },
+    { "id": "e4", "from": "plata", "to": "oro", "variant": "emphasis" },
+    { "id": "e5", "from": "oro", "to": "tablero", "label": "al recargar", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Lo que es inmediato", "items": ["El registro en la operación y la copia a Bronce", "Se midió entre 11 y 50 segundos"] },
+    { "dot": "violet", "title": "Lo que espera su turno", "items": ["Plata y Oro se actualizan cada 10 minutos", "Cada actualización tarda entre 4 y 5 minutos"] },
+    { "dot": "cyan", "title": "Lo que ve el negocio", "items": ["El dato nuevo, al recargar el tablero", "Y el anterior no se pierde: queda en Plata"] }
+  ]
+}

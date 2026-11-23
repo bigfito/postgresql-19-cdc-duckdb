@@ -21,7 +21,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Elemento | Estado |
 |---|---|
 | Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 7, con la implementación |
-| Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
+| Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Quince, generados con Archify: diez técnicos y cinco dibujos sencillos para el wiki |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las once existen para `amd64` y `arm64` |
 | Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/`, `airflow/`, `duckdb/` y `superset/` |
@@ -98,7 +98,8 @@ postgresql-19-cdc-duckdb/
 |-- docker-compose.yml
 |-- .env.example
 |-- README.md, AGENTS.md, CLAUDE.md
-|-- lab-design/        diseño, decisiones y validaciones, y los diez diagramas
+|-- lab-design/        diseño, decisiones y validaciones, y los diagramas
+|-- wiki/              páginas del wiki, para lectores de negocio, y el script que las publica
 |-- planning/          plan de actividades y el script que calcula su avance
 |-- raw_data/          dataset de entrada: un CSV por tabla, su generador y su README
 |-- java-simulator/    Event Simulator (Java 25): proyecto Maven, pruebas e imagen
@@ -320,6 +321,7 @@ El trabajo está dividido en 13 fases, de F0 a F12. Las actividades de cada una 
 | [`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md) | Diseño completo: requisitos, stack, modelos de datos, pipeline, despliegue y registro de cambios |
 | [`lab-design/DECISIONS-AND-VALIDATIONS.md`](lab-design/DECISIONS-AND-VALIDATIONS.md) | Decisiones vigentes, abiertas y descartadas; validaciones con sus resultados; registro de cambios |
 | [`planning/PLAN.md`](planning/PLAN.md) | Plan de actividades por fases, tablero de avance y bitácora |
+| [`wiki/`](wiki/Home.md) | El laboratorio explicado sin tecnicismos, para lectores de negocio. Son las páginas del wiki de GitHub: se escriben aquí y se publican con `bash wiki/publish.sh` |
 | [`AGENTS.md`](AGENTS.md) | Reglas comunes para los agentes de programación que trabajen en el repositorio |
 | [Arquitectura](lab-design/diagrams/lab-architecture.svg) | Componentes y camino del dato |
 | [Linaje por capa](lab-design/diagrams/medallion-dataflow.svg) | Qué pasa de una capa a la siguiente |

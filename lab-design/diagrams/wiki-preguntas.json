@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "Qué preguntas responde la capa Oro",
+    "locale": "es",
+    "output": "wiki-preguntas.html",
+    "quality_profile": "showcase",
+    "feedback_links": false
+  },
+  "layout": { "direction": "right" },
+  "nodes": [
+    { "id": "oro", "label": "Capa Oro", "sublabel": "siete tablas de resultados" },
+    { "id": "catalogo", "label": "¿Qué hay en el catálogo?", "parent": "oro", "sublabel": "la ficha de cada película" },
+    { "id": "generos", "label": "¿Qué géneros rinden más?", "parent": "oro", "sublabel": "volumen, dinero y valoración" },
+    { "id": "sagas", "label": "¿Qué sagas funcionan?", "parent": "oro", "sublabel": "comparación entre colecciones" },
+    { "id": "dinero", "label": "¿Dónde se gana y se pierde?", "parent": "oro", "sublabel": "ganancia y retorno por película" },
+    { "id": "estrenos", "label": "¿Cómo evolucionan los estrenos?", "parent": "oro", "sublabel": "mes a mes" },
+    { "id": "reparto", "label": "¿Quién pesa en el reparto?", "parent": "oro", "sublabel": "trayectoria de cada intérprete" },
+    { "id": "calidad", "label": "¿Qué tan completo está el dato?", "parent": "oro", "sublabel": "cobertura y huecos" }
+  ]
+}

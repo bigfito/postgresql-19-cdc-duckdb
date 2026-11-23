@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Bronce, plata y oro: qué gana el dato en cada etapa",
+    "locale": "es",
+    "output": "wiki-tres-capas.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "stages": [
+    { "label": "Operación" },
+    { "label": "Bronce" },
+    { "label": "Plata" },
+    { "label": "Oro" },
+    { "label": "Uso" }
+  ],
+  "nodes": [
+    { "id": "operacion", "type": "database", "label": "Base del día a día", "sublabel": "20 tablas", "stage": 0, "row": 1, "tag": "solo el estado de hoy" },
+    { "id": "bronce", "type": "database", "label": "Copia fiel", "sublabel": "todo, tal cual llegó", "stage": 1, "row": 1, "tag": "incluye lo borrado" },
+    { "id": "plata", "type": "database", "label": "Ordenado", "sublabel": "limpio y con memoria", "stage": 2, "row": 1, "tag": "guarda cada versión" },
+    { "id": "oro", "type": "database", "label": "Respuestas listas", "sublabel": "7 tablas de resultados", "stage": 3, "row": 1, "tag": "una por pregunta" },
+    { "id": "uso", "type": "frontend", "label": "Tableros", "sublabel": "gráficos", "stage": 4, "row": 1, "tag": "solo lectura" }
+  ],
+  "flows": [
+    { "id": "f1", "from": "operacion", "to": "bronce", "label": "copia continua", "classification": "en segundos", "variant": "emphasis" },
+    { "id": "f2", "from": "bronce", "to": "plata", "label": "limpia y ordena", "classification": "cada 10 minutos", "variant": "default" },
+    { "id": "f3", "from": "plata", "to": "oro", "label": "resume", "classification": "cada 10 minutos", "variant": "default" },
+    { "id": "f4", "from": "oro", "to": "uso", "label": "consulta", "classification": "al momento", "variant": "default" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Bronce: no perder nada", "items": ["Es la copia exacta de la operación", "Si algo sale mal más adelante, se puede rehacer desde aquí"] },
+    { "dot": "violet", "title": "Plata: entender el dato", "items": ["Corrige formatos y une lo que va junto", "Recuerda qué decía cada dato y desde cuándo"] },
+    { "dot": "emerald", "title": "Oro: responder", "items": ["Cada tabla contesta un tipo de pregunta", "Es lo único que leen los tableros"] }
+  ]
+}

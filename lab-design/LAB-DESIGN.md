@@ -270,10 +270,15 @@ postgresql-19-cdc-duckdb/
 |   |-- entrypoint.sh
 |   `-- init/
 |
-`-- superset/
-    |-- Dockerfile
-    |-- data/
-    `-- config/
+|-- superset/
+|   |-- Dockerfile
+|   |-- data/
+|   `-- config/
+|
+`-- wiki/
+    |-- Home.md        (y una página .md por tema)
+    |-- _Sidebar.md
+    `-- publish.sh
 ```
 
 Notas sobre la estructura:
@@ -282,6 +287,7 @@ Notas sobre la estructura:
 - Cada directorio vacío lleva un archivo `.gitkeep` para que Git lo conserve y la estructura sea visible al clonar. En los directorios `data/` y `logs/` ese marcador es lo único que se versiona.
 - `.gitattributes` fuerza finales de línea LF en todo archivo de texto. Los scripts, SQL, YAML y jobs de este repositorio se ejecutan dentro de contenedores Linux, y un clon en Windows con `core.autocrlf=true` los dejaría con CRLF, que rompe la ejecución. El dataset `*.csv` queda excluido de cualquier conversión.
 - `lab-design/diagrams/` guarda, por cada diagrama, la fuente `.json`, la página interactiva `.html` y el `.svg` que se incrusta en la documentación. Se regeneran con Archify: `archify finalize <tipo> <fuente>.json <salida>.html` y `export-svg.mjs <salida>.html <salida>.svg auto`.
+- `wiki/` contiene las páginas del wiki de GitHub, escritas para lectores de negocio, sin comandos ni código. El wiki de GitHub es un repositorio aparte; las páginas se escriben y se revisan aquí, y `wiki/publish.sh` las copia allí. Sus dibujos son los diagramas `wiki-*` de `lab-design/diagrams/`. No añaden datos propios: cada cifra que citan sale de este documento.
 - `planning/PLAN.md` es el único plan de actividades del laboratorio, con su tablero de avance por fase y global. `planning/update_progress.py` recalcula ese tablero a partir de las actividades marcadas y, con `--done`, registra cada actividad terminada en la bitácora e imprime el avance de su fase y el global, que es lo que se reporta a la persona responsable.
 - `AGENTS.md` da a cualquier agente de programación las reglas comunes y lo dirige al plan; `CLAUDE.md` añade lo propio de Claude Code.
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.

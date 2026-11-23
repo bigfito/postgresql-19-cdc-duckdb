@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "El laboratorio en una imagen",
+    "locale": "es",
+    "output": "wiki-vista-general.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "layout": { "mode": "auto" },
+  "components": [
+    { "id": "operacion", "type": "database", "label": "La operación", "sublabel": "el catálogo de películas" },
+    { "id": "captura", "type": "messagebus", "label": "Captura de cambios", "sublabel": "cada alta, cambio o baja" },
+    { "id": "bronce", "type": "database", "label": "Bronce", "sublabel": "copia fiel" },
+    { "id": "plata", "type": "database", "label": "Plata", "sublabel": "ordenado y con historia" },
+    { "id": "oro", "type": "database", "label": "Oro", "sublabel": "listo para decidir" },
+    { "id": "tableros", "type": "frontend", "label": "Tableros", "sublabel": "gráficos y respuestas" },
+    { "id": "reloj", "type": "backend", "label": "Reloj del proceso", "sublabel": "cada 10 minutos" }
+  ],
+  "connections": [
+    { "id": "op-captura", "from": "operacion", "to": "captura", "label": "al instante", "variant": "emphasis" },
+    { "id": "captura-bronce", "from": "captura", "to": "bronce", "label": "en segundos", "variant": "emphasis" },
+    { "id": "bronce-plata", "from": "bronce", "to": "plata", "label": "ordena" },
+    { "id": "plata-oro", "from": "plata", "to": "oro", "label": "resume" },
+    { "id": "oro-tableros", "from": "oro", "to": "tableros", "label": "consulta" },
+    { "id": "reloj-plata", "from": "reloj", "to": "plata", "label": "pone en marcha", "variant": "dashed" },
+    { "id": "reloj-oro", "from": "reloj", "to": "oro", "label": "pone en marcha", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Siempre en marcha", "items": ["Cada cambio de la operación se copia a Bronce en segundos", "Nadie tiene que pedirlo ni lanzarlo"] },
+    { "dot": "violet", "title": "Cada 10 minutos", "items": ["El dato se ordena en Plata y se resume en Oro", "Si una comprobación falla, el proceso se detiene y avisa"] },
+    { "dot": "cyan", "title": "Para quien decide", "items": ["Los tableros solo leen Oro", "Un cambio tarda como mucho 15 minutos en verse"] }
+  ]
+}

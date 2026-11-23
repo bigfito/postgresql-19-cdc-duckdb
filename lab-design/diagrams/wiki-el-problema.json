@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Dos formas de responder una pregunta de negocio",
+    "locale": "es",
+    "output": "wiki-el-problema.html",
+    "quality_profile": "showcase",
+    "feedback_links": false,
+    "legend": { "mode": "hidden" }
+  },
+  "lanes": [
+    { "id": "sin", "label": "Preguntarle a la base de la operación" },
+    { "id": "con", "label": "Tener una copia pensada para el análisis" }
+  ],
+  "mainPath": ["c1", "c2", "c3", "c4", "c5"],
+  "nodes": [
+    { "id": "s1", "lane": "sin", "col": 0, "type": "backend", "label": "Se registra un cambio", "sublabel": "en la operación" },
+    { "id": "s2", "lane": "sin", "col": 1, "type": "security", "label": "El valor anterior", "sublabel": "se pierde" },
+    { "id": "s3", "lane": "sin", "col": 2, "type": "security", "label": "Análisis y operación", "sublabel": "compiten por la base" },
+    { "id": "s4", "lane": "sin", "col": 3, "type": "security", "label": "Respuestas lentas", "sublabel": "y sin historia" },
+    { "id": "c1", "lane": "con", "col": 0, "type": "backend", "label": "Se registra un cambio", "sublabel": "en la operación" },
+    { "id": "c2", "lane": "con", "col": 1, "type": "messagebus", "label": "Se copia al momento", "sublabel": "sin tocar la operación" },
+    { "id": "c3", "lane": "con", "col": 2, "type": "database", "label": "Se guarda", "sublabel": "con su historia" },
+    { "id": "c4", "lane": "con", "col": 3, "type": "database", "label": "Se prepara", "sublabel": "para cada pregunta" },
+    { "id": "c5", "lane": "con", "col": 4, "type": "frontend", "label": "Respuestas rápidas", "sublabel": "y con historia" }
+  ],
+  "edges": [
+    { "id": "s12", "from": "s1", "to": "s2" },
+    { "id": "s23", "from": "s2", "to": "s3" },
+    { "id": "s34", "from": "s3", "to": "s4" },
+    { "id": "c12", "from": "c1", "to": "c2", "variant": "emphasis" },
+    { "id": "c23", "from": "c2", "to": "c3", "variant": "emphasis" },
+    { "id": "c34", "from": "c3", "to": "c4", "variant": "emphasis" },
+    { "id": "c45", "from": "c4", "to": "c5", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Arriba: lo que suele pasar", "items": ["La base de la operación guarda solo el estado de hoy", "Un informe pesado frena a quien está trabajando"] },
+    { "dot": "emerald", "title": "Abajo: lo que hace el laboratorio", "items": ["La operación sigue igual, sin enterarse", "El análisis trabaja sobre su propia copia, con memoria"] }
+  ]
+}
