@@ -1,0 +1,3 @@
+# La imagen no copia nada del contexto: superset/config y duckdb/init se
+# montan en el Compose, en solo lectura.
+*

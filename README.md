@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F9 dejaron el camino del dato hasta Gold y su orquestación: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, y el DAG `elastiflix_medallion` de Airflow lanza cada 10 minutos los jobs de Spark que actualizan Silver y Gold, con sus validaciones y el mantenimiento de Iceberg. Falta Superset, que llega con el resto de fases del [plan de trabajo](planning/PLAN.md).
+> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F10 dejaron el camino completo del dato: el Event Simulator ejecuta transacciones sobre `postgresql`, el pipeline de Flink CDC replica cada cambio en Bronze, el DAG `elastiflix_medallion` de Airflow lanza cada 10 minutos los jobs de Spark que actualizan Silver y Gold, con sus validaciones y el mantenimiento de Iceberg, y Superset consulta Gold con DuckDB. Faltan la prueba de extremo a extremo desde un clon limpio y el cierre, que son las fases F11 y F12 del [plan de trabajo](planning/PLAN.md).
 
 | Elemento | Estado |
 |---|---|
@@ -24,7 +24,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las diez existen para `amd64` y `arm64` |
-| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/`, `airflow/` y `duckdb/` |
+| Estructura de directorios del proyecto | ✅ Creada; con contenido en `raw_data/`, `metadata-db/`, `postgresql/`, `flink/`, `java-simulator/`, `pyspark/`, `airflow/`, `duckdb/` y `superset/` |
 | Validaciones de compatibilidad entre componentes | ✅ 12 de 12 superadas. Resultados en el [documento de decisiones y validaciones](lab-design/DECISIONS-AND-VALIDATIONS.md#2-validaciones) |
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
@@ -35,7 +35,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Spark y capa Silver: imagen, clúster y el job que mantiene 14 dimensiones, 2 hechos y 6 bridges con historial | ✅ Fase F7 terminada |
 | Capa Gold: el job que recarga los siete productos analíticos | ✅ Fase F8 terminada |
 | Orquestación con Airflow: imagen, servicios, DAG `elastiflix_medallion`, validaciones y mantenimiento de Iceberg | ✅ Fase F9 terminada |
-| Implementación del resto (Superset, integración y cierre) | ⏳ Fases F10 a F12; ver el [plan de trabajo](planning/PLAN.md) |
+| DuckDB y Superset: línea de comandos de DuckDB, imagen y servicios de Superset, y la guía para conectar Gold y crear un gráfico, seguida en un navegador | ✅ Fase F10 terminada |
+| Prueba de extremo a extremo, documentación y cierre | ⏳ Fases F11 y F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 
@@ -150,7 +151,7 @@ postgresql-19-cdc-duckdb/
 |-- pyspark/           jobs y datos de referencia
 |-- airflow/           DAG elastiflix_medallion
 |-- duckdb/            SQL de inicialización y CLI opcional
-`-- superset/          configuración
+`-- superset/          imagen y configuración
 ```
 
 ## 7. ✅ Requisitos
@@ -177,7 +178,7 @@ docker compose up -d --build
 
 Ese comando también ejecutará los jobs de preparación (permisos de los directorios de datos, bucket, namespaces, envío del pipeline CDC, metadatos de Airflow y Superset), sin pasos manuales intermedios.
 
-> ⚠️ Hoy ese comando solo levanta una parte: los jobs `volumes-init`, que prepara los directorios de datos, `rustfs-init`, que crea el bucket `warehouse`, e `iceberg-init`, que crea los namespaces `bronze`, `silver` y `gold`; `metadata-db`, el PostgreSQL de metadatos de Airflow y Superset; `postgresql`, la base operacional con sus 20 tablas vacías, lista para el CDC; `rustfs`, el almacenamiento de objetos; `iceberg-rest`, el catálogo de tablas; y Flink (`flink-jobmanager`, `flink-taskmanager` y el job `flink-cdc-submit`), que deja corriendo el pipeline que replica PostgreSQL en Bronze; `java-simulator`, que empieza a insertar películas en cuanto el pipeline está en marcha; `spark-master` y `spark-worker`, el clúster que ejecuta los jobs por lotes; y Airflow (`airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor` y el job `airflow-init`), que los lanza (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
+> ⚠️ El Compose ya define todos los servicios, y cada uno se levantó y se comprobó en su fase. Lo que todavía no se ha hecho es el arranque completo desde un clon limpio, con ese único comando: lo comprueba la fase F11 (ver [Estado del proyecto](#2--estado-del-proyecto)). Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job one-shot, aunque termine bien.
 
 ### El simulador
 
@@ -229,7 +230,29 @@ Con Silver al día, Gold se recarga con el segundo job:
 docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/silver_to_gold.py
 ```
 
-Cada corrida reemplaza completas las siete tablas de Gold, que son las que consultará Superset. Tarda menos de un minuto. Sus columnas están en la [sección 33 del diseño](lab-design/LAB-DESIGN.md#33--capa-gold).
+Cada corrida reemplaza completas las siete tablas de Gold, que son las que consulta Superset. Tarda menos de un minuto. Sus columnas están en la [sección 33 del diseño](lab-design/LAB-DESIGN.md#33--capa-gold).
+
+### Superset y DuckDB
+
+Superset está en <http://127.0.0.1:8088>. El usuario y la contraseña son `SUPERSET_ADMIN_USER` y `SUPERSET_ADMIN_PASSWORD` de `.env`.
+
+Arranca vacío: sin base de datos conectada, sin datasets y sin dashboards. Quien usa el laboratorio conecta Gold y diseña sus gráficos. Son tres pasos, y cada uno está explicado, botón por botón, en la [guía de la sección 35 del diseño](lab-design/LAB-DESIGN.md#guía-conectar-gold-y-crear-una-visualización):
+
+| Paso | Lo esencial |
+|---|---|
+| 1. Conectar la fuente de datos | Menú **+**, **Data**, **Connect database**; elegir **DuckDB** y pasar a la cadena SQLAlchemy: `duckdb:///:memory:` |
+| 2. Registrar un dataset | **Datasets**, **+ Dataset**; esquema `memory.main` y uno de los siete productos de Gold |
+| 3. Crear una visualización | Elegir el tipo de gráfico, una columna para el eje y una métrica; **Create chart** y **Save** |
+
+La URI no lleva servidor ni contraseña: DuckDB no es un servicio, corre dentro de Superset. Cada consulta lee Gold tal como lo dejó la última corrida del DAG, así que basta con recargar el dashboard para ver los datos nuevos.
+
+Para consultar el lakehouse a mano hay una línea de comandos de DuckDB, opcional, con el catálogo ya adjunto como `lake`:
+
+```bash
+docker compose --profile tools run --rm duckdb
+```
+
+Dentro, `SELECT count(*) FROM lake.gold.movie_current_overview;` lee Gold, y también están `lake.silver` y `lake.bronze`. Con `-c "SQL"` al final del comando ejecuta una consulta y termina.
 
 ### Carga de desarrollo
 
@@ -248,7 +271,7 @@ docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scr
 5. Airflow, cada 10 minutos, ejecuta `bronze_to_silver` y luego `silver_to_gold`.
 6. DuckDB consulta Gold. En Superset se conecta esa fuente de datos y se crea la primera visualización.
 
-Superset arranca sin dashboards: quien usa el laboratorio diseña los suyos. Cómo conectar la fuente de datos y crear una visualización está en la [guía de la sección 35 del diseño](lab-design/LAB-DESIGN.md#guía-conectar-gold-y-crear-una-visualización).
+Superset arranca sin dashboards: quien usa el laboratorio diseña los suyos, como se explica en [Superset y DuckDB](#superset-y-duckdb).
 
 ## 9. 🚀 Hoja de ruta
 

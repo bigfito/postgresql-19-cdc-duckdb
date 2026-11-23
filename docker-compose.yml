@@ -152,6 +152,31 @@ x-airflow-volumes: &airflow-volumes
   - ./pyspark/reference:/opt/spark/reference:ro
 
 # -----------------------------------------------------------------------------
+# Imagen, variables y montajes comunes a superset y superset-init (diseño,
+# secciones 34, 35 y 45)
+# -----------------------------------------------------------------------------
+x-superset-build: &superset-build
+  context: ./superset
+
+x-superset-environment: &superset-environment
+  # Metadatos en metadata-db, en la base superset y con la cuenta superset.
+  # La lee superset/config/superset_config.py.
+  SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_DB_PASSWORD:?falta SUPERSET_DB_PASSWORD en .env}@metadata-db:5432/superset
+  # Clave que firma las sesiones y cifra las credenciales que Superset guarda.
+  SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?falta SUPERSET_SECRET_KEY en .env}
+  # La clave de RustFS, para el DuckDB que corre dentro de Superset. El hook
+  # de conexión la pone en los marcadores de duckdb/init/attach_lakehouse.sql.
+  AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+  AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+
+# La configuración y el SQL de DuckDB, en solo lectura, y el directorio de
+# trabajo de Superset, que es lo único que escribe en el host.
+x-superset-volumes: &superset-volumes
+  - ./superset/config:/app/pythonpath:ro
+  - ./duckdb/init:/duckdb/init:ro
+  - ./superset/data:/app/superset_home
+
+# -----------------------------------------------------------------------------
 # Volúmenes (diseño, secciones 7 y 15)
 # -----------------------------------------------------------------------------
 # rustfs-data es el único volumen con nombre del laboratorio. Los datos de
@@ -763,3 +788,110 @@ services:
       retries: 5
       start_period: 60s
     mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # duckdb (herramienta opcional, perfil tools; diseño, secciones 34 y 39)
+  # ---------------------------------------------------------------------------
+  # Línea de comandos de DuckDB para explorar el lakehouse a mano. No forma
+  # parte del flujo: `docker compose up` no lo arranca. Se lanza cuando se
+  # quiere, con el laboratorio en marcha:
+  #
+  #   docker compose --profile tools run --rm duckdb
+  #
+  # Abre la consola con el catálogo adjunto como lake (lake.bronze, lake.silver
+  # y lake.gold). Para crear además las vistas de Gold, dentro de la consola:
+  #
+  #   .read /duckdb/init/gold_views.sql
+  #
+  # Una consulta suelta, sin abrir la consola:
+  #
+  #   docker compose --profile tools run --rm duckdb -c "SELECT count(*) FROM lake.gold.genre_performance"
+  #
+  # Corre como el usuario duckdb (10003:10003) de su imagen. No publica puertos
+  # ni escribe en ningún directorio del host.
+  duckdb:
+    image: elastiflix-duckdb:1.5.6
+    build:
+      context: ./duckdb
+    profiles: ["tools"]
+    environment:
+      # La clave de RustFS. El script de arranque la pone en los marcadores de
+      # duckdb/init/attach_lakehouse.sql justo antes de ejecutarlo.
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+    volumes:
+      - ./duckdb/init:/duckdb/init:ro
+    stdin_open: true
+    tty: true
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # superset-init (job one-shot; diseño, secciones 35, 39 y 45.4)
+  # ---------------------------------------------------------------------------
+  # Prepara la base de metadatos de Superset: crea o actualiza sus tablas, crea
+  # el administrador de la interfaz web con el usuario y la contraseña de .env
+  # y carga los roles y permisos. No registra ninguna base de datos ni ningún
+  # dashboard: eso lo hace quien usa el laboratorio (sección 35).
+  # Es idempotente: sobre una base ya migrada no cambia nada, y antes de crear
+  # el administrador comprueba si ya existe. El servicio superset espera a que
+  # termine. Corre como el usuario superset (1000:1000) de la imagen;
+  # volumes-init le deja preparado superset/data.
+  superset-init:
+    image: elastiflix-superset:6.1.0-duckdb1.5.6
+    build: *superset-build
+    command:
+      - bash
+      - -c
+      - |
+        set -eu
+        superset db upgrade
+        if superset fab list-users | grep -q "username:$$SUPERSET_ADMIN_USER "; then
+          echo "El administrador $$SUPERSET_ADMIN_USER ya existe."
+        else
+          superset fab create-admin             --username "$$SUPERSET_ADMIN_USER" --password "$$SUPERSET_ADMIN_PASSWORD"             --firstname ElastiFlix --lastname Admin --email "$$SUPERSET_ADMIN_USER@example.com"
+        fi
+        superset init
+    environment:
+      <<: *superset-environment
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER:?falta SUPERSET_ADMIN_USER en .env}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?falta SUPERSET_ADMIN_PASSWORD en .env}
+    volumes: *superset-volumes
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+      volumes-init:
+        condition: service_completed_successfully
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # superset (diseño, secciones 35, 39 y 45.4)
+  # ---------------------------------------------------------------------------
+  # Visualización: http://127.0.0.1:8088. Pide usuario y contraseña; el
+  # administrador lo crea superset-init. Se entrega vacío: la base de datos,
+  # los datasets y los gráficos los crea quien usa el laboratorio (guía en la
+  # sección 35 del diseño).
+  # Consulta Gold con el DuckDB que lleva dentro. Cada conexión nueva adjunta
+  # el lakehouse y crea las vistas de Gold: lo hace el hook de
+  # superset/config/superset_config.py con el SQL de duckdb/init/.
+  # No espera a Spark ni a que Gold tenga datos: solo los datasets los
+  # necesitan. El healthcheck es el que ya declara la imagen (curl a /health).
+  superset:
+    image: elastiflix-superset:6.1.0-duckdb1.5.6
+    build: *superset-build
+    environment:
+      <<: *superset-environment
+      # Cuatro procesos atienden las peticiones. Cada uno tiene su propio
+      # DuckDB en memoria.
+      SERVER_WORKER_AMOUNT: 4
+    ports: *ports-superset
+    volumes: *superset-volumes
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:8088/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    mem_limit: 2g

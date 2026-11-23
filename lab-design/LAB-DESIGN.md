@@ -2271,7 +2271,7 @@ DuckDB es una librería embebida: no escucha en un puerto ni acepta conexiones d
 | Lugar | Para qué |
 |---|---|
 | Dentro del contenedor de Superset | Es el camino real de los dashboards, vía `duckdb-engine` |
-| Contenedor `duckdb` (perfil `tools` del Compose), basado en `duckdb/duckdb:1.5.6` | Línea de comandos para explorar Gold a mano; no forma parte del flujo |
+| Contenedor `duckdb` (perfil `tools` del Compose), con el binario de `duckdb/duckdb:1.5.6` sobre una Debian mínima | Línea de comandos para explorar Gold a mano; no forma parte del flujo |
 | Dentro del simulador, vía DuckDB JDBC | Seguir cada cambio hasta Bronze (sección 9.3); usa solo `attach_lakehouse.sql` |
 
 ### Inicialización de cada conexión
@@ -2311,14 +2311,24 @@ Reglas:
 - **Tres extensiones, no dos.** `httpfs`, `iceberg` y `avro` se instalan durante el build de la imagen. `iceberg` necesita `avro` y, si no la encuentra, intenta descargarla al cargarse; sin acceso a Internet esa descarga hace fallar todas las consultas. En runtime solo se cargan (`LOAD`), y `autoinstall_known_extensions = false` convierte cualquier extensión ausente en un error visible en lugar de una descarga silenciosa.
 - **Directorio de extensiones propio.** Se instalan en `/opt/duckdb_extensions`, la misma ruta en la imagen de Superset, en la del contenedor de línea de comandos y en la del simulador, y `extension_directory` apunta ahí. El directorio por defecto queda bajo el `HOME` del usuario, que en Superset es `/app/superset_home`: el volumen montado en esa ruta taparía lo instalado en el build.
 - **Credenciales por variables de entorno.** `${AWS_ACCESS_KEY_ID}` y `${AWS_SECRET_ACCESS_KEY}` se sustituyen justo antes de ejecutar el archivo; no hay claves escritas en él.
-- **Vistas en la base en memoria, una por producto Gold.** Son obligatorias para los datasets de Superset (sección 35). Se crean en cada conexión porque una base en memoria no conserva nada entre conexiones. Superset solo crea las de los productos cuya tabla Gold ya existe: antes de la primera corrida del DAG no hay ninguna, y una vista sobre una tabla inexistente haría fallar la conexión.
+- **Vistas en la base en memoria, una por producto Gold.** Son las que usan los datasets de Superset (sección 35). Se crean en cada conexión porque una base en memoria no conserva nada entre conexiones. Superset solo crea las de los productos cuya tabla Gold ya existe: antes de la primera corrida del DAG no hay ninguna, y una vista sobre una tabla inexistente haría fallar la conexión.
 - **Limitación conocida de DuckDB 1.5.6 con tablas que tienen borrados.** Combinar con `UNION ALL`, o con subconsultas escalares, dos tablas Iceberg que tienen archivos de borrado, como las de Bronze tras un UPDATE o un DELETE, termina en un error interno de DuckDB (`Information loss on integer cast`). Una tabla sola, los filtros, los agregados y los `JOIN` entre esas mismas tablas funcionan. Se evita con `SET disabled_optimizers = 'statistics_propagation'`. No afecta al simulador, que consulta una sola tabla, ni a Gold, cuyas tablas se recargan completas y no tienen borrados. Observado en la fase F5.
 - DuckDB nunca escribe en el lakehouse. Superset rechaza cualquier DDL o DML sobre esta base, que es su comportamiento por defecto.
 - **El simulador usa solo `attach_lakehouse.sql`.** En su imagen las extensiones se instalan durante el build con el propio driver JDBC, en la misma ruta. No se usa la opción `MAX_TABLE_STALENESS` del `ATTACH`: ahorra la petición al catálogo de cada consulta, pero retrasa la visibilidad de un cambio hasta ese intervalo.
 - **Nadie copia estos archivos en su imagen.** `duckdb/init/` se monta en solo lectura en cada contenedor que lo usa; así hay una sola copia.
-- **En el contenedor de línea de comandos**, `gold_views.sql` se ejecuta a mano y solo cuando Gold ya existe; al abrirse, ese contenedor ejecuta únicamente `attach_lakehouse.sql`.
+- **En el contenedor de línea de comandos**, `gold_views.sql` se ejecuta a mano y solo cuando Gold ya existe; al abrirse, ese contenedor ejecuta únicamente `attach_lakehouse.sql`. Dentro de la consola se crean con `.read /duckdb/init/gold_views.sql`.
 - Superset solo consulta el namespace `gold`.
 - Los archivos no llevan `;` dentro de comentarios: quien los ejecuta descarta las líneas de comentario y parte el resto por `;`.
+
+### Cómo está implementado
+
+Comprobado en la fase F10.
+
+- **Imagen de la línea de comandos.** `duckdb/Dockerfile`. La imagen oficial `duckdb/duckdb:1.5.6` solo contiene el binario y no trae shell, así que el binario se copia a `debian:trixie-20261104-slim`. Corre como el usuario `duckdb` (10003:10003) y lleva las tres extensiones instaladas en `/opt/duckdb_extensions`. Pesa 316 MB.
+- **Arranque.** `duckdb/entrypoint.sh` quita los comentarios de `attach_lakehouse.sql`, sustituye los dos marcadores por las variables de entorno y abre DuckDB con ese SQL ya ejecutado. Si falta una variable o el montaje, termina con un mensaje que dice cuál. La clave no aparece en su salida.
+- **Uso.** `docker compose --profile tools run --rm duckdb` abre la consola; con `-c "SQL"` ejecuta una consulta y termina. Sin el perfil, el servicio no existe para `docker compose up`. Límite de memoria: 1 GB.
+- **Lectura de Gold.** DuckDB lee los siete productos con las mismas filas que el snapshot vigente del catálogo: 6,899, 19, 1,039, 4,067, 531, 95,050 y 41. Las 124 columnas se leen completas y ninguna viene toda nula. Ve también las 20 tablas de Bronze y las 22 de Silver.
+- **Lo que no se probó.** La consola tecleando en una terminal: las órdenes se le pasaron por la entrada estándar. Tampoco la imagen para `arm64`.
 
 ## 35. 📊 Apache Superset
 
@@ -2340,17 +2350,18 @@ Gold será la fuente de verdad para las visualizaciones.
 - La imagen base de la serie 6.1 es mínima: no trae ningún driver, tampoco el de PostgreSQL que Superset necesita para sus propios metadatos. Por eso `psycopg2-binary` forma parte de la imagen. Los paquetes se instalan en el entorno virtual `/app/.venv` con `uv pip install`.
 - Superset 6.1.0 limita DuckDB a `duckdb<2,>=1.4.2`. Subir a DuckDB 2.x requiere antes una versión de Superset que lo admita.
 - **La base de datos no viene registrada.** La conecta quien usa el laboratorio, desde la interfaz, con la URI SQLAlchemy `duckdb:///:memory:` (guía al final de esta sección). `superset-init` no la registra.
-- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB y, de `gold_views.sql`, solo las vistas cuya tabla existe en `lake.gold` según `information_schema.tables`. Que DuckDB 1.5.6 liste ahí las tablas de un catálogo Iceberg adjunto no está comprobado; lo cubre la actividad F10-16 del plan. Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
-- **Datasets sobre vistas, en el esquema `main`.** Superset no consigue leer las columnas de una tabla Iceberg adjunta: el inspector de SQLAlchemy devuelve una sola columna sin tipo, y sin columnas no se puede construir un gráfico. Sí las lee de las vistas de la base en memoria que crea el script de inicialización (sección 34). Cada dataset se define como tabla física `main.<producto>`. La alternativa, que también funciona, es un dataset virtual con `SELECT * FROM lake.gold.<producto>`, pero ahí Superset no reconoce el tipo de las columnas `DECIMAL`. SQL Lab puede consultar `lake.gold.<producto>` directamente.
+- Un hook de conexión definido en `superset/config/superset_config.py` ejecuta `duckdb/init/attach_lakehouse.sql` cada vez que SQLAlchemy abre una conexión DuckDB y, de `gold_views.sql`, solo las vistas cuya tabla existe en `lake.gold` según `information_schema.tables`. DuckDB 1.5.6 sí lista ahí las tablas de un catálogo Iceberg adjunto y, con `lake.gold` vacío, la conexión abre sin vistas y sin errores (actividades F10-01 y F10-16 del plan). Sin ese hook, las conexiones nuevas no verían el catálogo. Es un listener del evento `connect` de SQLAlchemy registrado sobre la clase `Engine`, que actúa solo cuando la conexión es de DuckDB. Superset ofrece además `DB_CONNECTION_MUTATOR` para ajustar la URI y los parámetros del motor antes de `create_engine`; no hizo falta.
+- **Datasets sobre vistas, en el esquema `memory.main`.** Cada dataset se define como tabla física sobre la vista `<producto>` que el hook crea en la base en memoria (sección 34). La interfaz nombra cada esquema con su catálogo delante: el de las vistas aparece como `memory.main` y los del lakehouse como `lake.gold`, `lake.silver` y `lake.bronze`. En SQL basta con escribir `main.<producto>`.
+- **Por qué vistas, y qué se sabe hoy.** La validación 7 encontró que Superset no leía las columnas de una tabla Iceberg adjunta, porque el inspector de SQLAlchemy devolvía una sola columna sin tipo, y de ahí salieron las vistas. En el laboratorio ya construido eso no se reprodujo: en la actividad F10-20 un dataset físico sobre `lake.gold.financial_performance` trajo sus 18 columnas con tipo y su consulta de gráfico funcionó. Tampoco se reprodujo el fallo que la validación 7 atribuía al nombre `memory.main`. Las vistas se mantienen porque son el camino que se siguió de principio a fin en la interfaz; si conviene retirarlas está anotado como duda en la sección 6 del plan. Queda además el dataset virtual con `SELECT * FROM lake.gold.<producto>`: la validación 7 vio que ahí Superset no reconoce el tipo de las columnas `DECIMAL`, y no se volvió a probar. SQL Lab puede consultar `lake.gold.<producto>` directamente.
 - **Coste por consulta.** Superset abre las conexiones a las bases analíticas sin pool (`NullPool`), de modo que cada consulta crea un DuckDB en memoria nuevo y repite la inicialización. La validación 7 lo midió: la inicialización cuesta unos 40 ms y cada vista añade entre 5 y 9 ms, frente a los 7 ms de la consulta en sí. De extremo a extremo, una consulta por la API de Superset tarda unos 150 ms en secuencia y hasta 440 ms en el percentil 95 con ocho consultas simultáneas y cuatro workers. Es aceptable para el laboratorio; no hace falta el archivo DuckDB de solo lectura que se había previsto como alternativa.
 - Cada worker de Superset tiene su propio DuckDB en memoria. No comparten archivo, así que no hay bloqueos entre procesos.
 - Metadatos de Superset en `metadata-db` (base `superset`).
-- El job one-shot `superset-init` migra la base (`superset db upgrade`), crea el usuario administrador (`superset fab create-admin`) y carga los roles y permisos (`superset init`), como en la validación 7. Debe poder repetirse sin fallar; que `create-admin` lo tolere con el usuario ya creado no está comprobado, y lo cubre la actividad F11-07 del plan.
+- El job one-shot `superset-init` migra la base (`superset db upgrade`), crea el usuario administrador (`superset fab create-admin`) y carga los roles y permisos (`superset init`), como en la validación 7. Puede repetirse sin fallar: antes de crear al administrador comprueba con `superset fab list-users` si ya existe y, en ese caso, no lo vuelve a crear (actividad F10-06 del plan).
 - **Sin datasets ni dashboards de fábrica.** El laboratorio entrega Superset listo para usar, pero vacío: los datasets, los gráficos y los dashboards los diseña quien lo usa. No se versiona ni se importa ningún paquete, y el DAG de Airflow no toca Superset. Conectar la base y crear gráficos es uso del laboratorio, no preparación: `docker compose up` deja todo lo necesario en marcha.
 
 ### Guía: conectar Gold y crear una visualización
 
-Los pasos siguen la guía oficial de Superset «Creating Your First Dashboard» (Context7). Los nombres de menús y botones son los de la interfaz en inglés y pueden variar un poco en la versión 6.1.0. Todavía no se han ejecutado en el laboratorio: la validación 7 registró la base por línea de comandos y consultó por la API. Los comprueba la actividad F10-20 del plan, que además corrige esta guía con lo que difiera.
+Los pasos se siguieron en el laboratorio, en un navegador, con Superset 6.1.0 y la interfaz en inglés (actividades F10-20 y F10-21 del plan). Los nombres de menús y botones son los que se vieron en pantalla. El punto de partida fue la guía oficial de Superset «Creating Your First Dashboard» (Context7).
 
 **Antes de empezar**
 
@@ -2360,35 +2371,51 @@ Los pasos siguen la guía oficial de Superset «Creating Your First Dashboard» 
 **1. Conectar la fuente de datos**
 
 1. En el menú **+** de arriba a la derecha, elegir **Data** y después **Connect database**.
-2. Elegir **DuckDB** en la lista de bases soportadas. Si no aparece, elegir **Other**.
-3. Si se abre un formulario con varios campos, pulsar el enlace que permite conectar con una cadena SQLAlchemy.
-4. Escribir un nombre, por ejemplo `ElastiFlix Gold`, y como **SQLAlchemy URI**: `duckdb:///:memory:`.
-5. Pulsar **Test connection** y, si responde bien, **Connect**.
+2. En la ventana **Connect a database**, abrir la lista **Supported databases** y elegir **DuckDB**. Los dos botones grandes de arriba son solo para PostgreSQL y SQLite.
+3. Se abre un formulario pensado para MotherDuck, con **Database name** y **Access token**. No hay que rellenarlo: pulsar debajo el enlace **Connect this database with a SQLAlchemy URI string instead**.
+4. En **Display Name** escribir un nombre, por ejemplo `ElastiFlix Gold`, y en **SQLAlchemy URI**: `duckdb:///:memory:`.
+5. Pulsar **Test connection**. Cuando aparezca el aviso «Connection looks good!», pulsar **Connect**. El aviso «Database connected» confirma que la base quedó registrada.
 
 La URI no lleva servidor, usuario ni contraseña: DuckDB corre dentro de Superset. El acceso al catálogo Iceberg y a RustFS lo pone el hook de conexión, que en cada conexión adjunta el lakehouse y crea una vista por cada producto Gold existente (sección 34).
 
 **2. Registrar un producto Gold como dataset**
 
 1. Ir a **Datasets** y pulsar **+ Dataset**.
-2. Elegir en **Database** la base recién conectada, en **Schema** `main` y en **Table** uno de los productos de la sección 33, por ejemplo `genre_performance`.
-3. Confirmar con el botón que crea el dataset.
+2. Elegir en **Database** la base recién conectada, en **Schema** `memory.main` y en **Table** uno de los productos de la sección 33, por ejemplo `genre_performance`. A la derecha aparecen sus columnas, cada una con su tipo.
+3. Pulsar **Create and explore dataset**.
 
-El esquema tiene que ser `main`. Las mismas tablas existen como `lake.gold.<producto>`, pero Superset no lee sus columnas desde ahí y el gráfico fallaría (validación 7). Si `main` aparece vacío, todavía no ha terminado bien ninguna corrida del DAG.
+El esquema es `memory.main`: ahí están las vistas que crea el hook. La lista ofrece también `system.main` y `temp.main`, que no tienen nada que usar, y `lake.gold`, `lake.silver` y `lake.bronze`, que son las tablas Iceberg tal cual. Si `memory.main` no trae ninguna tabla, todavía no ha terminado bien ninguna corrida del DAG.
 
 **3. Crear una visualización**
 
-1. Abrir el dataset desde la lista **Datasets**: se abre la pantalla de exploración.
-2. Elegir el tipo de gráfico, por ejemplo **Table** o **Bar Chart**.
-3. Poner una columna descriptiva en la agrupación (**Dimensions**, **Group by** o **X-axis**, según el tipo de gráfico) y una medida en **Metrics**, por ejemplo `COUNT(*)` o la suma de una columna numérica.
-4. Pulsar el botón que ejecuta la consulta (**Create chart**, **Update chart** o **Run query**). Si el gráfico sale vacío, revisar el filtro de tiempo y dejarlo en **No filter**.
-5. Pulsar **Save**, dar un nombre al gráfico y, si se quiere, elegir en **Add to dashboard** un dashboard nuevo o uno existente.
+1. Al crear el dataset se abre **Create a new chart**, con el dataset ya elegido. Elegir el tipo de gráfico, por ejemplo **Bar Chart**, y pulsar **Create new chart**: se abre la pantalla de exploración. A esa misma pantalla se llega, para un dataset que ya existe, pulsando su nombre en la lista **Datasets**.
+2. En **X-axis**, pulsar el recuadro, elegir en la pestaña **Simple** una columna descriptiva, por ejemplo `genre_name`, y pulsar **Save**.
+3. En **Metrics**, pulsar el recuadro, pasar a la pestaña **Simple**, elegir una columna numérica y un agregado, por ejemplo `movie_count` y `SUM`, y pulsar **Save**.
+4. Pulsar **Create chart**: el gráfico aparece a la derecha, con el número de filas y el tiempo de la consulta. Después de cada cambio, el mismo botón se llama **Update chart**. El filtro de tiempo viene en **No filter** sobre `gold_processed_at`, y así debe quedar.
+5. Pulsar **Save** y escribir el nombre en **Chart name**. Para llevarlo a un dashboard, escribir en **Add to dashboard** el nombre de uno nuevo, o elegir uno que ya exista. **Save** guarda el gráfico; **Save & go to dashboard** lo guarda y abre el dashboard.
+
+Solo se probó el gráfico de barras. Otros tipos cambian el nombre de algunos campos, pero se rellenan igual.
 
 **Qué esperar después**
 
-- **Los datos se actualizan solos.** Gold se recarga completo en cada corrida del DAG, cada 10 minutos, y cada consulta de Superset lee el estado vigente. Basta con refrescar el gráfico o el dashboard; si Superset devuelve un resultado guardado, se fuerza con **Force refresh**.
+- **Los datos se actualizan solos.** Gold se recarga completo en cada corrida del DAG, cada 10 minutos, y cada consulta de Superset lee el estado vigente. Basta con recargar la página del dashboard, o elegir **Refresh dashboard** en su menú **⋯**; el mismo menú tiene **Set auto-refresh** para que se refresque solo. Cada gráfico tiene además **Force refresh** en su menú **⋮**. Superset no guarda resultados: el laboratorio no configura ninguna caché.
 - **Lo creado se conserva.** La conexión, los datasets, los gráficos y los dashboards quedan en `metadata-db` (base `superset`) y sobreviven a detener y volver a levantar el laboratorio. Se pierden con la vuelta a cero (sección 39).
 - **SQL Lab** permite consultar con SQL tanto `main.<producto>` como `lake.gold.<producto>`.
-- **Solo lectura.** Superset rechaza cualquier sentencia que modifique datos sobre esta base (sección 34).
+- **Solo lectura.** Superset rechaza cualquier sentencia que modifique datos sobre esta base (sección 34): un `CREATE TABLE` o un `DELETE` en SQL Lab devuelve `DML_NOT_ALLOWED_ERROR`.
+
+### Cómo está implementado
+
+Comprobado en la fase F10.
+
+- **Imagen.** `superset/Dockerfile` añade a `apache/superset:6.1.0-py312` los paquetes `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y `psycopg2-binary` 2.9.13, e instala las tres extensiones de DuckDB en `/opt/duckdb_extensions`. Pesa 1.48 GB; la base, 1.26 GB. Corre como `superset` (1000).
+- **Configuración.** `superset/config/superset_config.py`, montado en `/app/pythonpath`. La clave de sesión y la URI de los metadatos llegan por el entorno; si falta una, Superset no arranca y el error dice cuál (`SUPERSET-CFG-001`). El hook lee los dos archivos de `duckdb/init/`, montados en solo lectura.
+- **Servicios.** `superset-init` aplica las 344 migraciones en 17 s, crea al administrador y carga los roles; repetido, no cambia nada y termina con código 0. `superset` queda sano a los 9 s, con cuatro procesos, en `http://127.0.0.1:8088`. Se comprueba con `/health`, que no pide credenciales.
+- **El hook, dentro de Superset.** Un motor creado por el propio modelo de base de datos de Superset usa `NullPool` y ve las siete vistas. Contra un catálogo con el namespace `gold` vacío, la conexión abre sin errores y sin vistas. Una conexión nueva con las siete vistas tarda entre 126 y 196 ms.
+- **La guía, de principio a fin.** Seguida en un navegador con el administrador de `.env`: base conectada, dataset sobre `genre_performance`, gráfico de barras de 19 géneros en 0.29 s y dashboard nuevo.
+- **El gráfico sigue al dato.** Se renombró un género en PostgreSQL: a los 45 s estaba en Bronze, la corrida siguiente del DAG lo llevó a Gold, y al recargar el dashboard el gráfico mostró el nombre nuevo y los cambios del simulador en otros 17 géneros. Entre el cambio y el gráfico pasaron 10 minutos, lo que tarda en llegar la corrida siguiente.
+- **Memoria.** 824 MiB en reposo y 967 MiB después de la sesión en el navegador, de un límite de 2 GB.
+- **Ruido conocido en el log.** Cada página pide `/favicon.ico`, que esta imagen no sirve, y deja un 404 con su traza. No afecta al uso.
+- **Lo que no se probó.** Otros tipos de gráfico, los filtros de un dashboard, varias personas a la vez y la imagen para `arm64`. La validación 7 midió la concurrencia por la API.
 
 ## 36. Calidad de datos
 
@@ -2716,11 +2743,12 @@ Ningún servicio de larga duración corre como `root`. Comprobado sobre las imá
 | `rustfs` | `rustfs` | 10001:10001 | El volumen `rustfs-data` |
 | `iceberg-rest` | `iceberg` | 1000:1000 | `iceberg/data` |
 | `java-simulator` | `simulator` | 10002:10002 | Ninguno; lee `raw_data/` en solo lectura |
+| `duckdb` (perfil `tools`) | `duckdb` | 10003:10003 | Ninguno; lee `duckdb/init/` en solo lectura |
 
 - La imagen de PostgreSQL arranca como `root`, ajusta ella misma la propiedad de su directorio de datos y baja a `postgres`. No necesita preparación.
 - El resto no puede cambiar la propiedad de su directorio. En Linux, un directorio recién clonado pertenece al usuario del host y el servicio falla al escribir. En Docker Desktop sobre Windows los directorios montados aparecen escribibles para todos y el problema no se manifiesta.
 - **Job `volumes-init`.** Un job one-shot que corre como `root`, antes que los servicios con estado, y asigna a cada directorio de la tabla el UID:GID de su servicio. Reutiliza la imagen de RustFS, ya presente en el laboratorio, que trae `sh` y `chown`. Cambia el dueño del directorio, no el de su contenido, y tiene un límite de 64 MB. `iceberg-rest` no depende directamente de él, pero arranca después a través de `rustfs` y `rustfs-init` (sección 40), así que `iceberg/data` ya está preparado.
-- `java-simulator` es la única imagen propia sin usuario heredado: su Dockerfile crea el usuario `simulator`.
+- `java-simulator` y `duckdb` son las dos imágenes propias sin usuario heredado: sus Dockerfile crean los usuarios `simulator` y `duckdb`.
 
 ### 45.3 Cuentas técnicas entre servicios
 

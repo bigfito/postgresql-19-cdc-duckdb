@@ -1,0 +1,4 @@
+# La imagen solo copia su script de arranque. El SQL de duckdb/init se monta
+# en el Compose, en solo lectura.
+*
+!entrypoint.sh
