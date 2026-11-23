@@ -23,11 +23,11 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F6 | Event Simulator | 45 | 45 | 100 % | ✅ Terminada |
 | F7 | Spark y capa Silver | 35 | 35 | 100 % | ✅ Terminada |
 | F8 | Capa Gold | 10 | 10 | 100 % | ✅ Terminada |
-| F9 | Orquestación con Airflow | 19 | 0 | 0 % | ⏳ Pendiente |
+| F9 | Orquestación con Airflow | 19 | 6 | 32 % | 🔄 En curso |
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **171** | **77 %** | 🔄 En curso |
+| | **Global** | **222** | **177** | **80 %** | 🔄 En curso |
 
 Actualizado el 2026-11-23.
 <!-- tablero:fin -->
@@ -345,12 +345,12 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - **Skill:** `/python-developer`; `/solution-architect` para el Dockerfile y el Compose
 - **Terminada cuando:** Una corrida del DAG `elastiflix_medallion` termina en `success` y deja Silver y Gold actualizados.
 
-- [ ] **F9-02** Escribir `airflow/Dockerfile` con Java, PySpark y los JAR de Iceberg. _(diseño §18)_
-- [ ] **F9-03** Añadir el job `airflow-init`. _(diseño §39)_
-- [ ] **F9-04** Añadir `airflow-apiserver` al Compose. _(diseño §18)_
-- [ ] **F9-05** Añadir `airflow-scheduler` al Compose. _(diseño §18)_
-- [ ] **F9-06** Añadir `airflow-dag-processor` al Compose. _(diseño §18)_
-- [ ] **F9-07** Crear el administrador de Airflow con `airflow users create`. _(diseño §45.4)_
+- [x] **F9-02** Escribir `airflow/Dockerfile` con Java, PySpark y los JAR de Iceberg. _(diseño §18)_
+- [x] **F9-03** Añadir el job `airflow-init`. _(diseño §39)_
+- [x] **F9-04** Añadir `airflow-apiserver` al Compose. _(diseño §18)_
+- [x] **F9-05** Añadir `airflow-scheduler` al Compose. _(diseño §18)_
+- [x] **F9-06** Añadir `airflow-dag-processor` al Compose. _(diseño §18)_
+- [x] **F9-07** Crear el administrador de Airflow con `airflow users create`. _(diseño §45.4)_
 - [ ] **F9-08** Escribir el job `iceberg_maintenance.py`. _(diseño §38)_
 - [ ] **F9-09** Crear el DAG `elastiflix_medallion`. _(diseño §18)_
 - [ ] **F9-19** Programar el DAG cada 10 minutos, activo desde que se crea, sin `catchup` y con una sola corrida a la vez. _(diseño §18)_
@@ -446,6 +446,12 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | F9-07 | Agente | F9 32 % · Global 80 % | `airflow-init` crea el administrador con `airflow users create --role Admin`, a partir de `AIRFLOW_ADMIN_USER` y `AIRFLOW_ADMIN_PASSWORD`. Ejecutado dos veces: la primera lo crea y la segunda detecta que existe y termina igual, con código 0. La contraseña queda cifrada con `scrypt` en `ab_user` y no aparece en los logs. Comprobado por la API: con sus credenciales se obtiene un token y `/api/v2/dags` responde 200; con una contraseña incorrecta, 401. No se inició sesión desde un navegador |
+| 2026-11-23 | F9-06 | Agente | F9 26 % · Global 79 % | `airflow-dag-processor` en el Compose. Arrancado: sano a los 16 s y la comprobación de salud de la API lo da por sano; 178 MiB de sus 512. Sin errores ni secretos en sus logs. Todavía no hay ningún DAG que leer; eso se comprueba al crear el DAG (F9-09) |
+| 2026-11-23 | F9-05 | Agente | F9 21 % · Global 79 % | `airflow-scheduler` en el Compose, con `LocalExecutor` y 2 GB de límite. Arrancado: sano a los 16 s (su latido en la base de metadatos es reciente) y la comprobación de salud de la API lo da por sano. 370 MiB en reposo. Sin errores ni secretos en sus logs. Falta ejercitarlo como driver de Spark, que llega con las tareas del DAG |
+| 2026-11-23 | F9-04 | Agente | F9 16 % · Global 78 % | `airflow-apiserver` en el Compose, publicado en `127.0.0.1:8080`. Arrancado: sano a los 17 s; su comprobación de salud responde sin credenciales y da la base de metadatos por sana; la API sin credenciales devuelve 401. 270 MiB de sus 512. Sin errores ni secretos en sus logs |
+| 2026-11-23 | F9-03 | Agente | F9 11 % · Global 78 % | Job `airflow-init` en el Compose, con los campos comunes de Airflow (imagen, variables y montajes). Ejecutado: `airflow db migrate` crea en 15 s las tablas de la base `airflow` de `metadata-db`, las del gestor de autenticación incluidas, y termina con código 0. Repetido sobre la base ya migrada: termina igual, sin cambios. Ni la contraseña de la base ni los secretos de Airflow aparecen en sus logs |
+| 2026-11-23 | F9-02 | Agente | F9 5 % · Global 77 % | `airflow/Dockerfile` sobre `apache/airflow:3.4.0-python3.12`: añade Java 21, `pyspark` y `pyspark-client` 4.1.4, el proveedor de Spark 6.3.4 y los dos JAR de Iceberg 1.12.0, con su SHA-1 comprobado. Construida en 89 s (4.77 GB; la base, 3.25 GB). Comprobado dentro de la imagen: Airflow sigue en 3.4.0, `SparkSubmitOperator` importa, `spark-submit` reporta 4.1.4, `pip check` no encuentra conflictos y corre como `airflow` (50000). No se construyó para `arm64` |
 | 2026-11-23 | F8 | Agente | F8 100 % · Global 77 % | Fase terminada. Su criterio de cierre está comprobado: los siete productos de Gold existen y cada corrida los reemplaza completos, en un snapshot de operación `overwrite` y sin archivos de borrado. 38 comprobaciones contra Silver, leídas con DuckDB, en cero. Las columnas de los productos las definió el agente y quedan a revisión de la persona responsable (sección 6). La duda sobre `has_homepage` queda resuelta: Gold lo toma de la versión vigente de `dim_movie` |
 | 2026-11-23 | F8-10 | Agente | F8 100 % · Global 77 % | Segunda corrida, tras poner Silver al día: cada tabla gana un snapshot con operación `overwrite` que borra todas las filas anteriores y escribe las nuevas, en un solo archivo de datos y sin archivos de borrado; las filas no se duplican y `gold_processed_at` tiene un único valor. 125 s con RustFS recién arrancado y 238 s la primera vez. No se probó con consultas concurrentes durante la recarga |
 | 2026-11-23 | F8-03, F8-04, F8-05, F8-06, F8-07, F8-08 y F8-09 | Agente | F8 90 % · Global 77 % | Los siete productos: 6,899 películas vivas, 19 géneros, 1,039 colecciones, 4,067 películas con presupuesto y recaudación, 531 meses de estreno, 95,050 personas y 41 métricas de cobertura. Comprobados contra Silver con DuckDB, 38 de 38 en cero: títulos, colecciones y géneros vigentes, medidas iguales al último snapshot, conteos y totales de cada agregado, y cifras repartidas por peso que suman el total salvo 12.53 USD de redondeo sobre 954 mil millones |

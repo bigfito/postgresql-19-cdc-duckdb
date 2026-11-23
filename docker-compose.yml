@@ -103,6 +103,54 @@ x-spark-volumes: &spark-volumes
   - ./pyspark/jobs:/opt/spark/jobs:ro
   - ./pyspark/reference:/opt/spark/reference:ro
 
+# -----------------------------------------------------------------------------
+# Imagen, variables y montajes comunes a los servicios de Airflow (diseño,
+# secciones 18 y 45)
+# -----------------------------------------------------------------------------
+# airflow-init, airflow-apiserver, airflow-scheduler y airflow-dag-processor
+# comparten la imagen que construye airflow/Dockerfile.
+x-airflow-build: &airflow-build
+  context: ./airflow
+
+x-airflow-environment: &airflow-environment
+  # Metadatos en metadata-db, en la base airflow y con la cuenta airflow.
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:?falta AIRFLOW_DB_PASSWORD en .env}@metadata-db:5432/airflow
+  # Las tareas corren como procesos del propio scheduler.
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  # Gestor de autenticación de Flask AppBuilder: las cuentas viven en
+  # metadata-db, con la contraseña cifrada (sección 45.4).
+  AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  # Secretos internos que comparten los servicios de Airflow: la clave que
+  # cifra las conexiones guardadas, la que firma los tokens entre servicios y
+  # la que firma el acceso a los logs.
+  AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?falta AIRFLOW_FERNET_KEY en .env}
+  AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?falta AIRFLOW_JWT_SECRET en .env}
+  AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY:?falta AIRFLOW_API_SECRET_KEY en .env}
+  # Por aquí reporta cada tarea su estado al servidor de la API.
+  AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+  # Clúster de Spark al que SparkSubmitOperator envía los jobs. En modo
+  # cliente el driver corre en el contenedor de Airflow.
+  AIRFLOW_CONN_SPARK_DEFAULT: spark://spark-master:7077?deploy-mode=client
+  # El driver de Spark lee y escribe en RustFS; S3FileIO toma de aquí la clave.
+  AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
+  AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+
+# Los DAG, la configuración y los plugins, en solo lectura; los logs, que es
+# lo único que Airflow escribe en el host; y, también en solo lectura, la
+# configuración de Spark, los jobs y los datos de referencia, en las mismas
+# rutas que en los contenedores de Spark: en modo cliente spark-submit lee el
+# job en la máquina que lo lanza.
+x-airflow-volumes: &airflow-volumes
+  - ./airflow/dags:/opt/airflow/dags:ro
+  - ./airflow/config:/opt/airflow/config:ro
+  - ./airflow/plugins:/opt/airflow/plugins:ro
+  - ./airflow/logs:/opt/airflow/logs
+  - ./pyspark/conf:/opt/spark/conf:ro
+  - ./pyspark/jobs:/opt/spark/jobs:ro
+  - ./pyspark/reference:/opt/spark/reference:ro
+
 services:
 
   # ---------------------------------------------------------------------------
@@ -575,3 +623,122 @@ services:
       retries: 12
       start_period: 30s
     mem_limit: 3g
+
+  # ---------------------------------------------------------------------------
+  # airflow-init (job one-shot; diseño, secciones 18, 39 y 45.4)
+  # ---------------------------------------------------------------------------
+  # Prepara la base de metadatos de Airflow: crea o actualiza sus tablas, las
+  # del gestor de autenticación incluidas, y crea el administrador de la
+  # interfaz web con el usuario y la contraseña de .env; la contraseña queda
+  # cifrada en metadata-db. Es idempotente: sobre una base ya migrada no
+  # cambia nada, y como `airflow users create` falla si el usuario existe,
+  # antes comprueba si ya está. Los tres servicios de Airflow esperan a que
+  # termine. Corre como el usuario airflow (50000:0) de la imagen;
+  # volumes-init le deja preparado airflow/logs.
+  airflow-init:
+    image: elastiflix-airflow:3.4.0-spark4.1.4
+    build: *airflow-build
+    command:
+      - bash
+      - -c
+      - |
+        set -eu
+        airflow db migrate
+        if airflow users list --output json | grep -q "\"username\": \"$$AIRFLOW_ADMIN_USER\""; then
+          echo "El administrador $$AIRFLOW_ADMIN_USER ya existe."
+        else
+          airflow users create --role Admin \
+            --username "$$AIRFLOW_ADMIN_USER" --password "$$AIRFLOW_ADMIN_PASSWORD" \
+            --firstname ElastiFlix --lastname Admin --email "$$AIRFLOW_ADMIN_USER@example.com"
+        fi
+    environment:
+      <<: *airflow-environment
+      AIRFLOW_ADMIN_USER: ${AIRFLOW_ADMIN_USER:?falta AIRFLOW_ADMIN_USER en .env}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?falta AIRFLOW_ADMIN_PASSWORD en .env}
+    volumes: *airflow-volumes
+    depends_on:
+      metadata-db:
+        condition: service_healthy
+      volumes-init:
+        condition: service_completed_successfully
+    mem_limit: 1g
+
+  # ---------------------------------------------------------------------------
+  # airflow-apiserver (diseño, secciones 18, 39 y 45.4)
+  # ---------------------------------------------------------------------------
+  # Interfaz web y API de Airflow, en http://127.0.0.1:8080. Sirve también la
+  # API de ejecución, por la que cada tarea reporta su estado. Pide usuario y
+  # contraseña: el administrador lo crea airflow-init.
+  airflow-apiserver:
+    image: elastiflix-airflow:3.4.0-spark4.1.4
+    build: *airflow-build
+    command: ["api-server"]
+    environment:
+      <<: *airflow-environment
+    ports: *ports-airflow-apiserver
+    volumes: *airflow-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    # Está sano cuando responde su comprobación de salud, que no pide
+    # credenciales.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/api/v2/monitor/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    mem_limit: 512m
+
+  # ---------------------------------------------------------------------------
+  # airflow-scheduler (diseño, secciones 18, 39 y 40)
+  # ---------------------------------------------------------------------------
+  # Decide cuándo corre cada tarea del DAG y, con LocalExecutor, las ejecuta
+  # él mismo. Cada tarea de Spark lanza spark-submit en modo cliente, así que
+  # el driver de cada job corre dentro de este contenedor: por eso es el
+  # servicio de Airflow con más memoria. Los ejecutores, en spark-worker, se
+  # conectan de vuelta a él por el nombre del servicio.
+  # No espera a Spark: solo las corridas del DAG lo necesitan.
+  airflow-scheduler:
+    image: elastiflix-airflow:3.4.0-spark4.1.4
+    build: *airflow-build
+    command: ["scheduler"]
+    environment:
+      <<: *airflow-environment
+    volumes: *airflow-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    # Está sano mientras su latido en la base de metadatos sea reciente.
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--local"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    mem_limit: 2g
+
+  # ---------------------------------------------------------------------------
+  # airflow-dag-processor (diseño, secciones 18, 39 y 40)
+  # ---------------------------------------------------------------------------
+  # Lee los archivos de airflow/dags y registra sus DAG en la base de
+  # metadatos. En Airflow 3 es un servicio aparte del scheduler: sin él, ni
+  # el scheduler ni la interfaz ven ningún DAG.
+  airflow-dag-processor:
+    image: elastiflix-airflow:3.4.0-spark4.1.4
+    build: *airflow-build
+    command: ["dag-processor"]
+    environment:
+      <<: *airflow-environment
+    volumes: *airflow-volumes
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    # Está sano mientras su latido en la base de metadatos sea reciente.
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "DagProcessorJob", "--local"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+    mem_limit: 512m

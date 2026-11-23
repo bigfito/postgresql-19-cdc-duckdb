@@ -1,0 +1,3 @@
+# La imagen no copia nada del contexto: airflow/dags, airflow/logs y los
+# directorios de pyspark se montan en el Compose.
+*
