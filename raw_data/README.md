@@ -118,6 +118,7 @@ Resultado de `python3 raw_data/generate_raw_data.py --validate`:
 7. PASS. Catálogos y frecuencias exactos; el resto del perfil, dentro de ±3 %.
 8. PASS. Están los defectos de la sección 8.6 y no hay repeticiones dentro de una película ni un keyword_id con dos nombres.
 9. PASS. Cada fila de movie_enrichment corresponde a un dato presente, y los códigos fx cuadran con el estreno.
+10. PASS. SHA-256 idéntico en dos ejecuciones.
 11. PASS. Ninguna película tiene dos keywords del mismo nombre.
 12. PASS. Correlaciones de Spearman con `movie_id` y entre medidas, medidas en el catálogo original, dentro de ±0.15; ningún par en ±1.00.
 13. PASS. Variedad de títulos, tagline, overview, plot y homepage, con los mínimos de distintos del encargo de regeneración.
@@ -126,7 +127,6 @@ Resultado de `python3 raw_data/generate_raw_data.py --validate`:
 16. PASS. imdb_id no secuenciales (rango tt0000417..tt35725827) y homepage solo con dominios .example.
 17. PASS. Cada palabra de los títulos (salvo números) está en la lista de palabras del generador.
 18. PASS. Prosa sin comillas ni saltos de línea pegados a letras por ambos lados, y comillas emparejadas.
-10. PASS. SHA-256 idéntico en dos ejecuciones.
 ```
 
 ## Correlaciones de Spearman observadas

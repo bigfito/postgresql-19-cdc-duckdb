@@ -16,11 +16,11 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación terminada; falta el cierre.** Las fases F2 a F11 dejaron el laboratorio completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Falta la fase F12 del [plan de trabajo](planning/PLAN.md): la documentación final y la comprobación desde un clon limpio.
+> 🔄 **Implementación y documentación terminadas; falta la etiqueta final.** Las fases F2 a F12 dejaron el laboratorio completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Se comprobó también desde un clon limpio, siguiendo solo este README. Del [plan de trabajo](planning/PLAN.md) solo queda publicar la etiqueta de Git de la versión final (F12-07).
 
 | Elemento | Estado |
 |---|---|
-| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 6 |
+| Documento de diseño ([`lab-design/LAB-DESIGN.md`](lab-design/LAB-DESIGN.md)) | ✅ Revisión 7, con la implementación |
 | Diagramas y bocetos ([`lab-design/diagrams/`](lab-design/diagrams/)) | ✅ Diez, generados con Archify |
 | Versiones del stack | ✅ Última estable compatible de cada componente; verificadas contra Docker Hub, Maven Central y PyPI |
 | Imágenes base en Docker Hub | ✅ Las once existen para `amd64` y `arm64` |
@@ -37,7 +37,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Orquestación con Airflow: imagen, servicios, DAG `elastiflix_medallion`, validaciones y mantenimiento de Iceberg | ✅ Fase F9 terminada |
 | DuckDB y Superset: línea de comandos de DuckDB, imagen y servicios de Superset, y la guía para conectar Gold y crear un gráfico, seguida en un navegador | ✅ Fase F10 terminada |
 | Integración de extremo a extremo: vuelta a cero, arranque completo, cambios seguidos hasta Superset, reinicio y memoria | ✅ Fase F11 terminada |
-| Documentación final y comprobación desde un clon limpio | ⏳ Fase F12; ver el [plan de trabajo](planning/PLAN.md) |
+| Documentación final y comprobación desde un clon limpio | 🔄 Fase F12: hecho todo salvo la etiqueta de Git de la versión final |
 
 ## 3. 🗺️ Arquitectura
 
@@ -91,68 +91,28 @@ El recorrido de un cambio, paso a paso, del CSV hasta Superset, está en el [dia
 
 ## 6. 📁 Estructura del repositorio
 
-Contenido actual:
-
-```text
-postgresql-19-cdc-duckdb/
-|
-|-- .env.example
-|-- .gitattributes
-|-- .gitignore
-|-- docker-compose.yml
-|-- AGENTS.md
-|-- CLAUDE.md
-|-- README.md
-|-- planning/
-|   |-- PLAN.md
-|   `-- update_progress.py
-|-- raw_data/
-|   |-- README.md
-|   |-- generate_raw_data.py
-|   `-- <tabla>.csv   (20 archivos)
-|-- flink/
-|   |-- Dockerfile
-|   |-- config/flink-properties.conf
-|   `-- jobs/      (pipeline YAML y scripts de envío y de borrado de Bronze)
-|-- metadata-db/
-|   `-- init/01-create-databases.sh
-|-- postgresql/
-|   |-- init/      (DDL de las 20 tablas, cuentas, identidad de réplica y publicación)
-|   `-- scripts/load_dev_data.sql
-|-- (esqueleto de directorios de los servicios, ver abajo)
-`-- lab-design/
-    |-- LAB-DESIGN.md
-    |-- DECISIONS-AND-VALIDATIONS.md
-    `-- diagrams/
-        |-- lab-architecture.{json,html,svg}
-        |-- medallion-dataflow.{json,html,svg}
-        |-- operational-erd.{json,html,svg}
-        |-- airflow-medallion-dag.{json,html,svg}
-        |-- compose-startup-order.{json,html,svg}
-        |-- plan-phases.{json,html,svg}
-        |-- simulator-console.{json,html,svg}
-        |-- superset-serving-path.{json,html,svg}
-        |-- quality-by-layer.{json,html,svg}
-        `-- end-to-end-change-path.{json,html,svg}
-```
-
-Esqueleto del proyecto (un directorio por servicio, con sus volúmenes dentro). Los directorios ya existen. `raw_data/` contiene el dataset, `metadata-db/init/` su script de inicialización, `postgresql/init/` el DDL de las 20 tablas, sus cuentas, la identidad de réplica y la publicación, `postgresql/scripts/` la carga de desarrollo, `flink/` la imagen, la configuración y el pipeline CDC, `java-simulator/` el proyecto Maven del simulador y su imagen, `pyspark/` la imagen de Spark, su configuración, los datos de referencia y los jobs de Silver, de Gold, de validación y de mantenimiento, `airflow/` la imagen de Airflow y el DAG, y `duckdb/init/` el SQL con el que DuckDB adjunta el lakehouse; los demás están vacíos, con un `.gitkeep` cada uno. El contenido del resto de servicios llega con su fase del plan. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
+Un directorio por servicio, con sus datos dentro:
 
 ```text
 postgresql-19-cdc-duckdb/
 |-- docker-compose.yml
 |-- .env.example
-|-- raw_data/          dataset de entrada: un CSV por tabla
-|-- java-simulator/    Event Simulator (Java 25)
-|-- postgresql/        DDL, roles y publicación
+|-- README.md, AGENTS.md, CLAUDE.md
+|-- lab-design/        diseño, decisiones y validaciones, y los diez diagramas
+|-- planning/          plan de actividades y el script que calcula su avance
+|-- raw_data/          dataset de entrada: un CSV por tabla, su generador y su README
+|-- java-simulator/    Event Simulator (Java 25): proyecto Maven, pruebas e imagen
+|-- postgresql/        DDL, cuentas, publicación y carga de desarrollo
 |-- metadata-db/       metadatos de Airflow y Superset
-|-- flink/             pipeline CDC y checkpoints
-|-- iceberg/           Iceberg REST Catalog
-|-- pyspark/           jobs y datos de referencia
-|-- airflow/           DAG elastiflix_medallion
-|-- duckdb/            SQL de inicialización y CLI opcional
+|-- flink/             imagen, configuración y pipeline CDC; checkpoints
+|-- iceberg/           datos del Iceberg REST Catalog
+|-- pyspark/           imagen de Spark, configuración, datos de referencia y jobs
+|-- airflow/           imagen de Airflow y DAG elastiflix_medallion
+|-- duckdb/            SQL de inicialización e imagen de la línea de comandos
 `-- superset/          imagen y configuración
 ```
+
+Lo que el laboratorio genera al funcionar va en los subdirectorios `data/` y `logs/` de cada servicio, que Git ignora. La excepción son los datos de RustFS, que viven en un volumen de Docker y no en un directorio. Cada diagrama de `lab-design/diagrams/` tiene tres archivos: la fuente `.json`, la página `.html` y el `.svg`. El detalle de subdirectorios está en la [sección 7 del diseño](lab-design/LAB-DESIGN.md#7--estructura-del-repositorio).
 
 ## 7. ✅ Requisitos
 
@@ -201,6 +161,8 @@ docker compose ps -a
 Lo normal es ver 13 servicios en `Up`, 12 de ellos con `(healthy)`, y seis jobs de preparación en `Exited (0)`. El simulador no lleva comprobación de salud. Repetir `docker compose up -d` no duplica nada: los jobs vuelven a ejecutarse y no cambian lo que ya existe.
 
 > ℹ️ Para esperar a que un servicio esté sano, nómbralo: `docker compose up -d --wait metadata-db`. Sin nombre, `--wait` devuelve error en cuanto termina un job de preparación, aunque termine bien.
+>
+> ℹ️ En Git Bash, antepón `MSYS_NO_PATHCONV=1` a los comandos de este README que llevan rutas de dentro de un contenedor, como `/tmp/…`, `/opt/…` o `/scripts/…`. Sin ello, Git Bash las convierte en rutas de Windows y el comando falla.
 
 ### Direcciones y cuentas
 
@@ -232,6 +194,8 @@ El simulador arranca solo y escribe una línea por transacción. Para verlo y ma
 
 La columna `Bronze` de la interfaz dice si cada cambio ya llegó al lakehouse y cuánto tardó: entre 11 y 50 segundos. Al detenerlo, el contenedor queda en `Exited (143)`; es lo normal. El detalle está en la [sección 9 del diseño](lab-design/LAB-DESIGN.md#9--aplicación-java-25-event-simulator).
 
+El simulador lleva 71 pruebas unitarias, que se ejecutan al construir su imagen: si una falla, la imagen no se construye.
+
 ### El DAG de Airflow
 
 El DAG `elastiflix_medallion` corre solo cada 10 minutos desde el primer arranque, sin activarlo. Cada corrida tarda entre 4 y 5 minutos y hace esto, en orden:
@@ -244,6 +208,7 @@ El DAG `elastiflix_medallion` corre solo cada 10 minutos desde el primer arranqu
 | `silver_to_gold` | Recarga los siete productos de Gold |
 | `validate_gold` | Comprueba que Gold se puede consultar |
 | `iceberg_maintenance` | Compacta Bronze y expira snapshots antiguos; corre siempre |
+| `mark_run_failed` | Solo corre si alguna tarea anterior falló, y deja la corrida en error |
 
 Si una validación falla, las tareas siguientes no corren, salvo el mantenimiento, y la corrida queda en error. La causa está en el log de la tarea que falló. El detalle está en la sección 18 del diseño, [Apache Airflow](lab-design/LAB-DESIGN.md#despliegue-de-airflow).
 
@@ -289,7 +254,7 @@ Dentro, `SELECT count(*) FROM lake.gold.movie_current_overview;` lee Gold, y tam
 
 ### Carga de desarrollo
 
-Para desarrollar sin esperar al simulador, las tablas se pueden llenar de una vez con la carga de desarrollo, que mete los 20 CSV (438,925 filas). Solo carga sobre una base vacía, así que se levanta todo menos el simulador (`docker compose up -d flink-cdc-submit`), se lanza la carga y después `docker compose up -d`. El detalle está en la [sección 39 del diseño](lab-design/LAB-DESIGN.md#datos-de-desarrollo):
+Para desarrollar sin esperar al simulador, las tablas se pueden llenar de una vez con la carga de desarrollo, que mete los 20 CSV (438,925 filas). Solo carga sobre una base vacía, así que se levanta solo la cadena que llega hasta el pipeline, sin el simulador (`docker compose up -d flink-cdc-submit`), se lanza la carga y después `docker compose up -d`. En Git Bash este comando necesita `MSYS_NO_PATHCONV=1` delante; sin ello no encuentra el script. El detalle está en la [sección 39 del diseño](lab-design/LAB-DESIGN.md#datos-de-desarrollo):
 
 ```bash
 docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scripts:/scripts:ro postgresql bash -c 'PGPASSWORD="$ELASTIFLIX_APP_PASSWORD" psql -h postgresql -U elastiflix_app -d elastiflix -v ON_ERROR_STOP=1 -f /scripts/load_dev_data.sql'
@@ -315,13 +280,13 @@ docker volume rm elastiflix-cdc-lakehouse_rustfs-data
 docker compose up -d
 ```
 
-Los seis directorios y el volumen se vacían siempre juntos: vaciar solo algunos deja el catálogo apuntando a archivos que ya no existen. Con ello se pierde también lo creado en Superset y el historial de Airflow. El bucle es de Bash; en Windows se ejecuta desde Git Bash o WSL.
+Los seis directorios y el volumen se vacían siempre juntos: vaciar solo algunos deja el catálogo apuntando a archivos que ya no existen. Con ello se pierde también lo creado en Superset y el historial de Airflow. El bucle es de Bash; en Windows se ejecuta desde Git Bash o WSL. En Linux esos archivos pertenecen a los usuarios de los contenedores y borrarlos puede pedir `sudo`; no está probado.
 
 ### Si algo no arranca
 
 - **Mira primero el estado y el log.** `docker compose ps -a` dice qué servicio no está sano o qué job no terminó con `Exited (0)`, y `docker compose logs <servicio>` dice por qué.
 - **Repite `docker compose up -d`.** Es seguro, y basta cuando un servicio se quedó a medias en el primer arranque.
-- **Si el DAG falla en `validate_bronze`**, el pipeline de Flink no está corriendo. `docker compose up -d` lo reanuda desde su último checkpoint.
+- **Si el DAG falla en `validate_bronze`**, o el pipeline de Flink no está corriendo (`VBRONZE-002`) o faltan tablas en Bronze (`VBRONZE-001`), que es normal en los primeros segundos y durante una reconstrucción. Para lo primero, `docker compose up -d` reanuda el pipeline desde su último checkpoint.
 - **Un puerto ocupado** se cambia en `.env`, en las variables que terminan en `_HOST_PORT`.
 
 ### Flujo demostrativo esperado

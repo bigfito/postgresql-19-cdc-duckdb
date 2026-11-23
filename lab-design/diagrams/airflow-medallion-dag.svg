@@ -1153,8 +1153,8 @@ opened. The complete license is preserved in
           <text x="486" y="138.6" class="t-muted" font-size="8" text-anchor="middle">SparkSubmit</text>
         </g>
 
-        <g id="node-validateGold" data-node-id="validateGold" data-node-label="validate_gold" tabindex="0" role="button" aria-label="Enfocar validate_gold, conteos y nulos, Airflow 3.4" aria-pressed="false" data-node-kind="security" data-node-sublabel="conteos y nulos" data-node-context="Airflow 3.4">
-          <title>validate_gold · conteos y nulos · Airflow 3.4</title>
+        <g id="node-validateGold" data-node-id="validateGold" data-node-label="validate_gold" tabindex="0" role="button" aria-label="Enfocar validate_gold, filas, nulos, repetidos, Airflow 3.4" aria-pressed="false" data-node-kind="security" data-node-sublabel="filas, nulos, repetidos" data-node-context="Airflow 3.4">
+          <title>validate_gold · filas, nulos, repetidos · Airflow 3.4</title>
           <rect x="564" y="93" width="92" height="52" rx="8" class="c-mask"/>
           <rect x="564" y="93" width="92" height="52" rx="8" class="c-security" data-animate="node" style="--step: 4; --flow-node-name: archify-relay-node-8;" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(570 99) scale(0.6875)">
@@ -1162,7 +1162,7 @@ opened. The complete license is preserved in
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
           <text data-node-label="" x="610" y="124.9" class="t-primary" font-size="10.7" font-weight="600" text-anchor="middle">validate_gold</text>
-          <text x="610" y="139.8" class="t-muted" font-size="8" text-anchor="middle">conteos y nulos</text>
+          <text x="610" y="137.4" class="t-muted" font-size="6" text-anchor="middle">filas, nulos, repetidos</text>
         </g>
 
         <g id="node-maintenance" data-node-id="maintenance" data-node-label="iceberg_maintenance" tabindex="0" role="button" aria-label="Enfocar iceberg_maintenance, siempre al final, Airflow 3.4" aria-pressed="false" data-node-kind="backend" data-node-sublabel="siempre al final" data-node-context="Airflow 3.4">

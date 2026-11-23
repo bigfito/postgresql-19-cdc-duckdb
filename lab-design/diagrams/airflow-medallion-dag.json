@@ -92,7 +92,7 @@
       "col": 4,
       "type": "security",
       "label": "validate_gold",
-      "sublabel": "conteos y nulos"
+      "sublabel": "filas, nulos, repetidos"
     },
     {
       "id": "maintenance",

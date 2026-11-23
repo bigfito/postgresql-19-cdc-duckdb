@@ -6462,7 +6462,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           <h3>Superset</h3>
         </div>
         <ul>
-          <li>No consulta PostgreSQL, Flink ni Bronze</li>
+          <li>No consulta PostgreSQL ni Flink; sus datasets usan solo Gold</li>
           <li>Cada dataset es una vista memory.main.&lt;producto&gt;</li>
           <li>Cada consulta abre un DuckDB en memoria nuevo</li>
         </ul>
@@ -6487,7 +6487,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>Gold es la fuente de verdad de las visualizaciones</li>
-          <li>Superset solo consulta el namespace gold</li>
+          <li>Los datasets usan solo gold; SQL Lab alcanza también silver y bronze</li>
           <li>Los archivos de las tablas residen en RustFS</li>
         </ul>
       </div>

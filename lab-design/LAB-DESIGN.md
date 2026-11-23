@@ -14,7 +14,7 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
 > 📝 **Revisión 6 (2026-11-22):** dataset definitivo, validaciones 10 a 12, reconstrucción de Bronze, medición de memoria con todo el stack y decisiones 26 a 65; los diagramas y bocetos que estaban dibujados en texto pasan a Archify. El detalle está en el registro de cambios de [DECISIONS-AND-VALIDATIONS.md](DECISIONS-AND-VALIDATIONS.md).
 >
-> 🛠️ **Implementado (2026-11-23):** el laboratorio está construido y comprobado de extremo a extremo (fases F2 a F11 del [plan](../planning/PLAN.md)). Donde la implementación concretó o corrigió el diseño, la sección correspondiente lo dice, casi siempre en un apartado «Cómo está implementado». El documento conserva el futuro con el que se escribió: «deberá» y «será» describen lo que el laboratorio ya hace.
+> 🛠️ **Revisión 7 (2026-11-23), implementación:** decisiones 66 a 73. El laboratorio está construido y comprobado de extremo a extremo (fases F2 a F11 del [plan](../planning/PLAN.md)). Donde la implementación concretó o corrigió el diseño, la sección correspondiente lo dice, casi siempre en un apartado «Cómo está implementado». El documento conserva el futuro con el que se escribió: «deberá» y «será» describen lo que el laboratorio ya hace.
 
 > 🎨 **Leyenda visual:** 🥉 Bronze = réplica operacional; 🥈 Silver = modelo dimensional histórico; 🥇 Gold = serving analítico; 🟪 infraestructura compartida; 🟥 consumo BI.
 
@@ -36,7 +36,7 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 
 ### 2.2 Requisitos técnicos
 
-- 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2; el repositorio puede vivir en una unidad NTFS (los bind mounts sobre NTFS se comprobaron en la validación 4; el cambio de propietario de los directorios `data/` lo hará `volumes-init`, que aún no existe).
+- 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2; el repositorio puede vivir en una unidad NTFS (los bind mounts sobre NTFS se comprobaron en la validación 4; el cambio de propietario de los directorios `data/` lo hace `volumes-init`, sección 45.2).
 - CPU x86_64/amd64. El laboratorio se construye y se valida en un solo equipo, con Windows 11 y Docker Desktop sobre WSL 2.
 - **Mac con Apple Silicon y otros equipos ARM64: sin probar.** Todas las imágenes base existen también para `linux/arm64` (sección 3.2), así que debería construirse sin cambios, pero ninguna validación se ha ejecutado en esa arquitectura. Lo que conviene revisar primero: que las extensiones de DuckDB se instalan para `linux_arm64` en las imágenes de Superset y del simulador, que el JAR de DuckDB JDBC carga su librería nativa, y que Docker Desktop tiene asignados al menos 12 GB de memoria. Tampoco se ha probado en Linux nativo, donde el job `volumes-init` (sección 45.2) es el que ajusta los permisos de los directorios de datos.
 - Recomendación para una ejecución cómoda del laboratorio: **8 CPU, 16 GB RAM y al menos 30 GB libres**. Con 16 GB el margen es estrecho (Flink, Spark, Airflow 3, Superset y dos PostgreSQL a la vez), por lo que cada servicio declarará límites de memoria en el Compose; ver [sección 39](#39--docker-compose).
@@ -116,6 +116,7 @@ Los componentes que son librerías no tienen imagen propia: se instalan durante 
 | Iceberg 1.10.2 (`iceberg-flink-runtime-2.0`, `iceberg-aws-bundle`) | Imagen de Flink | Maven Central |
 | Iceberg 1.12.0 (`iceberg-spark-runtime-4.1_2.13`, `iceberg-aws-bundle`) | Imágenes de Spark y Airflow | Maven Central |
 | JDBC 42.7.14, Commons CSV 1.14.1, Lanterna 3.1.5 y DuckDB JDBC 1.5.6.0 | JAR del simulador | Maven Central |
+| JUnit 6.1.3 | Etapa de build del simulador, para sus pruebas; no va en el JAR | Maven Central |
 | Extensiones `httpfs`, `iceberg` y `avro` de DuckDB | Imágenes del simulador y del contenedor `duckdb` | Repositorio de extensiones de DuckDB |
 | PySpark 4.1.4, `pyspark-client` 4.1.4 y proveedor Spark 6.3.4 | Imagen de Airflow | PyPI |
 | Java 21 (`openjdk-21-jre-headless`) | Imagen de Airflow | Repositorio de paquetes de Debian |
@@ -167,7 +168,7 @@ El recorrido de un cambio, paso a paso, del CSV hasta Superset, está en el diag
 17. RustFS será el almacenamiento S3-compatible local donde residirán físicamente los archivos Iceberg.
 18. Los tipos vectoriales del dataset original quedan completamente fuera del laboratorio.
 19. Los tipos de PostgreSQL se elegirán con una premisa prioritaria: deben poder viajar de forma segura por PostgreSQL -> Flink CDC -> Iceberg -> PySpark/DuckDB -> Superset.
-20. Cada volumen persistente de Docker deberá vivir dentro del directorio del servicio al que pertenece, para facilitar la revisión externa.
+20. Cada volumen persistente de Docker deberá vivir dentro del directorio del servicio al que pertenece, para facilitar la revisión externa. La única excepción son los datos de RustFS, que van en el volumen con nombre `rustfs-data` (decisión 67).
 21. Todo paso de preparación (bucket, namespaces, envío del pipeline CDC, migraciones de metadatos) será un job one-shot del mismo Docker Compose. No habrá pasos manuales entre `docker compose up` y el primer dato en Bronze.
 22. Los metadatos de Airflow y Superset vivirán en una base PostgreSQL separada (`metadata-db`), no en la base operacional que se captura por CDC.
 
@@ -177,7 +178,7 @@ El diagrama de la sección 4 muestra los componentes. Este muestra qué datos pa
 
 ![Linaje de datos por capa: CSV, tablas operacionales de PostgreSQL, tablas espejo de Bronze, dimensiones, hechos y bridges de Silver, productos Gold y consumo en Superset](diagrams/medallion-dataflow.svg)
 
-> 🔍 **Cómo leerlo:** de izquierda a derecha. Las flechas verdes son captura continua de Flink CDC; las grises, el resto de movimientos (la carga transaccional del simulador, los jobs batch de PySpark y la consulta de Superset); las punteadas, resolución de claves dentro de Silver. Los bridges también alimentan Gold (pesos N:M), aunque esa flecha no se dibuja.
+> 🔍 **Cómo leerlo:** de izquierda a derecha. Las flechas verdes son captura continua de Flink CDC; las grises, el resto de movimientos (la carga transaccional del simulador, los jobs batch de PySpark y la consulta de Superset); las punteadas, resolución de claves dentro de Silver. Los conteos del hecho (géneros, keywords, reparto y demás) salen de las tablas de relación de Bronze, no de los bridges. Los bridges también alimentan Gold (pesos N:M), aunque esa flecha no se dibuja.
 >
 > Versión interactiva: [`diagrams/medallion-dataflow.html`](diagrams/medallion-dataflow.html) · Fuente editable: [`diagrams/medallion-dataflow.json`](diagrams/medallion-dataflow.json).
 
@@ -195,10 +196,6 @@ Las tres capas comparten catálogo (Iceberg REST Catalog) y almacenamiento (Rust
 ## 7. 📁 Estructura del repositorio
 
 El directorio raíz coincide con el nombre del repositorio:
-
-```text
-postgresql-19-cdc-duckdb/
-```
 
 ```text
 postgresql-19-cdc-duckdb/
@@ -290,9 +287,9 @@ Notas sobre la estructura:
 - `raw_data/` contiene el dataset de entrada descrito en la sección 8: un CSV por tabla, el script que los genera y su README.
 - `postgresql/` usa la imagen oficial sin Dockerfile propio; `postgresql/init/` contiene el DDL, los roles y la publicación, en nueve archivos numerados que la imagen ejecuta en orden: esquema, catálogos, entidades compartidas, `movie`, relaciones, cuentas, contraseñas, identidad de réplica y publicación.
 - `metadata-db/` es el PostgreSQL de metadatos de Airflow y Superset; `metadata-db/init/01-create-databases.sh` crea sus cuentas y sus bases (sección 45.3).
-- `flink/jobs/` contiene el YAML del pipeline CDC y los dos scripts de operación, `submit-pipeline.sh` y `drop-bronze-tables.sh`; `flink/config/flink-properties.conf`, la configuración de Flink, que el Dockerfile aplica al construir la imagen; y `flink/data/`, los checkpoints. Los JAR se descargan en el build, comprobando la suma de cada uno, por eso no hay `flink/lib/`.
+- `flink/jobs/` contiene el YAML del pipeline CDC y los dos scripts de operación, `submit-pipeline.sh` y `drop-bronze-tables.sh`; `flink/config/flink-properties.conf`, la configuración de Flink, que el Dockerfile aplica al construir la imagen; y `flink/data/`, los checkpoints. Los JAR se descargan en el build, comprobando la suma de cada uno, por eso no hay `flink/lib/`. La configuración da dos slots al TaskManager (`taskmanager.numberOfTaskSlots: 2`). **`flink/jobs/` se copia dentro de la imagen al construirla; no se monta.** Un cambio en el YAML del pipeline o en los scripts no tiene efecto hasta reconstruir la imagen (`docker compose build flink-jobmanager`) y recrear los servicios de Flink.
 - `pyspark/reference/` contiene los datos de referencia versionados que Silver usa para enriquecer catálogos (nombres de idioma, códigos de país, descripción de ratings): seis archivos CSV (sección 24).
-- `pyspark/conf/` contiene `spark-defaults.conf`, con el catálogo Iceberg y la memoria de cada job, y `log4j2.properties`, el perfil de registro por defecto de Spark con un aviso silenciado (sección 19). `pyspark/conf/`, `pyspark/jobs/` y `pyspark/reference/` se montan en solo lectura en `spark-master` y `spark-worker`; la imagen no copia ninguno.
+- `pyspark/conf/` contiene `spark-defaults.conf`, con el catálogo Iceberg, la memoria de cada job y cuatro particiones de shuffle (`spark.sql.shuffle.partitions 4`), y `log4j2.properties`, el perfil de registro por defecto de Spark con un aviso silenciado (sección 19). `pyspark/conf/`, `pyspark/jobs/` y `pyspark/reference/` se montan en solo lectura en `spark-master` y `spark-worker`; la imagen no copia ninguno.
 - `pyspark/jobs/` contiene los dos jobs de transformación, el de mantenimiento (sección 38) y un job corto por cada tarea `validate_*` del DAG (sección 18).
 - No hay directorio de pruebas para los jobs: sus comprobaciones son las tareas `validate_*` de cada corrida del DAG (decisión 73).
 - `airflow/config/` y `airflow/plugins/` siguen la estructura de la imagen oficial de Airflow y quedan vacíos: la configuración va por variables de entorno y no hay plugins. `iceberg/config/` también está vacío y hoy no tiene uso.
@@ -340,7 +337,7 @@ superset:
 
 > ⚠️ **PostgreSQL 18 o superior:** la imagen oficial cambió el volumen a `/var/lib/postgresql` (los datos quedan en `/var/lib/postgresql/19/docker`). Montar en `/var/lib/postgresql/data`, como en versiones anteriores, impide que el contenedor arranque.
 
-> ⚠️ **Permisos de los bind mounts:** varias imágenes corren con un usuario no root y necesitan que el directorio del host sea escribible por ese UID. RustFS usa `10001:10001` y Airflow `50000:0`. El job one-shot `volumes-init` ajusta la propiedad de esos directorios antes de arrancar los servicios (sección 45.2).
+> ⚠️ **Permisos de los bind mounts:** varias imágenes corren con un usuario no root y necesitan que el directorio del host sea escribible por ese UID. RustFS usa `10001:10001`, sobre su volumen, y Airflow `50000:0`. El job one-shot `volumes-init` ajusta la propiedad de esos directorios y de ese volumen antes de arrancar los servicios (sección 45.2).
 
 No se utilizará un directorio raíz genérico `volumes/`.
 
@@ -492,7 +489,7 @@ La pantalla tiene cinco zonas fijas:
 | Zona | Contenido |
 |---|---|
 | Cabecera | Estado (`EN MARCHA`, `EN PAUSA`, `TERMINADO`), semilla, conexión a PostgreSQL, conexión a Bronze e intervalo vigente |
-| Avance | Películas insertadas sobre el total, barra de progreso, películas vivas en `catalog` y ritmo de transacciones |
+| Avance | Películas insertadas sobre el total, barra de progreso, películas vivas en `catalog`, ritmo de transacciones, y películas pendientes y borradas |
 | Operaciones | Contadores de INSERT, UPDATE y DELETE con su peso vigente, errores y operaciones manuales |
 | Últimas transacciones | Una fila por transacción: hora, operación, `movie_id`, título, filas afectadas, duración y estado en Bronze |
 | Detalle | Desglose por tabla de la transacción seleccionada |
@@ -523,7 +520,7 @@ La operación se ejecuta como una transacción normal, aparece en la lista marca
 
 - **Instante de referencia.** Es `floor(extract(epoch FROM now()) * 1000)`, leído en PostgreSQL dentro de la propia transacción. Nunca un valor redondeado: `cdc_op_ts` es el instante del commit truncado a milisegundos y cae en el mismo milisegundo que el inicio de la transacción en cerca de un 30 % de los casos, de modo que un umbral redondeado hacia arriba deja algunas transacciones pendientes para siempre.
 - **Consulta.** Cada 5 segundos, una sola consulta por lote con las transacciones pendientes: `SELECT movie_id, cdc_op_type, cdc_op_ts FROM lake.bronze.movie WHERE movie_id IN (…)`. Cuesta entre 10 y 60 ms, según los deletes acumulados desde la última compactación, y una petición al catálogo.
-- **Retraso esperable.** Entre 1 y 35 segundos en la validación 11, según en qué momento del intervalo de checkpoint de Flink caiga el commit. Con el simulador real, en la fase F6, se midieron entre 10 y 50 segundos, tanto a 4 como a 65 transacciones por segundo.
+- **Retraso esperable.** Entre 1 y 35 segundos en la validación 11, según en qué momento del intervalo de checkpoint de Flink caiga el commit. Con el simulador real, en la fase F6, se midieron entre 11 y 50 segundos, tanto a 4 como a 65 transacciones por segundo.
 - **Todas las operaciones se siguen en `bronze.movie`.** Por eso el UPDATE de relaciones y el de catálogo actualizan también `updated_at` de la película (sección 9.5): sin eso no tocaría `movie` y nunca saldría de «pendiente».
 - **Demora.** Si una transacción no aparece en 120 segundos, cuatro checkpoints, se marca «demorada» y la cabecera avisa de que Bronze no avanza. Se sigue comprobando: si el cambio llega después, pasa a «✓» con su tiempo real.
 
@@ -570,7 +567,7 @@ Valores iniciales, por variables de entorno. Los cuatro primeros se pueden cambi
 
 Los pesos no forman parte de ninguna restricción del modelo.
 
-Además, el simulador recibe las variables que comparte con otros servicios (sección 45.5): `ELASTIFLIX_APP_PASSWORD` para conectarse a PostgreSQL como `elastiflix_app`, y `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_REGION` para que DuckDB lea Bronze. El SQL de inicialización lo toma de `duckdb/init/`, montado en solo lectura.
+Además, el simulador recibe las variables que comparte con otros servicios (sección 45.5): `ELASTIFLIX_APP_PASSWORD` para conectarse a PostgreSQL como `elastiflix_app`, y `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` para que DuckDB lea Bronze. No recibe `AWS_REGION`: el SQL de inicialización no la usa. El SQL de inicialización lo toma de `duckdb/init/`, montado en solo lectura.
 
 ### 9.7 Semántica transaccional
 
@@ -603,6 +600,7 @@ Flink verá cambios físicos de múltiples tablas originados por las transaccion
 | Seguimiento aguas abajo | DuckDB JDBC 1.5.6.0, con las extensiones `httpfs`, `iceberg` y `avro` instaladas en el build | Misma versión y mismo SQL de inicialización que Superset; evita añadir un cliente de Iceberg propio |
 | Lectura de CSV | Apache Commons CSV 1.14.1 | Respeta comillas y saltos de línea dentro de celdas |
 | Acceso a PostgreSQL | JDBC 42.7.14 | Transacciones explícitas |
+| Pruebas unitarias | JUnit 6.1.3 (`junit-jupiter`), solo en la etapa de build | No va en el JAR: su ámbito en Maven es `test` |
 
 En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: true` para que la interfaz pueda abrirse con `docker compose attach java-simulator`. Cómo se usa, comprobado en la validación 10:
 
@@ -618,6 +616,7 @@ En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: t
 - **Detención.** `docker compose stop java-simulator` tarda menos de un segundo y deja el contenedor en `Exited (143)`. Es el código normal de una JVM que recibe la señal de parada, no un error; `docker compose start java-simulator` lo vuelve a arrancar.
 - **Log y códigos de error.** El log usa `java.util.logging`, para no añadir una quinta librería. Cada línea lleva la marca de tiempo en UTC y el nivel. Las de transacción empiezan por `TX #n`, las de cambios de configuración por `CONFIG`, las de operaciones manuales por `MANUAL` y las del seguimiento por `BRONZE`. Los errores llevan un código entre corchetes: `SIM-001` configuración, `SIM-010` y `SIM-011` dataset, `SIM-020` a `SIM-024` PostgreSQL y transacciones (`SIM-021` es el dato inconsistente del RF-12), `SIM-030` y `SIM-031` Bronze, y `SIM-040` terminal.
 - **Imagen y memoria medidas.** La imagen `elastiflix-simulator:1.0.0` ocupa 661 MB. En marcha, el contenedor usa entre 170 y 240 MiB de sus 512; el máximo visto, tras 10,000 transacciones a 65 por segundo, fue de 336 MiB.
+- **Pruebas unitarias.** `java-simulator/src/test/` tiene 71 pruebas en siete clases: lectura de CSV (10), carga del dataset (6), configuración (11), situación de cada película y reanudación (7), selección de la operación con pesos y semilla (19), contenido de los UPDATE (8) y reglas del seguimiento hasta Bronze (10). No cubren la interfaz de consola ni el acceso real a PostgreSQL y a DuckDB, que se comprobaron a mano en la fase F6. Se ejecutan al construir la imagen (`mvn verify` en la etapa de build): si una falla, la imagen no se construye. Dentro de la imagen corren 70 y se salta una, la que carga el dataset real, porque el contexto del build no incluye `raw_data/`; con Maven en el host, desde `java-simulator/`, corren las 71.
 
 Cómo se usa DuckDB dentro del simulador, comprobado en la validación 11:
 
@@ -1172,7 +1171,7 @@ Los archivos físicos Iceberg, incluyendo datos Parquet y metadata asociada, res
 
 Persistencia: el volumen con nombre `rustfs-data` de Docker, no un directorio del repositorio (ver más abajo).
 
-Los demás servicios no manipularán directamente ese directorio. Accederán mediante el endpoint S3.
+Los demás servicios no manipularán directamente ese volumen. Accederán mediante el endpoint S3.
 
 Detalles de operación:
 
@@ -1180,9 +1179,9 @@ Detalles de operación:
 - El contenedor corre como `10001:10001`; su volumen de datos debe ser escribible por ese usuario, y `volumes-init` se lo deja así.
 - Credenciales por las variables `RUSTFS_ACCESS_KEY` y `RUSTFS_SECRET_KEY`; healthcheck contra `/health/ready`, que no pide credenciales.
 - Logs por la salida estándar, con `RUSTFS_OBS_LOG_STDOUT_ENABLED=true`, como en el quickstart de Iceberg; así se ven con `docker compose logs rustfs`.
-- **Aviso de sistema de archivos.** En Docker Desktop sobre Windows, `rustfs/data` llega al contenedor como V9FS, y RustFS avisa al arrancar de que solo admite sistemas de archivos POSIX locales para producción. Es un aviso, no un error: en la fase F4 arrancó, guardó y devolvió objetos, uno de ellos de 20 MB, y los conservó tras recrear el contenedor. En la fase F5 aguantó el dataset completo bajo la carga de Flink. Es el riesgo R10 del plan.
+- **Aviso de sistema de archivos.** Hasta la fase F9 los datos iban en un directorio del repositorio, `rustfs/data`. En Docker Desktop sobre Windows ese directorio llegaba al contenedor como V9FS, y RustFS avisaba al arrancar de que solo admite sistemas de archivos POSIX locales para producción. Es un aviso, no un error: en la fase F4 arrancó, guardó y devolvió objetos, uno de ellos de 20 MB, y los conservó tras recrear el contenedor. En la fase F5 aguantó el dataset completo bajo la carga de Flink. Es el riesgo R10 del plan.
 - **RustFS no aguanta la carga del laboratorio sobre este montaje; observado en las fases F7 y F9.** Bajo carga de escritura y borrado deja de responder a tiempo, registra miles de avisos (`disk_operation_slow`, `disk_health_check_failed`), marca su disco como defectuoso y devuelve 503 por ráfagas. El contenedor sigue figurando sano. Consecuencias medidas: `bronze_to_silver` pasa de unos 90 s a entre 5 y 9 minutos; un 503 termina el TaskManager de Flink con un error fatal, y el pipeline queda parado hasta que se arranca a mano; los borrados por lote de `iceberg_maintenance` agotan la espera del cliente; y una lectura de un archivo de 22 KB llegó a tardar 25 s. En la fase F7 pareció que la causa era el proceso de fondo `scanner`, que arranca a la hora; en la F9 se descartó que sea la única: con `RUSTFS_SCANNER_ENABLED=false` el fallo apareció igual a los 34 minutos, y añadiendo `RUSTFS_DURABILITY_MODE=relaxed`, a los 17. Las dos variables existen en la 1.0.6 (comprobado en su código y en el binario) y ninguna se dejó en el Compose. La explicación más probable, respaldada por una microprueba y no demostrada: sobre el montaje de Windows renombrar y borrar cuesta unas 13 veces más que sobre el disco de Docker, y RustFS guarda cada objeto como un directorio con varios archivos. Por eso los datos pasaron a un volumen con nombre.
-- **Datos en el volumen `rustfs-data`, desde la fase F9 (decisión 67).** Es la única excepción a la regla de un directorio por servicio (sección 7). En el volumen los datos viven en el disco de Docker, sin cruzar la capa que comparte directorios con Windows. Medido con la misma carga que antes lo tumbaba, con Flink y el simulador escribiendo a la vez: `iceberg_maintenance` completo en 193 s la primera vez y 123 s la segunda, sin ninguna respuesta 503, sin lotes de borrado fallidos y sin avisos de lentitud; el TaskManager no cayó; contar `bronze.movie_cast` con DuckDB pasó de 87–89 s a 3 s; y borrar las 20 tablas de Bronze, de 49 s a 19 s. Lo que se pierde: los datos no se ven desde Windows ni están dentro del repositorio, y se borran con `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`, no vaciando un directorio. Los 18,447 archivos que había en `rustfs/data/` se copiaron al volumen con todo detenido; tardó 32 minutos. La copia antigua se borró después: `rustfs/data/` queda vacío, solo con su `.gitkeep`.
+- **Datos en el volumen `rustfs-data`, desde la fase F9 (decisión 67).** Es la única excepción a la regla de un directorio por servicio (sección 7). En el volumen los datos viven en el disco de Docker, sin cruzar la capa que comparte directorios con Windows. Medido con la misma carga que antes lo tumbaba, con Flink y el simulador escribiendo a la vez: `iceberg_maintenance` completo en 193 s la primera vez y 123 s la segunda, sin ninguna respuesta 503, sin lotes de borrado fallidos y sin avisos de lentitud; el TaskManager no cayó; contar `bronze.movie_cast` con DuckDB pasó de 87–89 s a 3 s; y borrar las 20 tablas de Bronze, de 49 s a 19 s. Lo que se pierde: los datos no se ven desde Windows ni están dentro del repositorio, y se borran con `docker volume rm elastiflix-cdc-lakehouse_rustfs-data`, no vaciando un directorio. Los 18,447 archivos que había en `rustfs/data/` se copiaron al volumen con todo detenido; tardó 32 minutos. La copia antigua se borró después, y el directorio `rustfs/` se retiró del repositorio (decisión 69).
 - **Sustituto evaluado: SeaweedFS 4.55.** En un entorno de Compose aparte, con sus datos en un directorio de la unidad E:, pasó 81 minutos de carga continua sin ninguna respuesta 5xx: borra 250 objetos en 0.6 s, `bronze_to_silver` tardó entre 68 y 82 s en 25 corridas sin degradarse, usó como máximo 750 MiB de 1 GiB y mantuvo entre 91 y 117 archivos en su directorio, porque empaqueta los objetos en pocos archivos que solo crecen. Adoptarlo conservaría la regla de un directorio por servicio. Tres condiciones: apagar su telemetría (`-master.telemetry=false`), vigilar su memoria, que subía despacio, y decidir aparte si `flink-taskmanager` debe reiniciarse solo. No se adoptó: la persona responsable decidió seguir con RustFS sobre el volumen, que ya estaba hecho y probado y es el cambio menor (decisión 67). El entorno de prueba se eliminó una vez tomada la decisión.
 - **El montaje de Windows sigue siendo un riesgo para los demás servicios.** Durante la copia de esos 18,447 archivos, con dos laboratorios trabajando a la vez sobre la unidad E:, el PostgreSQL operacional y el del entorno de evaluación se detuvieron en el mismo minuto con «Cannot allocate memory» al escribir y al leer sus archivos. No fue falta de memoria de los contenedores. Los dos se recuperaron solos al arrancar. Es el riesgo R10 del plan.
 - El job one-shot `rustfs-init` crea el bucket `warehouse` si no existe, con una petición S3 firmada. Es el mismo patrón que usa el quickstart de Spark del proyecto Iceberg, que ya emplea RustFS como object store: reutiliza la propia imagen `rustfs/rustfs`, que incluye `curl`, y firma con `curl --aws-sigv4`. No hace falta una imagen de cliente S3 aparte.
@@ -1279,7 +1278,7 @@ Pipeline lógico (DAG `elastiflix_medallion`):
 
 ![DAG de Airflow: validate_bronze, bronze_to_silver, validate_silver, silver_to_gold, validate_gold e iceberg_maintenance, la tarea mark_run_failed que solo corre si alguna falló, y los jobs PySpark y las capas Iceberg que tocan](diagrams/airflow-medallion-dag.svg)
 
-> 🔍 **Cómo leerlo:** la fila superior es el DAG, de izquierda a derecha. Cada tarea de transformación lanza un job PySpark (fila central) que lee una capa y escribe la siguiente (fila inferior). Cada `validate_*` consulta la capa de su mismo nombre. `iceberg_maintenance` corre siempre al final, aunque falle una validación.
+> 🔍 **Cómo leerlo:** la fila superior es el DAG, de izquierda a derecha. La segunda fila es `mark_run_failed`, que solo corre si alguna tarea falló y deja la corrida en error. Cada tarea de transformación lanza un job PySpark (tercera fila) que lee una capa y escribe la siguiente (fila inferior). Cada `validate_*` consulta la capa de su mismo nombre. `iceberg_maintenance` corre siempre al final, aunque falle una validación.
 >
 > Versión interactiva: [`diagrams/airflow-medallion-dag.html`](diagrams/airflow-medallion-dag.html) · Fuente editable: [`diagrams/airflow-medallion-dag.json`](diagrams/airflow-medallion-dag.json).
 
@@ -1291,7 +1290,7 @@ Tareas:
 | `bronze_to_silver` | `SparkSubmitOperator` sobre `bronze_to_silver.py` | Se reintenta; el job es idempotente |
 | `validate_silver` | Una sola versión vigente por business key, rangos SCD2 sin solapes, sin SK huérfanas | El DAG se detiene; Gold conserva su último estado |
 | `silver_to_gold` | `SparkSubmitOperator` sobre `silver_to_gold.py` | Se reintenta; Gold se recarga completo |
-| `validate_gold` | Conteos mínimos y columnas clave sin nulos | El DAG queda en error; Superset sigue mostrando la carga anterior |
+| `validate_gold` | Cada producto existe, tiene filas y sus claves no son nulas ni se repiten | El DAG queda en error. Gold ya se recargó y no se revierte: Superset muestra esa carga, que no es fiable, hasta la corrida siguiente |
 | `iceberg_maintenance` | Compacta Bronze y expira los snapshots antiguos de Bronze, Silver y Gold, conservando los 5 últimos de cada tabla. Corre siempre al final, aunque falle una tarea anterior (`trigger_rule = all_done`), y omite las tablas que todavía no existen | No bloquea la corrida siguiente |
 | `mark_run_failed` | No lanza ningún job. Solo se ejecuta si alguna tarea anterior falló, y entonces falla ella: deja la corrida en error. Airflow decide el estado de una corrida por sus tareas finales, y `iceberg_maintenance` corre siempre y suele terminar bien; sin esta tarea, una corrida con una validación fallida figuraría como correcta | Si todas las tareas van bien se omite y la corrida queda en `success` |
 
@@ -1314,7 +1313,7 @@ Airflow no gobernará cada evento CDC.
 - `LocalExecutor`. Servicios de Airflow 3: `airflow-apiserver`, `airflow-scheduler`, `airflow-dag-processor`, más el job one-shot `airflow-init` (migra la base y crea el usuario administrador).
 - **Autenticación.** El gestor basado en Flask AppBuilder, con `AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager` en todos los servicios de Airflow. Su proveedor ya viene en la imagen oficial; no hay que instalarlo. `airflow db migrate` crea también sus tablas.
 - Metadatos en `metadata-db` (base `airflow`).
-- **Programación.** El DAG corre cada 10 minutos (`schedule=timedelta(minutes=10)`) y queda activo desde que se crea (`is_paused_upon_creation=False`; por defecto Airflow crea los DAG en pausa). Lleva `catchup=False`, que en Airflow 3 ya es el valor por defecto, y `max_active_runs=1`, para que dos corridas no escriban Silver a la vez. También se puede lanzar a mano en cualquier momento. La duración de una corrida completa no se ha medido; en las validaciones, el `MERGE` de `dim_movie` tardó unos 10 s y el mantenimiento de las 20 tablas de Bronze, 62 s. Si una corrida se alarga más de 10 minutos, la siguiente espera en lugar de solaparse.
+- **Programación.** El DAG corre cada 10 minutos (`schedule=timedelta(minutes=10)`) y queda activo desde que se crea (`is_paused_upon_creation=False`; por defecto Airflow crea los DAG en pausa). Lleva `catchup=False`, que en Airflow 3 ya es el valor por defecto, y `max_active_runs=1`, para que dos corridas no escriban Silver a la vez. También se puede lanzar a mano en cualquier momento. Una corrida completa tarda entre 4 y 5 minutos (ver «Cómo está implementado», más abajo). Si una corrida se alarga más de 10 minutos, la siguiente espera en lugar de solaparse.
 - **Primera corrida.** Con un `schedule` de tipo `timedelta` y sin `catchup`, Airflow crea una corrida en cuanto el DAG queda activo. Si Bronze todavía no tiene sus 20 tablas, esa corrida falla en `validate_bronze` sin consecuencias, y la siguiente llega 10 minutos después. Gold existe desde la primera corrida que termina bien; hasta entonces Superset no tiene nada que mostrar.
 
 ### Cómo está implementado
@@ -1322,7 +1321,7 @@ Airflow no gobernará cada evento CDC.
 Comprobado en la fase F9.
 
 - **Imagen.** `airflow/Dockerfile` parte de `apache/airflow:3.4.0-python3.12` y añade Java 21, `pyspark` y `pyspark-client` 4.1.4, el proveedor de Spark 6.3.4 y los dos JAR de Iceberg 1.12.0, con su SHA-1 comprobado. Pesa 4.77 GB; la base, 3.25 GB. Monta `pyspark/conf`, `pyspark/jobs` y `pyspark/reference` en las mismas rutas que la imagen de Spark, bajo `/opt/spark`.
-- **Servicios.** `airflow-init` migra la base y crea el administrador, y es idempotente; `airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor` esperan a que termine. Los tres quedan sanos en unos 16 s. El de la API se comprueba con `/api/v2/monitor/health`, que no pide credenciales; los otros dos, con `airflow jobs check`.
+- **Servicios.** `airflow-init` migra la base y crea el administrador, y es idempotente; `airflow-apiserver`, `airflow-scheduler` y `airflow-dag-processor` esperan a que termine. Los tres quedan sanos en unos 16 s. El de la API se comprueba con `/api/v2/monitor/health`, que no pide credenciales; los otros dos, con `airflow jobs check`. El laboratorio no despliega el servicio `triggerer`, porque el DAG no usa tareas diferibles; por eso `/api/v2/monitor/health` lo muestra como `unhealthy`, y es lo esperado.
 - **DAG.** `airflow/dags/elastiflix_medallion.py`. Cada tarea de Spark es un `SparkSubmitOperator` que lanza el job del mismo nombre que la tarea, con `spark.driver.host=airflow-scheduler` y `spark.driver.bindAddress=0.0.0.0`. Las dos transformaciones llevan dos reintentos, con un minuto de espera; las validaciones y el mantenimiento, ninguno.
 - **Timestamp de la corrida.** Las dos transformaciones reciben `--run-ts {{ dag_run.run_after.isoformat() }}`. Las filas nuevas de Silver y todas las de Gold llevan exactamente ese instante.
 - **Arranque sin intervención.** El DAG nace activo y el scheduler crea su primera corrida sin que nadie lo active. Un archivo de DAG nuevo tarda hasta 5 minutos en aparecer: es cada cuánto `airflow-dag-processor` busca archivos nuevos. Si el archivo ya está al arrancar, lo lee de inmediato.
@@ -1370,7 +1369,7 @@ Restricción comprobada en el documento de decisiones y validaciones: el origen 
 Comprobado en la fase F7.
 
 - **Forma.** Un solo archivo, sin UDF de Python: todo son expresiones de DataFrame y SQL. Crea las tablas que falten, en formato Iceberg v2 y sin archivos de borrado, y después recorre las diez dimensiones Tipo 1, las tres SCD2, los seis bridges y los dos hechos, en ese orden, porque bridges y hechos resuelven sus claves contra las dimensiones.
-- **Cómo se lanza a mano.** Mientras no exista Airflow, desde la raíz del repositorio: `docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py`. Crea un contenedor temporal del servicio `spark-worker`, que hace de driver en modo cliente; el ejecutor corre en el `spark-worker` permanente. No se lanza con `docker compose exec` dentro del master ni del worker: el driver no cabe en su límite de memoria junto a lo que ya corre ahí. En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1`.
+- **Cómo se lanza a mano.** Fuera del DAG, por ejemplo con el DAG en pausa, desde la raíz del repositorio: `docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py`. Crea un contenedor temporal del servicio `spark-worker`, que hace de driver en modo cliente; el ejecutor corre en el `spark-worker` permanente. No se lanza con `docker compose exec` dentro del master ni del worker: el driver no cabe en su límite de memoria junto a lo que ya corre ahí. En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1`.
 - **Argumentos.** `--run-ts 2026-11-23T10:00:00+00:00` es el timestamp lógico de la corrida, el que el DAG toma de `dag_run.run_after`; sin él vale la hora actual, y sin zona se toma como UTC. Es el valor de `silver_processed_at` y la fecha de los cierres por ausencia. `--reference-dir` cambia el directorio de los archivos de referencia.
 - **Códigos de salida.** `0` si terminó bien; `2` si `--run-ts` no es una fecha ISO 8601 (`SILVER-001`); `1` en cualquier otro error, entre ellos `SILVER-002`, falta una tabla Bronze, y `SILVER-003`, un archivo de referencia falta o está mal formado. Si falta una tabla Bronze no se escribe nada.
 - **Lectura de Bronze.** Primero fija el snapshot vigente de las 20 tablas, que son llamadas rápidas al catálogo, y después lee cada una en ese snapshot con `versionAsOf`. Así todos los pasos ven el mismo estado de cada tabla y sus deletes de igualdad se aplican una sola vez.
@@ -1383,9 +1382,9 @@ Comprobado en la fase F7.
 - **Dimensiones.** Las filas 0 y -1 llevan `Unknown` y `Not Applicable` en las columnas de texto que nombran al miembro y nulo en el resto; en las SCD2 figuran como vigentes; `dim_date` también las tiene. Una dimensión Tipo 1 solo se reescribe si cambia un atributo: un `cdc_op_ts` distinto, como el que deja reconstruir Bronze, no la toca.
 - **Datos de referencia.** `Soviet Union` y `Czechoslovakia` quedan como `unmapped`, porque no tienen código ISO 3166-1 vigente; `No Language` lleva el código `xx` y el cantonés `cn`, que son los de TMDB.
 - **Registro.** `pyspark/conf/log4j2.properties` silencia el aviso de Spark sobre ventanas sin partición, que salía más de cien veces por corrida por el `max(SK) + row_number()` de las claves sustitutas.
-- **Duración.** Con el dataset completo (6,899 películas) y RustFS recién arrancado, la primera corrida tarda unos 110 s, una incremental unos 97 s y una sin cambios unos 85 s; de ellos, unos 50 s son leer las 20 tablas Bronze. Con RustFS degradado (sección 15) son entre 330 y 540 s. Las cifras con RustFS sano son de una versión del job anterior a dos retoques menores; el código final solo se midió con RustFS degradado. La duración crece también con Bronze: sin compactar, tras un día de simulador sus 20 tablas sumaban 2,088 archivos de datos y 3,447 de borrado, y leerlas costó 340 s con RustFS recién arrancado (515 s la corrida). Compactar Bronze es trabajo de `iceberg_maintenance` (sección 38).
+- **Duración.** Con el dataset completo (6,899 películas) y RustFS recién arrancado, la primera corrida tarda unos 110 s, una incremental unos 97 s y una sin cambios unos 85 s; de ellos, unos 50 s son leer las 20 tablas Bronze. Con RustFS degradado (sección 15) son entre 330 y 540 s. Las cifras con RustFS sano son de una versión del job anterior a dos retoques menores; el código final solo se midió entonces con RustFS degradado. Con RustFS sobre el volumen, en la fase F9, el job tarda entre 59 y 70 s dentro de una corrida del DAG (sección 18). La duración crece también con Bronze: sin compactar, tras un día de simulador sus 20 tablas sumaban 2,088 archivos de datos y 3,447 de borrado, y leerlas costó 340 s con RustFS recién arrancado (515 s la corrida). Compactar Bronze es trabajo de `iceberg_maintenance` (sección 38).
 - **Memoria.** Máximos medidos: 0.29 GiB en `spark-master`, 2.18 GiB en `spark-worker` y 1.76 GiB en el contenedor del driver, con 1 GB de heap.
-- **Lo que no se probó.** El job lanzado desde Airflow (fase F9); una reconstrucción real de Bronze, porque el cierre por ausencia se probó quitando de Bronze las filas de claves de prueba; la rama que actualiza un atributo de una dimensión Tipo 1; la adopción tardía de una ruta canónica en `dim_collection`; dos corridas simultáneas; y la imagen para `arm64`.
+- **Lo que no se probó.** La rama que actualiza un atributo de una dimensión Tipo 1; la adopción tardía de una ruta canónica en `dim_collection`; dos corridas simultáneas; y la imagen para `arm64`. Dos puntos que en la fase F7 quedaron sin probar se cubrieron en la F9: el job lanzado desde Airflow (actividades F9-11 y F9-16) y una reconstrucción real de Bronze (F9-18), tras la cual Silver conservó sus 22 tablas sin cambios.
 
 ## 20. 🥈 Modelo dimensional SILVER
 
@@ -2025,10 +2024,10 @@ Comprobado en la fase F8.
 - **Forma.** Un solo archivo, sin UDF de Python. Primero calcula las películas vivas, que es la base de todos los productos, una sola vez y la guarda en caché; aquí sí vale `cache()`, porque el job no usa `MERGE`. Después calcula y escribe los siete productos, uno tras otro.
 - **Película viva.** La que tiene versión vigente en `dim_movie` y cuyo último snapshot no es de borrado. Los atributos descriptivos salen de la versión vigente y las medidas y los conteos, del último snapshot. El título, el nombre de la colección y los géneros son los vigentes, buscados por la clave de negocio (sección 19).
 - **Escritura.** La primera corrida crea cada tabla, en formato Iceberg v2. Las siguientes sobrescriben todas sus filas en un solo snapshot, de operación `overwrite`: borra las filas anteriores y escribe las nuevas, sin archivos de borrado y en un único archivo de datos por tabla. Cada corrida añade un snapshot aunque Silver no haya cambiado; los expira `iceberg_maintenance` (sección 38).
-- **Cómo se lanza a mano.** Mientras no exista Airflow, desde la raíz del repositorio: `docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/silver_to_gold.py`. Va después de `bronze_to_silver.py`.
+- **Cómo se lanza a mano.** Fuera del DAG, por ejemplo con el DAG en pausa, desde la raíz del repositorio: `docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/silver_to_gold.py`. Va después de `bronze_to_silver.py`.
 - **Argumentos y códigos de salida.** `--run-ts` es el timestamp lógico de la corrida y el valor de `gold_processed_at`. Sale con `0` si terminó bien, con `2` si `--run-ts` no es una fecha ISO 8601 (`GOLD-001`) y con `1` en cualquier otro error, entre ellos `GOLD-002`: falta una tabla de Silver, y entonces no se escribe nada.
-- **Duración.** 238 s la primera corrida y 125 s la segunda, con el dataset completo. La mayor parte es leer Silver.
-- **Lo que no se probó.** El job lanzado desde Airflow (fase F9); consultas concurrentes durante una recarga; y un cambio en las columnas de un producto, que obligaría a borrar su tabla antes de la corrida, porque el job no altera esquemas.
+- **Duración.** En la fase F8, antes de pasar los datos de RustFS al volumen: 238 s la primera corrida y 125 s la segunda, con el dataset completo. En la fase F9, con RustFS sobre el volumen: entre 41 y 42 s dentro de una corrida del DAG (sección 18). La mayor parte es leer Silver.
+- **Lo que no se probó.** Consultas concurrentes durante una recarga; y un cambio en las columnas de un producto, que obligaría a borrar su tabla antes de la corrida, porque el job no altera esquemas. El job lanzado desde Airflow, que en la fase F8 quedó sin probar, se comprobó en la F9 (actividades F9-13 y F9-16).
 
 ## 33. 🥇 Capa GOLD
 
@@ -2253,7 +2252,7 @@ gold_processed_at
 Tres grupos de filas:
 
 - `dataset = movie`: una fila por atributo opcional de la película (`imdb_id`, `overview`, `tagline`, `homepage`, `poster_path`, `backdrop_path`, `runtime_minutes`, `budget_usd`, `revenue_usd`, `user_score`, `vote_average`, `rating_code` y `collection`), con cuántas películas vivas lo traen.
-- `dataset` igual al nombre de una dimensión con datos de referencia (sección 24) y `metric = reference_mapped`: cuántos de sus valores tienen equivalencia, es decir, `quality_status` distinto de `unmapped`.
+- `dataset` igual al nombre de una dimensión con `quality_status` y `metric = reference_mapped`. Son siete: las cinco con datos de referencia de la sección 24, más `dim_enrichment_field` y `dim_enrichment_code`. Dice cuántos de sus valores tienen equivalencia, es decir, `quality_status` distinto de `unmapped`.
 - `dataset = movie_enrichment`: una fila por campo de procedencia (sección 29), con cuántas películas vivas tienen procedencia registrada para ese campo.
 
 ## 34. 🦆 DuckDB
@@ -2320,7 +2319,7 @@ Reglas:
 - **El simulador usa solo `attach_lakehouse.sql`.** En su imagen las extensiones se instalan durante el build con el propio driver JDBC, en la misma ruta. No se usa la opción `MAX_TABLE_STALENESS` del `ATTACH`: ahorra la petición al catálogo de cada consulta, pero retrasa la visibilidad de un cambio hasta ese intervalo.
 - **Nadie copia estos archivos en su imagen.** `duckdb/init/` se monta en solo lectura en cada contenedor que lo usa; así hay una sola copia.
 - **En el contenedor de línea de comandos**, `gold_views.sql` se ejecuta a mano y solo cuando Gold ya existe; al abrirse, ese contenedor ejecuta únicamente `attach_lakehouse.sql`. Dentro de la consola se crean con `.read /duckdb/init/gold_views.sql`.
-- Superset solo consulta el namespace `gold`.
+- Los datasets de Superset y su guía usan solo el namespace `gold`. Es una convención, no una restricción: el SQL adjunta el catálogo completo, así que `lake.silver` y `lake.bronze` también se pueden consultar desde SQL Lab.
 - Los archivos no llevan `;` dentro de comentarios: quien los ejecuta descarta las líneas de comentario y parte el resto por `;`.
 
 ### Cómo está implementado
@@ -2337,7 +2336,7 @@ Comprobado en la fase F10.
 
 Superset será la capa de visualización.
 
-No consultará PostgreSQL, Flink ni Bronze directamente.
+No consultará PostgreSQL ni Flink. Sus datasets usan solo Gold; Silver y Bronze quedan al alcance de SQL Lab, porque el catálogo se adjunta entero, pero no forman parte del consumo previsto.
 
 Ruta de consumo:
 
@@ -2411,7 +2410,7 @@ Solo se probó el gráfico de barras. Otros tipos cambian el nombre de algunos c
 Comprobado en la fase F10.
 
 - **Imagen.** `superset/Dockerfile` añade a `apache/superset:6.1.0-py312` los paquetes `duckdb` 1.5.6, `duckdb-engine` 0.17.0 y `psycopg2-binary` 2.9.13, e instala las tres extensiones de DuckDB en `/opt/duckdb_extensions`. Pesa 1.48 GB; la base, 1.26 GB. Corre como `superset` (1000).
-- **Configuración.** `superset/config/superset_config.py`, montado en `/app/pythonpath`. La clave de sesión y la URI de los metadatos llegan por el entorno; si falta una, Superset no arranca y el error dice cuál (`SUPERSET-CFG-001`). El hook lee los dos archivos de `duckdb/init/`, montados en solo lectura.
+- **Configuración.** `superset/config/superset_config.py`, montado en `/app/pythonpath`. La clave de sesión y la URI de los metadatos llegan por el entorno; si falta una, Superset no arranca y el error dice cuál (`SUPERSET-CFG-001`). El hook lee los dos archivos de `duckdb/init/`, montados en solo lectura. Fija además `RATELIMIT_STORAGE_URI = "memory://"`: los límites de peticiones de Superset guardan sus contadores en memoria, que basta con un solo contenedor y evita un aviso al arrancar.
 - **Servicios.** `superset-init` aplica las 344 migraciones en 17 s, crea al administrador y carga los roles; repetido, no cambia nada y termina con código 0. `superset` queda sano a los 9 s, con cuatro procesos, en `http://127.0.0.1:8088`. Se comprueba con `/health`, que no pide credenciales.
 - **El hook, dentro de Superset.** Un motor creado por el propio modelo de base de datos de Superset usa `NullPool` y ve las siete vistas. Contra un catálogo con el namespace `gold` vacío, la conexión abre sin errores y sin vistas. Una conexión nueva con las siete vistas tarda entre 126 y 196 ms.
 - **La guía, de principio a fin.** Seguida en un navegador con el administrador de `.env`: base conectada, dataset sobre `genre_performance`, gráfico de barras de 19 géneros en 0.29 s y dashboard nuevo.
@@ -2486,7 +2485,7 @@ CALL lake.system.expire_snapshots(
 - **La tabla se nombra con el catálogo delante**, `lake.bronze.movie`. Con `bronze.movie` el procedimiento funciona igual, pero Iceberg prueba antes si `bronze` es un catálogo y deja en el log un aviso con su traza por cada llamada: tres por tabla y corrida. Visto y corregido en la fase F11.
 - **`older_than` es obligatorio.** Por defecto `expire_snapshots` solo expira snapshots de más de cinco días, así que en un laboratorio que lleva horas en marcha `retain_last` por sí solo no expira ninguno. El job pasa la hora en que arranca.
 - **La compactación corre con Flink escribiendo, pero a veces se cruzan.** Si Flink confirma un checkpoint entre la reescritura y la retirada de los deletes sobrantes, Iceberg rechaza esta última («Cannot remove dangling deletes: current snapshot changed»). No se pierde nada. `iceberg_maintenance.py` repite la compactación de esa tabla hasta tres veces y, si no lo consigue, la deja para la corrida siguiente. Pasó una vez en 49 tablas en la fase F9.
-- **Si una tabla falla por otra causa**, el job lo anota, sigue con las demás y termina con código 1.
+- **Si una tabla falla por otra causa**, el job lo anota, sigue con las demás y termina con código 1 y el error `MAINT-001`, que nombra las tablas que fallaron.
 - **Efecto medido en la fase F9.** Tras un día de simulador sin mantenimiento, Bronze tenía 2,088 archivos de datos y 3,447 de borrado; una corrida los dejó en 67 y 82. Con el mantenimiento en cada corrida del DAG, leer las 20 tablas Bronze cuesta unos 20 s.
 - `rewrite-all` tiene sentido mientras las tablas sean pequeñas, como en este laboratorio; con tablas grandes se sustituye por `delete-file-threshold`.
 - Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda: se conservan los 5 últimos snapshots.
@@ -2585,7 +2584,7 @@ Quien revise el laboratorio puede tener otros entornos Docker en la misma máqui
 
 ### Presupuesto de memoria
 
-Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha es el máximo medido con todo el stack en marcha y bajo carga ([documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md)):
+Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha es el máximo medido para cada servicio, y no todas las cifras salen de la misma prueba. La mayoría son de la medición con todo el stack en marcha y bajo carga del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md). Las de Spark se midieron con el job real en la fase F7; las de `airflow-scheduler` y RustFS, en la F9; y la de `airflow-dag-processor`, en la F11:
 
 | Servicio | Límite | Máximo medido |
 |---|---:|---:|
@@ -2608,7 +2607,7 @@ Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB
 - **Medido con el laboratorio construido (fase F11).** Durante una corrida completa del DAG, con Flink y el simulador escribiendo y unas 2,600 películas cargadas, el laboratorio usó entre 4.7 y 7.4 GiB. Ningún contenedor se detuvo por memoria. Dos quedan a menos de un 10 % de su límite: `airflow-scheduler`, con 1.87 GiB de 2, y `airflow-dag-processor`, con 0.46 de 0.5. Es el riesgo R12 del plan. No se midió con el dataset completo cargado y todos los servicios a la vez.
 - **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 3 GB de Airflow se reparten 0.5, 2 y 0.5.
 - **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso. Ofrece al clúster 1500 MB y 4 núcleos (`SPARK_WORKER_MEMORY`, `SPARK_WORKER_CORES`), lo justo para un ejecutor, así que corre una aplicación a la vez. El master y el worker limitan su propio proceso con `SPARK_DAEMON_MEMORY=256m`; sin ese valor cada uno pediría 1 GB.
-- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB: medido en la fase F9, con el driver dentro del scheduler: 1.88 GiB en una corrida completa del DAG, a un 6 % del límite. Es el riesgo R12 del plan.
+- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB. En la fase F9, con el driver del job real dentro del scheduler, llegó a 1.88 GiB en una corrida completa del DAG, a un 6 % del límite. Es el riesgo R12 del plan.
 - Si el host tiene menos de 16 GB, se puede detener el simulador o Superset mientras corre el DAG.
 
 ### Datos de desarrollo
@@ -2616,7 +2615,7 @@ Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB
 Las fases F3 a F5 y F7 a F10 del plan se construyen antes de que exista el simulador, o en paralelo con él. Para trabajar con el volumen real, el dataset completo se carga de una vez:
 
 - `postgresql/scripts/load_dev_data.sql` carga los 20 CSV con `\copy` de `psql`, en el orden de sus claves foráneas, con una transacción por archivo y con la cuenta `elastiflix_app`. Solo carga sobre una base vacía: si `catalog` ya tiene datos, se detiene sin tocar nada. Al terminar muestra las filas de cada tabla, que deben sumar 438,925.
-- Se ejecuta a mano, con el servicio `postgresql` en marcha, desde un contenedor temporal de la imagen de PostgreSQL que monta `raw_data/` y `postgresql/scripts/` en solo lectura. El servicio `postgresql` no monta ninguno de los dos, y ningún servicio ni job del Compose ejecuta el script. El comando, desde la raíz del repositorio:
+- Se ejecuta a mano, con el servicio `postgresql` en marcha, desde un contenedor temporal de la imagen de PostgreSQL que monta `raw_data/` y `postgresql/scripts/` en solo lectura. El servicio `postgresql` no monta ninguno de los dos, y ningún servicio ni job del Compose ejecuta el script. En Git Bash hay que anteponer `MSYS_NO_PATHCONV=1`: sin ello las rutas se convierten y `psql` no encuentra el script. El comando, desde la raíz del repositorio:
 
   ```bash
   docker compose run --rm --no-deps -v ./raw_data:/raw_data:ro -v ./postgresql/scripts:/scripts:ro postgresql bash -c 'PGPASSWORD="$ELASTIFLIX_APP_PASSWORD" psql -h postgresql -U elastiflix_app -d elastiflix -v ON_ERROR_STOP=1 -f /scripts/load_dev_data.sql'
@@ -2626,7 +2625,7 @@ Las fases F3 a F5 y F7 a F10 del plan se construyen antes de que exista el simul
 - **Por qué una transacción por archivo y no una sola.** PostgreSQL decodifica cada transacción entera antes de entregarla al CDC y, cuando pasa de 64 MB (`logical_decoding_work_mem`), la vuelca a disco cambio a cambio. Con los datos en un directorio compartido desde Windows, ese volcado avanzó a unos 15 MB por minuto y Bronze no recibió nada mientras tanto. Con una transacción por archivo ninguna llega a ese tamaño. Las transacciones del simulador, de una película cada una, quedan muy por debajo.
 - Es solo para desarrollar. El laboratorio terminado arranca con las tablas vacías y es el simulador quien las llena (sección 9.5).
 - Las comprobaciones del simulador (fase F6) se hacen sobre una base vacía: antes se vuelve a cero, y desde ese momento los datos los pone el simulador, también para lo que quede de F7 a F10.
-- **Con el simulador ya en el Compose**, un `docker compose up -d` lo arranca y empieza a insertar, de modo que la base deja de estar vacía en segundos. Para usar la carga de desarrollo se levanta todo menos el simulador, nombrando el último job de la cadena: `docker compose up -d flink-cdc-submit`. Después se lanza la carga y, al terminar, `docker compose up -d`. El simulador encuentra las 6,899 películas y entra directamente en modo continuo (sección 9.5). Las dos mitades están comprobadas por separado, la carga con el pipeline en marcha en F5 y el arranque del simulador sobre la base completa en F6; la secuencia entera no.
+- **Con el simulador ya en el Compose**, un `docker compose up -d` lo arranca y empieza a insertar, de modo que la base deja de estar vacía en segundos. Para usar la carga de desarrollo se levanta solo la cadena que llega hasta el pipeline, sin el simulador ni Spark, Airflow o Superset, nombrando su último job: `docker compose up -d flink-cdc-submit`. Después se lanza la carga y, al terminar, `docker compose up -d`. El simulador encuentra las 6,899 películas y entra directamente en modo continuo (sección 9.5). Las dos mitades están comprobadas por separado, la carga con el pipeline en marcha en F5 y el arranque del simulador sobre la base completa en F6; la secuencia entera no.
 
 ### Reconstruir la imagen de un servicio
 
@@ -2750,7 +2749,7 @@ Bronze guarda el último estado de cada fila y la operación que lo dejó así: 
 
 **4. Airflow construye Silver y Gold (pasos 10 a 13)**
 
-En Airflow, `http://127.0.0.1:8080`, el DAG `elastiflix_medallion` está activo y tiene una corrida cada 10 minutos. Cada una tarda entre 4 y 5 minutos; sus seis tareas se ven en la vista de cuadrícula. Cuando una termina en `success`:
+En Airflow, `http://127.0.0.1:8080`, el DAG `elastiflix_medallion` está activo y tiene una corrida cada 10 minutos. Cada una tarda entre 4 y 5 minutos; sus siete tareas se ven en la vista de cuadrícula; la última, `mark_run_failed`, queda omitida cuando todo va bien. Cuando una termina en `success`:
 
 ```bash
 docker compose --profile tools run --rm duckdb -c "SELECT count(*) FILTER (WHERE is_current) AS vigentes, count(*) FILTER (WHERE NOT is_current) AS cerradas, max(version_number) AS version_mas_alta FROM lake.silver.dim_movie"
@@ -2823,6 +2822,22 @@ El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/co
 
 Comprobado dos veces. En la fase F11, sobre un laboratorio vuelto a cero en el equipo de desarrollo (sección 42). Y en la actividad F12-06 del plan, desde un clon limpio del repositorio en otra carpeta y otra unidad, siguiendo solo el README: copiar `.env.example`, construir las cinco imágenes sin caché (2 min 37 s) y `docker compose up -d --build` (102 s, código 0). La primera corrida del DAG terminó bien a los 6 minutos, y un INSERT, un UPDATE y un DELETE del simulador llegaron a Superset tras la segunda. El clon se extrajo con finales de línea LF aunque el equipo tiene `core.autocrlf=true`, y el laboratorio no dejó en él ningún archivo sin ignorar. Límites de esa prueba: se hizo en el mismo equipo, con las imágenes base ya descargadas, y la base y el dataset de Superset se registraron por su API, no por la interfaz.
 
+### Qué se puede volver a comprobar
+
+Las comprobaciones de las fases se hicieron de dos maneras, y solo una queda en el repositorio (decisión 73):
+
+| Se puede repetir con lo que hay en el repositorio | Se midió con scripts que no están versionados |
+|---|---|
+| Las 71 pruebas unitarias del simulador, que corren al construir su imagen (sección 9.8) | Tiempos de arranque, de cada job y de cada corrida del DAG |
+| `python3 raw_data/generate_raw_data.py --validate`, con las 18 validaciones del dataset (sección 8) | Memoria de cada contenedor (sección 39) |
+| Las tareas `validate_bronze`, `validate_silver` y `validate_gold`, en cada corrida del DAG (sección 18) | La comparación de PostgreSQL con Bronze, tabla por tabla |
+| Los comandos de la guía de la demostración (sección 42) y la guía de Superset (sección 35) | Las comprobaciones de calidad de Silver (117, fase F7), las de Gold contra Silver (38, fase F8) y las del hook de Superset (fase F10) |
+| `docker compose config` y `docker compose ps -a`, para la configuración y el estado | El seguimiento de cada INSERT, UPDATE y DELETE capa por capa (fases F11 y F12) |
+
+Las cifras de la columna derecha son las que da la bitácora del plan, con su fecha. No hay forma de reproducirlas con un solo comando.
+
+### Estructura y responsabilidades
+
 El diseño debe ser comprensible desde la estructura de directorios y mantener una separación clara de responsabilidades entre ingestión, CDC, almacenamiento, catálogo, transformación, orquestación, serving y visualización.
 
 ## 45. 🔐 Cuentas y credenciales
@@ -2868,7 +2883,7 @@ Cada servicio usa una cuenta propia con el mínimo privilegio que necesita.
 | `postgres` | `metadata-db` | Scripts de `metadata-db/init/` | Superusuario |
 | `airflow` | `metadata-db` | Servicios de Airflow | Dueña de la base `airflow`, sin acceso a la base `superset` |
 | `superset` | `metadata-db` | Superset | Dueña de la base `superset`, sin acceso a la base `airflow` |
-| Clave de acceso de RustFS | RustFS | `rustfs-init`, `iceberg-rest`, Flink, Spark, los servicios de Airflow (driver de Spark), Superset (DuckDB) y el simulador (DuckDB) | Lectura y escritura sobre el bucket `warehouse` |
+| Clave de acceso de RustFS | RustFS | `rustfs-init`, `iceberg-rest`, Flink, Spark, los servicios de Airflow (driver de Spark), Superset (DuckDB), el simulador (DuckDB) y la línea de comandos de DuckDB | Lectura y escritura sobre el bucket `warehouse` |
 
 - **Una sola clave de RustFS.** Todos los clientes comparten la misma clave de acceso, que llega a cada contenedor en las variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`. Se descartó dar a DuckDB, que nunca escribe, una segunda clave de solo lectura: en un laboratorio local añade un paso de inicialización y dos variables sin reducir un riesgo real. No se llegó a comprobar si RustFS 1.0.6 permite claves con permisos distintos.
 - **Sin autenticación:** el Iceberg REST Catalog, el master de Spark y el clúster de Flink no piden credenciales. Solo son alcanzables dentro de la red del Compose o, sus interfaces web, desde `127.0.0.1`.

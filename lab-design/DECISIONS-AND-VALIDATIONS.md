@@ -33,7 +33,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 11 | El catálogo guarda su SQLite en `iceberg/data/` mediante `CATALOG_URI` | El valor por defecto se pierde al recrear el contenedor | 16 | Validación 4 |
 | 12 | `rustfs-init` usa la imagen de RustFS con `curl --aws-sigv4` | No hace falta una imagen de cliente S3 | 15 | Validación 2 |
 | 13 | DuckDB instala `httpfs`, `iceberg` y `avro` en el build, en un directorio propio | Sin `avro`, `iceberg` falla cuando no hay Internet | 34 | Validación 7 |
-| 14 | Los datasets de Superset van sobre vistas de la base en memoria | Superset no lee las columnas de una tabla Iceberg adjunta | 34, 35 | Validación 7 |
+| 14 | Los datasets de Superset van sobre vistas de la base en memoria | En la validación 7, Superset no leía las columnas de una tabla Iceberg adjunta. Ese motivo quedó superado en la fase F10, donde sí las leyó; las vistas se mantienen por la decisión 68 | 34, 35 | Validación 7 |
 | 15 | Superset conserva el `NullPool`; no hace falta un archivo DuckDB de solo lectura | Inicializar DuckDB en cada consulta cuesta decenas de milisegundos | 35 | Validación 7 |
 | 16 | La imagen de Superset incluye `psycopg2-binary` | La imagen base de la serie 6.1 no trae ningún driver | 35 | Validación 7 |
 | 17 | La imagen de Airflow lleva Java 21, PySpark y los JAR de Iceberg; los jobs se montan también en Airflow | En modo cliente el driver corre en Airflow | 18 | Validación 8 |
@@ -92,7 +92,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 70 | `flink-taskmanager` no lleva reinicio automático | Se mantiene la regla de que ningún servicio se reinicia solo. Si el pipeline se detiene, el DAG lo detecta en `validate_bronze` y `docker compose up -d` lo reanuda desde su último checkpoint | 14, 39 | Responsable; F12-05 |
 | 71 | Las columnas de los siete productos Gold quedan como están en la sección 33 | Las definió la implementación de la fase F8 y la persona responsable las acepta sin cambios | 33 | Responsable; F12-05 |
 | 72 | La regla de reanudación del simulador (RF-13) queda como está diseñada | Da por borradas las películas anteriores a la última presente. Solo se nota si alguien inserta a mano la última película del CSV, y está documentado | 9.5 | Responsable; F12-05 |
-| 73 | Los jobs de `pyspark/` no llevan una suite de pruebas versionada | Sus comprobaciones son las tareas `validate_*` de cada corrida del DAG; las pruebas de cada fase se hicieron con scripts que no forman parte del repositorio | 7, 18 | Responsable; F12-05 |
+| 73 | Los jobs de `pyspark/` no llevan una suite de pruebas versionada | Sus comprobaciones son las tareas `validate_*` de cada corrida del DAG; las pruebas de cada fase se hicieron con scripts que no forman parte del repositorio. Lo mismo vale para las mediciones de tiempo y de memoria y para el seguimiento de cambios de las fases F5 a F12; la sección 44 del diseño separa lo que se puede repetir con el repositorio de lo que no | 7, 18, 44 | Responsable; F12-05 |
 
 ### 1.2 Decisiones de versiones
 
@@ -182,7 +182,7 @@ Estado de verificación de las versiones al 2026-11-22:
 
 | Afirmación | Cómo se verificó |
 |---|---|
-| Existen, para `linux/amd64` y `linux/arm64`, las diez imágenes de la sección 3.2 del diseño | `docker manifest inspect` y API de etiquetas de Docker Hub |
+| Existen, para `linux/amd64` y `linux/arm64`, las diez imágenes que tenía entonces la sección 3.2 del diseño; la undécima, `debian:trixie-20261104-slim`, se comprobó igual el 2026-11-23 | `docker manifest inspect` y API de etiquetas de Docker Hub |
 | No hay versión estable más nueva de PostgreSQL (19.0), Airflow (3.4.0), Superset (6.1.0; la 7.0.0 está en `rc3`) ni RustFS (1.0.6). `apache/iceberg-rest-fixture` no tiene etiqueta versionada posterior a 1.10.1 | API de etiquetas de Docker Hub |
 | Existen Flink 2.3.0 y Spark 4.3.0 en Docker Hub, y no se adoptan | API de etiquetas de Docker Hub |
 | Flink CDC 3.7 soporta solo Flink 1.20 y 2.2 | Tabla de compatibilidad de Flink CDC (Context7); sufijos `-1.20` y `-2.2` de los artefactos en Maven Central |
@@ -593,7 +593,7 @@ Dos hallazgos ajenos a la memoria:
 - **`logical_date` no existe en una corrida manual de Airflow 3.** La primera corrida falló al renderizar la plantilla que pasaba esa fecha al job. Con `dag_run.run_after` funciona (decisión 36).
 - **Tres consultas de Superset fallaron** con un error interno del motor (`'NoneType' object has no attribute 'push'`), un 0.07 %. Coincidieron con el DAG reemplazando las tablas Gold, pero el mismo error ya apareció una vez en la validación 7 sin ninguna recarga, así que no se puede atribuir a ella. La causa no se investigó, y la lectura durante una recarga sigue sin probarse (sección 32).
 
-- **Lo que no cubre:** los jobs reales, que construyen 14 dimensiones, 2 hechos y 6 bridges en lugar de una dimensión; el simulador real, que además guarda los CSV en memoria (unos 100 MB más); dashboards de Superset abiertos en un navegador; una ejecución de horas; y un host con solo 16 GB, porque la máquina de la prueba tiene 32 GB. La actividad F11-09 del plan repite la medición con el laboratorio construido.
+- **Lo que no cubre:** los jobs reales, que construyen 14 dimensiones, 2 hechos y 6 bridges en lugar de una dimensión; el simulador real, que además guarda los CSV en memoria (unos 100 MB más); dashboards de Superset abiertos en un navegador; una ejecución de horas; y un host con solo 16 GB, porque la máquina de la prueba tiene 32 GB. La actividad F11-09 del plan repitió la medición con el laboratorio construido: entre 4.71 y 7.41 GiB durante una corrida completa del DAG.
 
 #### Validación 10: consola Lanterna con `docker compose attach`
 
@@ -685,10 +685,13 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 ## 3. Registro de cambios
 
-### Revisión 6, 2026-11-22
+### Revisión 7, 2026-11-23: implementación
+
+Recoge lo que concretó o corrigió la implementación, de la fase F5 a la F12, y las decisiones 66 a 73.
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Revisión de coherencia tras la implementación | Sin revisar el conjunto desde la segunda revisión | Un revisor independiente contrastó toda la documentación y los diez diagramas con el código: 35 hallazgos, uno grave, todos corregidos. El grave: si falla `validate_gold`, Superset no muestra la carga anterior, sino la nueva, que no es fiable. Además se documentan las 71 pruebas unitarias del simulador, se corrige una flecha del diagrama de linaje y se separa lo que se puede repetir con el repositorio de lo que no | 7, 9.8, 15, 18, 19, 32, 34, 35, 39, 42, 44 |
 | Prueba desde un clon limpio, fase F12 | El criterio de éxito solo se había comprobado sobre el directorio de desarrollo | Comprobado desde un clon en otra carpeta, siguiendo solo el README: construcción sin caché en 2 min 37 s, arranque en 102 s y tres cambios seguidos hasta Superset. Una corrección: `docker compose up -d --build` construye cinco imágenes, no seis; la de la línea de comandos de DuckDB se construye al usarla | 39, 44 |
 | Dudas de la implementación, fase F12 | Siete dudas abiertas en la sección 6 del plan | Cerradas por la persona responsable con las decisiones 68 a 73: se mantienen las vistas, se retira `rustfs/data/`, Flink sigue sin reinicio automático, y se aceptan las columnas de Gold, la regla RF-13 y la ausencia de pruebas versionadas. El fallo intermitente de `initdb` deja de seguirse como defecto y queda en el riesgo R10 | 7, 9.5, 14, 15, 18, 33, 34, 35, 39 |
 | Cierre de la implementación, fase F12 | La sección 3.2 listaba diez imágenes base y la 42 no tenía guía | Once imágenes base: la línea de comandos de DuckDB termina en `debian:trixie-20261104-slim`, publicada también para `arm64`. La sección 42 gana la guía de la demostración, con sus comandos probados, y el diseño una nota que dice que ya está implementado | 1, 3.2, 7, 42 |
@@ -699,6 +702,11 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Implementación de la fase F7 | Diseño sin concretar en estos puntos | Imagen de Spark con `uv` 0.13.9 y Python 3.12.16; `spark-defaults.conf` y `log4j2.properties` en `pyspark/conf/`; `spark-master` y `spark-worker` con su memoria de proceso y lo que el worker ofrece; `bronze_to_silver.py` concreta sus argumentos, sus códigos de salida, la lectura de Bronze por snapshot, el contenido de `record_hash` y la identidad de las filas de bridge. `pyspark/reference/` se monta también en Airflow. Se documenta que RustFS se degrada a los 60 minutos de arrancar y que el job no sobrevive a la pérdida del ejecutor | 7, 15, 18, 19, 39 |
 | Implementación de la fase F6 | Diseño sin concretar en estos puntos, y dos datos que la ejecución real corrige | El simulador concreta el contenido de cada UPDATE, los escalones de velocidad, el formato del log y los códigos `SIM-0xx`. Se corrigen dos datos: el retraso hasta Bronze medido es de 11 a 50 s, no de 1 a 35; y las tablas de Bronze no existen en el instante en que el pipeline pasa a `RUNNING`, sino unos 15 s después. Se documenta cómo usar la carga de desarrollo con el simulador en el Compose y cómo reconstruir la imagen de un solo servicio | 9.3, 9.5, 9.8, 14, 39, 40 |
 | Implementación de la fase F5 | Diseño sin concretar en estos puntos | Configuración de Flink en `flink/config/flink-properties.conf`, aplicada al construir la imagen; scripts `submit-pipeline.sh` y `drop-bronze-tables.sh` en `flink/jobs/`; descargas con suma comprobada; healthchecks de Flink. La carga de desarrollo pasa a una transacción por archivo. Se documenta una limitación de DuckDB 1.5.6 con `UNION ALL` sobre tablas con borrados | 7, 14, 34, 38, 39, 40 |
+
+### Revisión 6, 2026-11-22
+
+| Tema | Antes | Ahora | Sección del diseño |
+|---|---|---|---|
 | Implementación de la fase F3 | Diseño sin concretar en estos puntos | DDL en nueve archivos numerados; cuentas creadas sin contraseña y un script aparte que se la pone desde variables de entorno; comprobación final de la identidad de réplica; healthcheck de PostgreSQL por TCP; carga de desarrollo en una sola transacción, que se niega si ya hay datos; las rutas de imagen empiezan por `/` | 7, 10, 12.2, 39, 40, 45.5 |
 | Implementación de la fase F2 | Diseño sin concretar en estos puntos | Puertos en el campo de extensión `x-host-ports`; `volumes-init` con la imagen de RustFS; script de inicialización de `metadata-db`; aviso sobre `docker compose up --wait` con jobs one-shot | 7, 39, 40, 45.2, 45.3 |
 | Secretos en `.env.example` | La definición de terminado del plan prohibía cualquier clave versionada, en contra de §45.5 | Excepción explícita para `.env.example`, con valores de laboratorio (decisión 66) | 45.5 |

@@ -33,7 +33,11 @@ LOG_HEAD = "| Fecha | Actividades | Quién | Avance | Nota |\n|---|---|---|---|-
 
 
 def percent(done, total):
-    return f"{round(100 * done / total)} %" if total else "—"
+    """Porcentaje redondeado; nunca 100 % mientras quede algo por hacer."""
+    if not total:
+        return "—"
+    value = round(100 * done / total)
+    return f"{min(value, 99) if done < total else value} %"
 
 
 def state(done, total):

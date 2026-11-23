@@ -94,7 +94,7 @@
       "dot": "cyan",
       "title": "Superset",
       "items": [
-        "No consulta PostgreSQL, Flink ni Bronze",
+        "No consulta PostgreSQL ni Flink; sus datasets usan solo Gold",
         "Cada dataset es una vista memory.main.<producto>",
         "Cada consulta abre un DuckDB en memoria nuevo"
       ]
@@ -113,7 +113,7 @@
       "title": "Gold y RustFS",
       "items": [
         "Gold es la fuente de verdad de las visualizaciones",
-        "Superset solo consulta el namespace gold",
+        "Los datasets usan solo gold; SQL Lab alcanza también silver y bronze",
         "Los archivos de las tablas residen en RustFS"
       ]
     }

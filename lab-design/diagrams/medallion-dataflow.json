@@ -41,7 +41,7 @@
     { "id": "to-facts", "from": "bronzeEntities", "to": "facts", "label": "métricas", "classification": "bronze_to_silver", "variant": "default" },
     { "id": "to-bridges", "from": "bronzeLinks", "to": "bridges", "label": "pares N:M", "classification": "bronze_to_silver", "variant": "default" },
     { "id": "sk-facts", "from": "dims", "to": "facts", "label": "SK", "classification": "lookup", "variant": "dashed" },
-    { "id": "sk-bridges", "from": "bridges", "to": "facts", "label": "conteos", "classification": "agregado", "variant": "dashed" },
+    { "id": "counts-facts", "from": "bronzeLinks", "to": "facts", "label": "conteos", "classification": "bronze_to_silver", "variant": "default" },
     { "id": "dims-gold", "from": "dims", "to": "gold", "label": "versión vigente", "classification": "silver_to_gold", "variant": "default" },
     { "id": "facts-gold", "from": "facts", "to": "gold", "label": "último snapshot", "classification": "silver_to_gold", "variant": "default" },
     { "id": "serve", "from": "gold", "to": "bi", "label": "SQL", "classification": "solo lectura", "variant": "default" }

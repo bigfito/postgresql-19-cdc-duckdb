@@ -4847,12 +4847,13 @@ def main(argv: list[str] | None = None) -> int:
     ok, lines, stats = validate_dir(out)
     first = {item["file"].removesuffix(".csv"): item["sha256"] for item in stats if "file" in item}
     det_ok = first == second and len(first) == 20
-    lines.append(
-        "10. " + ("PASS" if det_ok else "FAIL")
-        + ". SHA-256 idéntico en dos ejecuciones."
-    )
+    # La 10 compara las dos ejecuciones y por eso se calcula al final, pero se
+    # muestra en su sitio, entre la 9 y la 11.
+    determinism = ["10. " + ("PASS" if det_ok else "FAIL") + ". SHA-256 idéntico en dos ejecuciones."]
     if not det_ok:
-        lines.append("   - los CSV de las dos ejecuciones no coinciden")
+        determinism.append("   - los CSV de las dos ejecuciones no coinciden")
+    position = next((i for i, text in enumerate(lines) if text.startswith("11. ")), len(lines))
+    lines[position:position] = determinism
     if ok and det_ok:
         write_readme(out, lines, stats)
     print("\n".join(lines))

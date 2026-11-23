@@ -928,22 +928,22 @@ opened. The complete license is preserved in
         <text x="260" y="258" class="t-external" font-size="7" text-anchor="middle">███████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</text>
         </g>
 
-        <g id="node-progress6" data-node-id="progress6" data-node-label="Vivas en catalog" tabindex="0" role="button" aria-label="Enfocar Vivas en catalog, 1,251, Avance" aria-pressed="false" data-node-kind="external" data-node-sublabel="1,251" data-node-context="Avance">
-          <title>Vivas en catalog · 1,251 · Avance</title>
+        <g id="node-progress6" data-node-id="progress6" data-node-label="Vivas en catalog" tabindex="0" role="button" aria-label="Enfocar Vivas en catalog, 1,251 · borradas 33, Avance" aria-pressed="false" data-node-kind="external" data-node-sublabel="1,251 · borradas 33" data-node-context="Avance">
+          <title>Vivas en catalog · 1,251 · borradas 33 · Avance</title>
           <rect x="60" y="282" width="192" height="52" rx="8" class="c-mask"/>
           <rect x="60" y="282" width="192" height="52" rx="8" class="c-external" data-animate="node" style="--step: 5;" stroke-width="1.5"/>
           
           <text data-node-label="" x="156" y="306" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Vivas en catalog</text>
-        <text x="156" y="322" class="t-muted" font-size="10.5" text-anchor="middle">1,251</text>
+        <text x="156" y="322" class="t-muted" font-size="10.5" text-anchor="middle">1,251 · borradas 33</text>
         </g>
 
-        <g id="node-progress7" data-node-id="progress7" data-node-label="Ritmo" tabindex="0" role="button" aria-label="Enfocar Ritmo, 3.9 tx/s, Avance" aria-pressed="false" data-node-kind="external" data-node-sublabel="3.9 tx/s" data-node-context="Avance">
-          <title>Ritmo · 3.9 tx/s · Avance</title>
+        <g id="node-progress7" data-node-id="progress7" data-node-label="Ritmo" tabindex="0" role="button" aria-label="Enfocar Ritmo, 3.9 tx/s · pendientes 5,615, Avance" aria-pressed="false" data-node-kind="external" data-node-sublabel="3.9 tx/s · pendientes 5,615" data-node-context="Avance">
+          <title>Ritmo · 3.9 tx/s · pendientes 5,615 · Avance</title>
           <rect x="268" y="282" width="192" height="52" rx="8" class="c-mask"/>
           <rect x="268" y="282" width="192" height="52" rx="8" class="c-external" data-animate="node" style="--step: 6;" stroke-width="1.5"/>
           
           <text data-node-label="" x="364" y="306" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Ritmo</text>
-        <text x="364" y="322" class="t-muted" font-size="10.5" text-anchor="middle">3.9 tx/s</text>
+        <text x="364" y="322" class="t-muted" font-size="10.5" text-anchor="middle">3.9 tx/s · pendientes 5,615</text>
         </g>
 
         <g id="node-ops8" data-node-id="ops8" data-node-label="INSERT" tabindex="0" role="button" aria-label="Enfocar INSERT, 1,284 · peso 70, Operaciones" aria-pressed="false" data-node-kind="external" data-node-sublabel="1,284 · peso 70" data-node-context="Operaciones">

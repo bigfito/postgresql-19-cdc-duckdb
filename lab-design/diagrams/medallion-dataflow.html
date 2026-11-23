@@ -6126,7 +6126,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / LÁMINA 04">
-      <svg viewBox="0 0 1068 512" data-reader-fit="intrinsic-height" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-motion-choreography="stream">
+      <svg viewBox="0 0 1068 529" data-reader-fit="intrinsic-height" role="img" lang="es" aria-labelledby="archify-diagram-title archify-diagram-description" data-animation="trace" data-preset="classic" data-quality-profile="showcase" data-motion-choreography="stream">
         <title id="archify-diagram-title">ElastiFlix: linaje de datos por capa (medallion)</title>
         <desc id="archify-diagram-description">Un diagrama de flujo de datos generado por Archify.</desc>
         <!-- Definitions -->
@@ -6152,19 +6152,19 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Data Stages -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="0" x="16" y="46" width="168" height="392" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="0" x="16" y="46" width="168" height="409" rx="10" class="c-lane" stroke-width="1"/>
         <text x="100" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">01 / Origen</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="1" x="231" y="46" width="168" height="392" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="1" x="231" y="46" width="168" height="409" rx="10" class="c-lane" stroke-width="1"/>
         <text x="315" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">02 / Operacional</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="2" x="446" y="46" width="168" height="392" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="2" x="446" y="46" width="168" height="409" rx="10" class="c-lane" stroke-width="1"/>
         <text x="530" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">03 / Bronze</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="3" x="661" y="46" width="168" height="392" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="3" x="661" y="46" width="168" height="409" rx="10" class="c-lane" stroke-width="1"/>
         <text x="745" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">04 / Silver</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="4" x="876" y="46" width="168" height="392" rx="10" class="c-lane" stroke-width="1"/>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="4" x="876" y="46" width="168" height="409" rx="10" class="c-lane" stroke-width="1"/>
         <text x="960" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">05 / Gold y consumo</text>
 
         <!-- Flow paths -->
@@ -6172,10 +6172,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <path data-edge-from="oltp" data-edge-to="bronzeEntities" data-edge-label="upsert por PK" data-edge-key="1" data-edge-id="cdc-entities" data-composition-points="371,262;422.5,262;422.5,157;474,157" d="M 371 262 L 422.5 262 L 422.5 157 L 474 157" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="oltp" data-edge-to="bronzeLinks" data-edge-label="upsert + -D" data-edge-key="2" data-edge-id="cdc-links" data-composition-points="371,280;422.5,280;422.5,385;474,385" d="M 371 280 L 422.5 280 L 422.5 385 L 474 385" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="bronzeEntities" data-edge-to="dims" data-edge-label="estado vigente" data-edge-key="3" data-edge-id="to-dims" data-composition-points="586,148;689,148" d="M 586 148 L 689 148" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="bronzeEntities" data-edge-to="facts" data-edge-label="métricas" data-edge-key="4" data-edge-id="to-facts" data-composition-points="586,166;637.5,166;637.5,271;689,271" d="M 586 166 L 637.5 166 L 637.5 271 L 689 271" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="bronzeLinks" data-edge-to="bridges" data-edge-label="pares N:M" data-edge-key="5" data-edge-id="to-bridges" data-composition-points="586,385;689,385" d="M 586 385 L 689 385" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="bronzeEntities" data-edge-to="facts" data-edge-label="métricas" data-edge-key="4" data-edge-id="to-facts" data-composition-points="586,166;637.5,166;637.5,262;689,262" d="M 586 166 L 637.5 166 L 637.5 262 L 689 262" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="bronzeLinks" data-edge-to="bridges" data-edge-label="pares N:M" data-edge-key="5" data-edge-id="to-bridges" data-composition-points="586,394;689,394" d="M 586 394 L 689 394" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="dims" data-edge-to="facts" data-edge-label="SK" data-edge-key="6" data-edge-id="sk-facts" data-composition-points="745,186;745,242" d="M 745 186 L 745 242" class="a-dashed" data-animate="edge" style="--step:6" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="bridges" data-edge-to="facts" data-edge-label="conteos" data-edge-key="7" data-edge-id="sk-bridges" data-composition-points="745,356;745,300" d="M 745 356 L 745 300" class="a-dashed" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="bronzeLinks" data-edge-to="facts" data-edge-label="conteos" data-edge-key="7" data-edge-id="counts-facts" data-composition-points="586,376;637.5,376;637.5,280;689,280" d="M 586 376 L 637.5 376 L 637.5 280 L 689 280" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="dims" data-edge-to="gold" data-edge-label="versión vigente" data-edge-key="8" data-edge-id="dims-gold" data-composition-points="801,148;904,148" d="M 801 148 L 904 148" class="a-default" data-animate="edge" style="--step:8" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="facts" data-edge-to="gold" data-edge-label="último snapshot" data-edge-key="9" data-edge-id="facts-gold" data-composition-points="801,271;852.5,271;852.5,166;904,166" d="M 801 271 L 852.5 271 L 852.5 166 L 904 166" class="a-default" data-animate="edge" style="--step:9" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="gold" data-edge-to="bi" data-edge-label="SQL" data-edge-key="10" data-edge-id="serve" data-composition-points="960,186;960,356" d="M 960 186 L 960 356" class="a-default" data-animate="edge" style="--step:10" stroke-width="1.4" marker-end="url(#arrowhead)"/>
@@ -6322,24 +6322,24 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <text data-detail="fine" x="637.5" y="138" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
         </g>
         <g data-detail="context" data-edge-from="bronzeEntities" data-edge-to="facts" data-edge-label="métricas" data-edge-key="4" data-edge-id="to-facts">
-          <rect x="592.3" y="197.5" width="90.4" height="27" rx="4" class="c-mask"/>
-          <text x="637.5" y="208.5" class="t-edge-default" font-size="8" text-anchor="middle">métricas</text>
-        <text data-detail="fine" x="637.5" y="219.5" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
+          <rect x="592.3" y="193" width="90.4" height="27" rx="4" class="c-mask"/>
+          <text x="637.5" y="204" class="t-edge-default" font-size="8" text-anchor="middle">métricas</text>
+        <text data-detail="fine" x="637.5" y="215" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
         </g>
         <g data-detail="context" data-edge-from="bronzeLinks" data-edge-to="bridges" data-edge-label="pares N:M" data-edge-key="5" data-edge-id="to-bridges">
-          <rect x="592.3" y="353" width="90.4" height="27" rx="4" class="c-mask"/>
-          <text x="637.5" y="364" class="t-edge-default" font-size="8" text-anchor="middle">pares N:M</text>
-        <text data-detail="fine" x="637.5" y="375" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
+          <rect x="592.3" y="404" width="90.4" height="27" rx="4" class="c-mask"/>
+          <text x="637.5" y="415" class="t-edge-default" font-size="8" text-anchor="middle">pares N:M</text>
+        <text data-detail="fine" x="637.5" y="426" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
         </g>
         <g data-detail="context" data-edge-from="dims" data-edge-to="facts" data-edge-label="SK" data-edge-key="6" data-edge-id="sk-facts">
           <rect x="697.5999999999999" y="207" width="41.4" height="27" rx="4" class="c-mask"/>
           <text x="718.3" y="218" class="t-edge-dashed" font-size="8" text-anchor="middle">SK</text>
         <text data-detail="fine" x="718.3" y="229" class="t-dim" font-size="7" text-anchor="middle">lookup</text>
         </g>
-        <g data-detail="context" data-edge-from="bridges" data-edge-to="facts" data-edge-label="conteos" data-edge-key="7" data-edge-id="sk-bridges">
-          <rect x="687.8" y="321" width="51.2" height="27" rx="4" class="c-mask"/>
-          <text x="713.4" y="332" class="t-edge-dashed" font-size="8" text-anchor="middle">conteos</text>
-        <text data-detail="fine" x="713.4" y="343" class="t-dim" font-size="7" text-anchor="middle">agregado</text>
+        <g data-detail="context" data-edge-from="bronzeLinks" data-edge-to="facts" data-edge-label="conteos" data-edge-key="7" data-edge-id="counts-facts">
+          <rect x="592.3" y="307" width="90.4" height="27" rx="4" class="c-mask"/>
+          <text x="637.5" y="318" class="t-edge-default" font-size="8" text-anchor="middle">conteos</text>
+        <text data-detail="fine" x="637.5" y="329" class="t-dim" font-size="7" text-anchor="middle">bronze_to_silver</text>
         </g>
         <g data-detail="context" data-edge-from="dims" data-edge-to="gold" data-edge-label="versión vigente" data-edge-key="8" data-edge-id="dims-gold">
           <rect x="809.75" y="116" width="85.5" height="27" rx="4" class="c-mask"/>
@@ -6359,22 +6359,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="40" y="456" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
-          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="476" data-legend-width="180">
-            <path d="M 40 473 L 74 473" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-            <text x="83" y="476" class="t-muted" font-size="10" font-weight="500">Captura continua (CDC)</text>
+          <text x="40" y="473" class="t-primary" font-size="12" font-weight="650">Leyenda</text>
+          <g data-legend-semantic-kind="emphasis" data-legend-x="40" data-legend-baseline="493" data-legend-width="180">
+            <path d="M 40 490 L 74 490" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+            <text x="83" y="493" class="t-muted" font-size="10" font-weight="500">Captura continua (CDC)</text>
           </g>
-          <g data-legend-semantic-kind="dashed" data-legend-x="242" data-legend-baseline="476" data-legend-width="167">
-            <path d="M 242 473 L 276 473" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-            <text x="285" y="476" class="t-muted" font-size="10" font-weight="500">Resolución de claves</text>
+          <g data-legend-semantic-kind="dashed" data-legend-x="242" data-legend-baseline="493" data-legend-width="167">
+            <path d="M 242 490 L 276 490" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+            <text x="285" y="493" class="t-muted" font-size="10" font-weight="500">Resolución de claves</text>
           </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="almacén de datos" data-legend-x="431" data-legend-baseline="476" data-legend-width="143">
-            <rect x="431" y="468" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="453" y="476" class="t-muted" font-size="10" font-weight="500">almacén de datos</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="almacén de datos" data-legend-x="431" data-legend-baseline="493" data-legend-width="143">
+            <rect x="431" y="485" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="453" y="493" class="t-muted" font-size="10" font-weight="500">almacén de datos</text>
           </g>
-          <g data-legend-semantic-kind="default" data-legend-x="596" data-legend-baseline="476" data-legend-width="161">
-            <path d="M 596 473 L 630 473" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-            <text x="639" y="476" class="t-muted" font-size="10" font-weight="500">Movimiento de datos</text>
+          <g data-legend-semantic-kind="default" data-legend-x="596" data-legend-baseline="493" data-legend-width="161">
+            <path d="M 596 490 L 630 490" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+            <text x="639" y="493" class="t-muted" font-size="10" font-weight="500">Movimiento de datos</text>
           </g>
         </g>
       </svg>

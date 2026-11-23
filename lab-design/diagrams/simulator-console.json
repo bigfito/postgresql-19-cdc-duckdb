@@ -93,7 +93,7 @@
       "type": "external",
       "icon": "none",
       "label": "Vivas en catalog",
-      "sublabel": "1,251",
+      "sublabel": "1,251 · borradas 33",
       "pos": [
         60,
         282
@@ -108,7 +108,7 @@
       "type": "external",
       "icon": "none",
       "label": "Ritmo",
-      "sublabel": "3.9 tx/s",
+      "sublabel": "3.9 tx/s · pendientes 5,615",
       "pos": [
         268,
         282
@@ -427,7 +427,7 @@
       "title": "Cabecera, Avance y Operaciones",
       "items": [
         "Cabecera: estado, semilla, conexiones a PostgreSQL y Bronze, e intervalo vigente",
-        "Avance: películas insertadas sobre el total, barra de progreso, vivas en catalog y ritmo",
+        "Avance: películas insertadas sobre el total, barra de progreso, vivas en catalog, ritmo, pendientes y borradas",
         "Operaciones: contadores de INSERT, UPDATE y DELETE con su peso, errores y manuales"
       ]
     },

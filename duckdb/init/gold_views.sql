@@ -2,9 +2,11 @@
 -- ElastiFlix: vistas de consumo de Gold en DuckDB (diseño, secciones 34 y 35)
 -- =============================================================================
 -- Una vista por producto de Gold, en la base en memoria de DuckDB, con el
--- mismo nombre que la tabla. Superset necesita estas vistas: no consigue leer
--- las columnas de una tabla Iceberg adjunta, y sí las de una vista. Sus
--- datasets se definen sobre main.<producto>.
+-- mismo nombre que la tabla. Los datasets de Superset se definen sobre estas
+-- vistas, que su interfaz muestra en el esquema memory.main (decisión 68).
+-- La validación 7 vio que Superset no leía las columnas de una tabla Iceberg
+-- adjunta. En la fase F10 sí las leyó, y las vistas se mantienen como el
+-- camino comprobado.
 --
 -- Se ejecuta después de attach_lakehouse.sql, que adjunta el catálogo con el
 -- nombre lake. Como la base vive en memoria, hay que repetirlo en cada

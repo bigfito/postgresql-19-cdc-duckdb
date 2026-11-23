@@ -17,9 +17,8 @@
 #     de servicio; no hay redes externas ni network_mode: host.
 #   - Cada puerto publicado va como 127.0.0.1:${VARIABLE:-valor}:puerto.
 #   - Ningún servicio declara restart.
-#   - Cada servicio guarda sus datos en su propio directorio (sección 7).
-#
-# Los servicios se añaden fase a fase según planning/PLAN.md.
+#   - Cada servicio guarda sus datos en su propio directorio (sección 7),
+#     salvo RustFS, que usa el volumen rustfs-data (ver «Volúmenes»).
 
 name: elastiflix-cdc-lakehouse
 
@@ -561,7 +560,6 @@ services:
       # marcadores de duckdb/init/attach_lakehouse.sql justo antes de ejecutarlo.
       AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?falta RUSTFS_ACCESS_KEY en .env}
       AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:?falta RUSTFS_SECRET_KEY en .env}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
       # Configuración de la simulación (sección 9.6). Los valores por defecto
       # son los del diseño; las cuatro primeras se cambian después desde la
       # interfaz.
@@ -643,7 +641,7 @@ services:
   # para un ejecutor (spark.executor.memory en pyspark/conf), así que corre una
   # aplicación a la vez y la siguiente espera.
   #
-  # Mientras no exista Airflow, un job se lanza a mano en un contenedor temporal
+  # Fuera del DAG de Airflow, un job se lanza a mano en un contenedor temporal
   # de este servicio, que hace de driver en modo cliente:
   #
   #   docker compose run --rm --no-deps spark-worker spark-submit /opt/spark/jobs/bronze_to_silver.py
@@ -879,7 +877,7 @@ services:
   # el lakehouse y crea las vistas de Gold: lo hace el hook de
   # superset/config/superset_config.py con el SQL de duckdb/init/.
   # No espera a Spark ni a que Gold tenga datos: solo los datasets los
-  # necesitan. El healthcheck es el que ya declara la imagen (curl a /health).
+  # necesitan. El healthcheck consulta /health, que no pide credenciales.
   superset:
     image: elastiflix-superset:6.1.0-duckdb1.5.6
     build: *superset-build
