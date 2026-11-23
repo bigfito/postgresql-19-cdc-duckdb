@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación y documentación terminadas; falta la etiqueta final.** Las fases F2 a F12 dejaron el laboratorio completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Se comprobó también desde un clon limpio, siguiendo solo este README. Del [plan de trabajo](planning/PLAN.md) solo queda publicar la etiqueta de Git de la versión final (F12-07).
+> ✅ **Laboratorio terminado: versión `v1.0.0`.** Las 13 fases del [plan de trabajo](planning/PLAN.md) están cerradas. El laboratorio está completo y comprobado de extremo a extremo: desde vacío, un comando lo levanta en menos de dos minutos, y un INSERT, un UPDATE y un DELETE del simulador se siguieron por PostgreSQL, Bronze, Silver y Gold hasta un gráfico de Superset. Se comprobó también desde un clon limpio, siguiendo solo este README.
 
 | Elemento | Estado |
 |---|---|
@@ -37,7 +37,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Orquestación con Airflow: imagen, servicios, DAG `elastiflix_medallion`, validaciones y mantenimiento de Iceberg | ✅ Fase F9 terminada |
 | DuckDB y Superset: línea de comandos de DuckDB, imagen y servicios de Superset, y la guía para conectar Gold y crear un gráfico, seguida en un navegador | ✅ Fase F10 terminada |
 | Integración de extremo a extremo: vuelta a cero, arranque completo, cambios seguidos hasta Superset, reinicio y memoria | ✅ Fase F11 terminada |
-| Documentación final y comprobación desde un clon limpio | 🔄 Fase F12: hecho todo salvo la etiqueta de Git de la versión final |
+| Documentación final, comprobación desde un clon limpio y etiqueta de la versión | ✅ Fase F12 terminada: `v1.0.0` |
 
 ## 3. 🗺️ Arquitectura
 
@@ -303,7 +303,7 @@ Superset arranca sin dashboards: quien usa el laboratorio diseña los suyos, com
 
 ## 9. 🚀 Hoja de ruta
 
-El trabajo está dividido en 13 fases, de F0 a F12. Las actividades de cada una y el avance, por fase y global, están en el **[plan de trabajo](planning/PLAN.md)**.
+El trabajo se dividió en 13 fases, de F0 a F12, y las 13 están terminadas. Las actividades de cada una y la bitácora de cómo se comprobó cada cosa están en el **[plan de trabajo](planning/PLAN.md)**.
 
 | Fases | Contenido |
 |---|---|

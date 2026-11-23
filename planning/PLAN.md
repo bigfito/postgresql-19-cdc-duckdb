@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: 🟢 Verde.** No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
+**Estado global: ✅ Terminado.** Las 222 actividades están hechas y la versión final lleva la etiqueta `v1.0.0`. No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -26,8 +26,8 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F9 | Orquestación con Airflow | 19 | 19 | 100 % | ✅ Terminada |
 | F10 | DuckDB y Superset | 13 | 13 | 100 % | ✅ Terminada |
 | F11 | Integración de extremo a extremo | 12 | 12 | 100 % | ✅ Terminada |
-| F12 | Documentación y cierre | 7 | 6 | 86 % | 🔄 En curso |
-| | **Global** | **222** | **221** | **99 %** | 🔄 En curso |
+| F12 | Documentación y cierre | 7 | 7 | 100 % | ✅ Terminada |
+| | **Global** | **222** | **222** | **100 %** | ✅ Terminado |
 
 Actualizado el 2026-11-23.
 <!-- tablero:fin -->
@@ -419,7 +419,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [x] **F12-04** Actualizar los diagramas al estado final. _(diseño §4, §6, §9.3, §12, §18, §35, §36, §40 y §44; plan §3)_
 - [x] **F12-05** Cerrar las decisiones que sigan abiertas. _(decisiones, parte 1.3)_
 - [x] **F12-06** Verificar el criterio de éxito con un clon limpio. _(diseño §44)_
-- [ ] **F12-07** Publicar la versión final con una etiqueta de Git. _(—)_
+- [x] **F12-07** Publicar la versión final con una etiqueta de Git. _(—)_
 
 ## 4. Definición de terminado
 
@@ -446,6 +446,8 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | F12 | Agente | F12 100 % · Global 100 % | Fase terminada, y con ella el plan: 222 de 222 actividades. Su criterio de cierre está comprobado: un clon limpio del repositorio levantó el laboratorio siguiendo solo el README (F12-06). Antes de la etiqueta, un revisor independiente contrastó toda la documentación y los diagramas con el código, y se corrigieron sus 35 hallazgos. Fuera del plan se escribió y publicó el wiki para lectores de negocio, con doce páginas. Quedan abiertos los riesgos R5, R8, R10 y R12, que describen límites conocidos del laboratorio, no trabajo pendiente. Sin probar: Linux y equipos `arm64`, la memoria con el dataset completo cargado, y detener el laboratorio en mitad de una corrida del DAG |
+| 2026-11-23 | F12-07 | Agente | F12 100 % · Global 100 % | Versión final publicada con la etiqueta de Git v1.0.0, anotada, sobre el commit de cierre que registra esta actividad y deja el README en su estado final. La etiqueta se publica en GitHub junto con main. La pidió la persona responsable, que eligió el nombre |
 | 2026-11-23 | Documentación | Responsable y agente | — | Wiki completo: escritas las siete páginas que faltaban (la memoria del dato, frescura y confianza, las piezas y por qué se eligieron, ver una demostración, alcance y límites, preguntas frecuentes y glosario), con lo que son doce. Cinco llevan un dibujo nuevo hecho con Archify; las preguntas frecuentes y el glosario no llevan. Las cinco primeras ya están publicadas en el wiki de GitHub, y la persona responsable confirmó que las páginas y los dibujos se ven bien allí. Las cifras que citan se comprobaron contra el diseño |
 | 2026-11-23 | Documentación | Responsable y agente | — | Wiki para lectores de negocio, fuera de las actividades del plan. Estructura de doce páginas acordada con la persona responsable; escritas las cinco primeras (inicio, el problema, el recorrido de un cambio, bronce, plata y oro, y qué preguntas responde) y la barra lateral, en `wiki/`. Cada página lleva un dibujo sencillo hecho con Archify, que pasa sus comprobaciones y se revisó a la vista. `wiki/publish.sh` las copia al wiki de GitHub, ajustando enlaces e imágenes; se probó en modo de simulación. Todavía no se ha publicado en el wiki, y falta comprobar allí que las imágenes se ven |
 | 2026-11-23 | Documentación | Responsable y agente | — | Revisión de coherencia de toda la documentación y de los diez diagramas contra el código, hecha por un revisor independiente: 35 hallazgos (1 de gravedad alta, 11 media y 23 baja), todos corregidos. El grave estaba en el diseño: decía que, si falla `validate_gold`, Superset sigue mostrando la carga anterior, cuando Gold ya se sobrescribió. Cuatro correcciones tocan código: el simulador deja de recibir `AWS_REGION`, que no usaba; el tablero ya no muestra 100 % mientras falte una actividad; el generador del dataset lista sus validaciones en orden; y el diagrama de linaje corrige de dónde salen los conteos del hecho |
