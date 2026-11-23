@@ -18,7 +18,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F1 | Dataset de entrada | 9 | 9 | 100 % | ✅ Terminada |
 | F2 | Base del proyecto | 9 | 9 | 100 % | ✅ Terminada |
 | F3 | PostgreSQL operacional | 15 | 15 | 100 % | ✅ Terminada |
-| F4 | Almacenamiento y catálogo | 7 | 6 | 86 % | 🔄 En curso |
+| F4 | Almacenamiento y catálogo | 7 | 7 | 100 % | ✅ Terminada |
 | F5 | Flink CDC hacia Bronze | 20 | 0 | 0 % | ⏳ Pendiente |
 | F6 | Event Simulator | 45 | 0 | 0 % | ⏳ Pendiente |
 | F7 | Spark y capa Silver | 35 | 0 | 0 % | ⏳ Pendiente |
@@ -27,7 +27,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 | F10 | DuckDB y Superset | 13 | 0 | 0 % | ⏳ Pendiente |
 | F11 | Integración de extremo a extremo | 12 | 0 | 0 % | ⏳ Pendiente |
 | F12 | Documentación y cierre | 7 | 0 | 0 % | ⏳ Pendiente |
-| | **Global** | **222** | **60** | **27 %** | 🔄 En curso |
+| | **Global** | **222** | **61** | **27 %** | 🔄 En curso |
 
 Actualizado el 2026-11-22.
 <!-- tablero:fin -->
@@ -194,7 +194,7 @@ Cada flecha es una dependencia entre fases completas; las verdes, además, forma
 - [x] **F4-04** Añadir el job `iceberg-init` que crea los tres namespaces. _(diseño §16)_
 - [x] **F4-05** Comprobar que el bucket y los namespaces existen. _(diseño §15 y §16)_
 - [x] **F4-06** Comprobar que los namespaces siguen ahí tras recrear `iceberg-rest`. _(diseño §16)_
-- [ ] **F4-07** Comprobar que se entra a la consola web de RustFS con la clave del servicio. _(diseño §45.4)_
+- [x] **F4-07** Comprobar que se entra a la consola web de RustFS con la clave del servicio. _(diseño §45.4)_
 
 ### F5 · Flink CDC hacia Bronze
 
@@ -446,6 +446,8 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-22 | F4 | Agente | F4 100 % · Global 27 % | Fase terminada. Su criterio de cierre quedó comprobado en F4-05 y F4-06: el bucket `warehouse` y los namespaces `bronze`, `silver` y `gold` existen y sobreviven a recrear los contenedores. Sigue en observación el defecto de la sección 6 |
+| 2026-11-22 | F4-07 | Agente | F4 100 % · Global 27 % | En un navegador, en `http://127.0.0.1:9001/rustfs/console/`: con la clave del servicio se entra y la consola muestra el bucket `warehouse`, privado y vacío; con un secreto erróneo responde 403 y se queda en la pantalla de inicio de sesión |
 | 2026-11-22 | F4-06 | Agente | F4 86 % · Global 27 % | Con una tabla de prueba en `bronze`: tras recrear solo `iceberg-rest`, solo `rustfs`, y tras `docker compose down` y un arranque completo, siguen el bucket, los tres namespaces y la tabla, que se carga bien; los dos jobs informan de que todo existía. En ese arranque completo `postgresql` falló una vez al inicializarse; anotado en la sección 6 |
 | 2026-11-22 | F4-05 | Agente | F4 71 % · Global 27 % | Con la cadena levantada desde cero: RustFS lista el bucket `warehouse` y el catálogo, los namespaces `bronze`, `silver` y `gold`, vacíos, tanto desde el host como desde otro contenedor de la red. En el host aparecen `rustfs/data/warehouse` e `iceberg/data/iceberg_catalog.db` |
 | 2026-11-22 | F4-04 | Agente | F4 57 % · Global 26 % | Job `iceberg-init` con la imagen de RustFS y `curl`, tras `iceberg-rest` sano. Desde cero crea `bronze`, `silver` y `gold` con `POST /v1/namespaces`; la segunda ejecución recibe 409 en los tres y termina igualmente con 0. Toda la cadena, desde `volumes-init`, tarda 10 s |

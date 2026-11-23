@@ -16,7 +16,7 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 
 ## 2. 🚦 Estado del proyecto
 
-> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 y F3 dejaron la base del proyecto y la base de datos operacional: `.env.example`, el `docker-compose.yml`, el job `volumes-init`, `metadata-db` y `postgresql`, con su esquema `catalog` listo para el CDC. El resto de servicios llega fase a fase según el [plan de trabajo](planning/PLAN.md).
+> 🔄 **Implementación en curso.** El diseño, las validaciones y el dataset están terminados. Las fases F2 a F4 dejaron la base del proyecto, la base de datos operacional y el almacenamiento del lakehouse: `.env.example`, el `docker-compose.yml`, `metadata-db`, `postgresql` con su esquema `catalog` listo para el CDC, RustFS con el bucket `warehouse` y el catálogo Iceberg con sus tres namespaces. El resto de servicios llega fase a fase según el [plan de trabajo](planning/PLAN.md).
 
 | Elemento | Estado |
 |---|---|
@@ -29,7 +29,8 @@ El objetivo es demostrativo: que un revisor externo pueda clonar el proyecto, le
 | Dataset de entrada: 20 CSV en [`raw_data/`](raw_data/), uno por tabla | ✅ Definitivo: 6,899 películas sintéticas, 438,925 filas y 25.7 MB, con su script generador y su [README](raw_data/README.md) |
 | Base del proyecto: `.env.example`, `docker-compose.yml`, `volumes-init` y `metadata-db` | ✅ Fase F2 terminada |
 | PostgreSQL operacional: esquema `catalog`, cuentas, publicación y servicio en el Compose | ✅ Fase F3 terminada |
-| Implementación del resto (CDC, simulador, jobs, DAG y Superset) | ⏳ Fases F4 a F12; ver el [plan de trabajo](planning/PLAN.md) |
+| Almacenamiento y catálogo: RustFS, bucket `warehouse`, catálogo Iceberg y sus tres namespaces | ✅ Fase F4 terminada |
+| Implementación del resto (CDC, simulador, jobs, DAG y Superset) | ⏳ Fases F5 a F12; ver el [plan de trabajo](planning/PLAN.md) |
 
 ## 3. 🗺️ Arquitectura
 

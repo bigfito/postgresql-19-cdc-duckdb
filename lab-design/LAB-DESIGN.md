@@ -2478,7 +2478,7 @@ Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 |---|---|---|---|
 | Superset | `http://127.0.0.1:8088` | Administrador | `superset-init`, con `superset fab create-admin`. Comprobado en la validación 7 |
 | Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`, con `airflow users create`. Comprobado en la validación 12 |
-| Consola de RustFS | `http://127.0.0.1:9001/rustfs/console/` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Se comprueba al implementar el servicio (actividad F4-07 del plan) |
+| Consola de RustFS | `http://127.0.0.1:9001/rustfs/console/` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio, que se escribe en «Cuenta» y «Clave» de la pestaña de inicio de sesión por clave. Comprobado en la fase F4 |
 | PostgreSQL operacional | `127.0.0.1:5432` | `postgres` para administrar; `elastiflix_app` para consultar como la aplicación | `postgresql/init/` |
 | Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
 | Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |
