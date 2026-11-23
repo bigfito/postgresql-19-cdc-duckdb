@@ -35,7 +35,8 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 ### 2.2 Requisitos técnicos
 
 - 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2; el repositorio puede vivir en una unidad NTFS (los bind mounts y el cambio de propietario de los directorios `data/` se comprobaron ahí).
-- CPU x86_64/amd64 o ARM64 con imágenes compatibles para todos los componentes seleccionados.
+- CPU x86_64/amd64. El laboratorio se construye y se valida en un solo equipo, con Windows 11 y Docker Desktop sobre WSL 2.
+- **Mac con Apple Silicon y otros equipos ARM64: sin probar.** Todas las imágenes base existen también para `linux/arm64` (sección 3.2), así que debería construirse sin cambios, pero ninguna validación se ha ejecutado en esa arquitectura. Lo que conviene revisar primero: que las extensiones de DuckDB se instalan para `linux_arm64` en las imágenes de Superset y del simulador, que el JAR de DuckDB JDBC carga su librería nativa, y que Docker Desktop tiene asignados al menos 12 GB de memoria. Tampoco se ha probado en Linux nativo, donde el job `volumes-init` (sección 45.2) es el que ajusta los permisos de los directorios de datos.
 - Recomendación para una ejecución cómoda del laboratorio: **8 CPU, 16 GB RAM y al menos 30 GB libres**. Con 16 GB el margen es estrecho (Flink, Spark, Airflow 3, Superset y dos PostgreSQL a la vez), por lo que cada servicio declarará límites de memoria en el Compose; ver [sección 39](#39--docker-compose).
 - Puertos locales disponibles para las interfaces que decidamos publicar, por ejemplo PostgreSQL, Flink UI, Airflow UI, RustFS, Iceberg REST y Superset. Se publicarán ligados a `127.0.0.1`, no a todas las interfaces.
 - Acceso a Internet durante el primer build para descargar imágenes y dependencias.
@@ -1109,7 +1110,7 @@ Puntos que conviene no pasar por alto:
 
 ### Garantías y requisitos operativos
 
-- **Checkpointing obligatorio.** El sink de Iceberg publica los datos en cada checkpoint de Flink; sin checkpointing Bronze queda vacío. Se fijará `execution.checkpointing.interval` (propuesta: 30 s) y los checkpoints se guardarán en `flink/data/`.
+- **Checkpointing obligatorio.** El sink de Iceberg publica los datos en cada checkpoint de Flink; sin checkpointing Bronze queda vacío. `execution.checkpointing.interval` es de 30 s y los checkpoints se guardan en `flink/data/`.
 - **At-least-once.** El sink no ofrece exactly-once: reintenta y se apoya en la clave primaria para escribir de forma idempotente. Por eso todas las tablas capturadas tienen PK.
 - **Una sola base.** El conector PostgreSQL captura tablas de una única base de datos; `elastiflix` cumple.
 - **Catálogo REST.** La documentación del sink enumera los tipos `hadoop`, `hive` y `glue`, además de `catalog-impl` para una implementación propia. El catálogo REST se configura por esa segunda vía, como muestra el borrador; la validación 2 confirmó que funciona.
@@ -1471,7 +1472,7 @@ source_updated_at
 silver_processed_at
 ```
 
-Los paths canónicos se decidirán con una regla determinística. La propuesta inicial es conservar el primer valor no nulo observado y versionar posteriores cambios aceptados.
+La ruta canónica de cada imagen es el primer valor no nulo observado para la colección. En la primera carga, donde llegan varias películas a la vez, es el de la película con menor `movie_id`; después se conserva, aunque otra película de la colección traiga una ruta distinta. Las cuatro colecciones del dataset con rutas divergentes (sección 8.6) ejercitan esta regla.
 
 ## 24. Dimensiones de catálogo
 
@@ -2100,7 +2101,7 @@ CALL lake.system.expire_snapshots(table => 'bronze.movie', retain_last => 5);
 
 - La compactación puede correr con Flink escribiendo: no hubo conflictos de commit ni reinicios del job.
 - `rewrite-all` tiene sentido mientras las tablas sean pequeñas, como en este laboratorio; con tablas grandes se sustituye por `delete-file-threshold`.
-- Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda; el valor de arriba es una propuesta.
+- Los archivos de deletes que la compactación deja sin uso se borran físicamente al expirar los snapshots que los referencian. `retain_last` decide cuánto historial queda: se conservan los 5 últimos snapshots.
 
 ### Reconstrucción de Bronze
 
@@ -2346,7 +2347,7 @@ Una cuenta administradora por herramienta. No hay cuentas de solo lectura.
 |---|---|---|---|
 | Superset | `http://127.0.0.1:8088` | Administrador | `superset-init`, con `superset fab create-admin`. Comprobado en la validación 7 |
 | Airflow | `http://127.0.0.1:8080` | Administrador | `airflow-init`, con `airflow users create`. Comprobado en la validación 12 |
-| Consola de RustFS | `http://127.0.0.1:9001` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Por validar |
+| Consola de RustFS | `http://127.0.0.1:9001` | La clave de acceso de RustFS | No se crea: es la misma clave del servicio. Se comprueba al implementar el servicio (actividad F4-07 del plan) |
 | PostgreSQL operacional | `127.0.0.1:5432` | `postgres` para administrar; `elastiflix_app` para consultar como la aplicación | `postgresql/init/` |
 | Flink UI, Spark UI | `http://127.0.0.1:8081`, `:8082` | Ninguna | No tienen inicio de sesión |
 | Event Simulator | `docker compose attach java-simulator` | Ninguna | Quien puede ejecutar Docker puede abrir la interfaz |

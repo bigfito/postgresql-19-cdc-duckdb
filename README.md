@@ -133,7 +133,8 @@ postgresql-19-cdc-duckdb/
 ## 7. ✅ Requisitos
 
 - 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2.
-- CPU x86_64/amd64 o ARM64.
+- CPU x86_64/amd64. El laboratorio se construye y se valida en un solo equipo con Windows 11.
+- En un Mac con Apple Silicon no está probado: las imágenes base existen para `arm64`, pero ninguna validación se ha ejecutado ahí. Los puntos a revisar están en la sección 2.2 del [diseño](lab-design/LAB-DESIGN.md).
 - Recomendado: **8 CPU, 16 GB RAM y al menos 30 GB libres**.
 - Acceso a Internet durante el primer build. El runtime no depende de servicios cloud externos.
 

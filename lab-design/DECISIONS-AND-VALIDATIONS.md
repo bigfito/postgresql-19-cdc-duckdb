@@ -56,6 +56,13 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 34 | El seguimiento usa una conexión DuckDB de larga vida con un hilo dueño, `threads=2` y `memory_limit=128MB`; el instante de referencia se toma con `floor`; sondea cada 5 s y avisa a los 120 s | La conexión ve los snapshots nuevos sin reconectar; los valores por defecto de DuckDB no caben en el contenedor; un umbral redondeado pierde transacciones; una parada de Flink debe distinguirse de un retraso normal | 9.3, 9.6, 9.8 | Validación 11; Revisión 6 |
 | 35 | Los 3 GB de Airflow se reparten 0.5 GB al `api-server`, 2 GB al `scheduler` y 0.5 GB al `dag-processor` | En modo cliente el driver de Spark corre dentro del scheduler, que llegó a 1.41 GB | 39 | Medición de memoria; Revisión 6 |
 | 36 | El DAG pasa a los jobs `dag_run.run_after` como timestamp de la corrida | En Airflow 3 una corrida lanzada a mano no tiene `logical_date` y la plantilla falla | 21 | Medición de memoria; Revisión 6 |
+| 37 | La ruta canónica de las imágenes de una colección es el primer valor no nulo observado, y se conserva | Regla determinística y simple para las colecciones cuyas películas traen rutas distintas | 23 | Revisión 6 |
+| 38 | `flink-cdc-submit` se detiene con error, sin borrar nada, si no hay checkpoint y Bronze ya tiene tablas | Un job de arranque no debe eliminar datos por su cuenta; la reconstrucción es un procedimiento explícito | 14, 38 | Revisión 6 |
+| 39 | El DAG de Airflow se pausa mientras se reconstruye Bronze | Una corrida que lea Bronze a medio cargar cerraría versiones de filas que siguen existiendo | 38 | Revisión 6 |
+| 40 | Checkpoint de Flink cada 30 s; el mantenimiento conserva los 5 últimos snapshots | Son los valores con los que se ejecutaron todas las validaciones | 14, 38 | Revisión 6 |
+| 41 | El laboratorio se construye y se valida en un solo equipo `amd64`; ARM64 y Linux nativo quedan documentados como no probados | Es donde va a ejecutarse | 2.2 | Revisión 6 |
+| 42 | Cada actividad se hace con su skill: `/java-developer`, `/python-developer` o `/solution-architect`; `AGENTS.md` es la entrada común de los cinco agentes | Mismo criterio de trabajo sea cual sea el agente que tome la actividad | Plan y `AGENTS.md` | Revisión 6 |
+| 43 | No se conserva material del proyecto fuera del repositorio: cada servicio guarda su `Dockerfile` en su directorio y el Compose de la raíz los integra | Una sola fuente de verdad; los arneses de las validaciones eran desechables | 7, 39 | Revisión 6 |
 
 ### 1.2 Decisiones de versiones
 
@@ -646,6 +653,8 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Clave de RustFS | Una sola, con la de solo lectura como deseable sin comprobar | Una sola, por decisión | 45.3 |
 | Seguimiento aguas abajo | Regla sin detalle: «`cdc_op_ts` igual o posterior», sondeo «cada pocos segundos» | Instante de referencia truncado, sondeo cada 5 s, aviso de demora a los 120 s y conexión DuckDB de larga vida con límites | 9.3, 9.6, 9.8, 34 |
 | UPDATE de relaciones | No tocaba la tabla `movie` | Actualiza también `updated_at` de la película | 9.5, 31 |
+| Valores marcados como propuesta | Checkpoint de 30 s, 5 snapshots conservados y ruta canónica de colección, sin confirmar | Definitivos | 14, 23, 38 |
+| Arquitecturas | «amd64 o ARM64» | Un solo equipo `amd64`; nota para Mac con Apple Silicon y Linux nativo | 2.2 |
 | Presupuesto de memoria | Reparto orientativo, sin medir; Airflow con 3 GB sin repartir | Máximos medidos por servicio; Airflow repartido en 0.5, 2 y 0.5 GB | 39 |
 | Timestamp de la corrida de Airflow | «Timestamp lógico», sin concretar | `dag_run.run_after` | 21 |
 | Memoria del simulador | Sin indicación sobre el heap | La JVM fija su heap de forma explícita | 9.8 |
