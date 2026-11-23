@@ -410,6 +410,7 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Nota |
 |---|---|---|---|
+| 2026-11-22 | Riesgos | Agente | Tabla de riesgos separada en abiertos y cerrados; se cierran R1, R2, R4 y R7. Lectura de los 20 CSV con Commons CSV comprobada |
 | 2026-11-22 | F0-14 | Agente | Validación 10 superada desde terminales de Linux y de Windows; deja cuatro ajustes en el diseño del simulador |
 | 2026-11-22 | F1-04 a F1-09 | Responsable, agente y GrokBot | Dataset regenerado recibido, validado, cargado en PostgreSQL 19 y confirmado como definitivo. Fase F1 terminada |
 | 2026-11-22 | F0-19 a F0-21 | Agente | Reconstrucción de Bronze comprobada con las 20 tablas; leyenda del linaje corregida y diagramas de arquitectura y de arranque regenerados |
@@ -428,12 +429,22 @@ Lo que impide avanzar o lo que se encontró roto. Cada fila necesita una acción
 
 ## 7. Riesgos
 
-Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar cada fase.
+Lo que todavía no ha ocurrido pero puede retrasar el plan. Se revisa al cerrar cada fase. Un número de riesgo no se reutiliza: cuando un riesgo deja de serlo pasa a la tabla de cerrados, con el motivo.
+
+### Riesgos abiertos
 
 | # | Riesgo | Qué lo reduce | Si ocurre | Señal de alerta |
 |---|---|---|---|---|
-| R1 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | Ejecutar F0-15 antes de empezar el seguimiento en F6 | Usar la alternativa de la validación 11 | F0-15 falla |
-| R2 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | Probar la lectura de `movie.csv` con Apache Commons CSV al empezar F6 | Ajustar la configuración del lector; el dataset no se toca | F6 carga menos de 6,899 películas o trunca un `plot` |
 | R3 | Todo el stack junto no cabe en la memoria prevista | Declarar el límite de cada servicio al añadirlo | Detener el simulador o Superset mientras corre el DAG | F11-09 supera 15 GB |
-| R4 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
 | R5 | El trabajo generado por un agente funciona a medias y se marca como hecho | Aplicar la definición de terminado y las actividades «Comprobar» | Desmarcar la actividad y anotarla en la sección 6 | Una comprobación posterior falla |
+| R6 | DuckDB JDBC no adjunta el catálogo o no lee Bronze desde Java 25 | Ejecutar F0-15 antes de empezar el seguimiento en F6 | Usar la alternativa de la validación 11 | F0-15 falla |
+| R8 | Una corrida del DAG lee Bronze a medio reconstruir y cierra versiones de filas que siguen existiendo | Pausar el DAG antes de reconstruir, como pide el procedimiento | Restaurar Silver al snapshot anterior de Iceberg | El DAG corre mientras `flink-cdc-submit` está repitiendo el snapshot |
+
+### Riesgos cerrados
+
+| # | Riesgo | Fecha de cierre | Por qué se cerró |
+|---|---|---|---|
+| R1 | La consola Lanterna no funciona a través de `docker compose attach` | 2026-11-22 | La validación 10 pasó desde una terminal de Linux y otra de Windows (F0-14) |
+| R2 | El dataset regenerado llega tarde o no cumple | 2026-11-22 | El dataset regenerado se recibió, se validó y quedó como definitivo (F1-04 a F1-09) |
+| R4 | Una decisión abierta de F0 frena una fase del camino más largo | 2026-11-22 | No queda ninguna decisión abierta |
+| R7 | El lector CSV del simulador no interpreta bien las celdas con comas, comillas y saltos de línea | 2026-11-22 | Apache Commons CSV 1.14.1 lee los 20 CSV desde Java 25 con el mismo contenido, celda por celda, que una lectura de referencia |

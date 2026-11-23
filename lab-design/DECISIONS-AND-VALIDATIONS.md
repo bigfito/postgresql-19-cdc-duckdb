@@ -168,6 +168,7 @@ Lo que **no** está verificado y por eso figura en la tabla de validaciones: el 
 | Pérdida de checkpoints | 2026-11-22 | ❌ Bronze queda desalineado al repetir el snapshot. Se decidió reconstruir Bronze (decisión 27) |
 | Reconstrucción de Bronze | 2026-11-22 | ✅ Superada: Bronze vuelve a coincidir con PostgreSQL y Silver cierra las claves ausentes |
 | Dataset regenerado | 2026-11-22 | ✅ Superada, con observaciones menores; queda como dataset definitivo |
+| Lectura de los CSV con Commons CSV | 2026-11-22 | ✅ Superada: los 20 archivos se leen igual que con una lectura de referencia |
 | 12 | 2026-11-22 | ✅ Superada con los dos gestores de autenticación; se elige el de Flask AppBuilder |
 | 10 | 2026-11-22 | ✅ Superada desde una terminal de Linux y otra de Windows, con cuatro ajustes al diseño |
 | 11 | — | ⏳ Pendiente |
@@ -483,7 +484,26 @@ Observaciones, ninguna bloqueante:
 - **Una keyword se llama `none`.** No afecta a `COPY` ni a un lector RFC 4180, que distinguen el texto del campo vacío; conviene recordarlo si alguna herramienta interpreta ese texto como nulo.
 - **Variantes de nombre de compañía.** Siguen los 18 pares «X» / «X Ltd.» del defecto intencional. Con nombres legibles hay además cientos de compañías que comparten palabra (`Summit`, `Summit Films`), que no son variantes sino compañías distintas.
 
-Lo que no se comprobó: las dos excepciones de longitud que declara el README del dataset (mínimo de `homepage` y cola corta de `tagline`), más allá de que el validador de rangos no las señala; y la lectura de los CSV con Apache Commons CSV, que es la que usará el simulador.
+Lo que no se comprobó: las dos excepciones de longitud que declara el README del dataset (mínimo de `homepage` y cola corta de `tagline`), más allá de que el validador de rangos no las señala. La lectura con Apache Commons CSV, que es la que usará el simulador, se comprobó después y está en el apartado siguiente.
+
+#### Lectura de los CSV con Apache Commons CSV
+
+Entorno: una sonda Java 25 con Apache Commons CSV 1.14.1 (`CSVFormat.RFC4180` con cabecera), compilada con `maven:3.10.0-eclipse-temurin-25` y ejecutada en `eclipse-temurin:25.0.5.1_2-jre` con el usuario `simulator`, sin red y con 512 MB de memoria, que es el presupuesto del simulador. Lee los 20 CSV de `raw_data/` y los deja en memoria, como pide el RF-01. La referencia es una lectura independiente con el módulo `csv` de Python.
+
+| Comprobación | Resultado |
+|---|---|
+| Registros y columnas por archivo | Los mismos que la referencia en los 20 archivos: 438,925 registros |
+| Contenido de todas las celdas | Idéntico: el SHA-256 del contenido canónico de cada archivo coincide en los 20 |
+| Celdas vacías (nulos) | Las mismas: 8,126 en `movie` y 43 en `original_language` |
+| Celdas de `movie` con coma, comilla doble y salto de línea | Los 16 recuentos coinciden con los del dataset; ningún retorno de carro |
+| `plot` más largo | 3,000 caracteres, sin truncar |
+| Con `setNullString("")` | Mismo resultado |
+| Tiempo de lectura de los 20 archivos | 2.5 s |
+| Memoria | 98 MB de heap con todas las celdas guardadas como texto, sobre un máximo de 123 MB |
+
+- **Un dato para el diseño:** con 512 MB de contenedor, la JVM toma por defecto un heap máximo de 123 MB, la cuarta parte. Los datos caben, pero con poco margen; el simulador fija su heap de forma explícita (sección 9.8).
+- **De dónde salió cada dato.** La forma de construir el formato y recorrer los registros, de la documentación de Commons CSV (Context7); el resto, de la prueba.
+- **Lo que no cubre:** la estructura de datos real del simulador, que ocupará menos que guardar todo como texto, y la arquitectura `arm64`.
 
 #### Validación 10: consola Lanterna con `docker compose attach`
 
@@ -551,6 +571,7 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 | Pérdida de checkpoints | Hacía falta reconciliar, sin forma elegida | Bronze se reconstruye; `flink-cdc-submit` se detiene si no hay checkpoint y Bronze ya tiene tablas; Silver cierra las claves ausentes. Comprobado | 14, 19, 31, 38 |
 | Diagramas de arquitectura y de orden de arranque | Sin la consulta del simulador a Bronze ni el job `volumes-init` | Los incluyen | 4, 40 |
 | Clave de RustFS | Una sola, con la de solo lectura como deseable sin comprobar | Una sola, por decisión | 45.3 |
+| Memoria del simulador | Sin indicación sobre el heap | La JVM fija su heap de forma explícita | 9.8 |
 | Interfaz del simulador | Se abría al conectarse con `docker compose attach`; sin TTY no dibujaba | Arranca en modo de líneas y se abre con una tecla; atrapa `Ctrl-C`; refresco completo cada 2 s; log del servicio limitado | 9.1, 9.4, 9.8 |
 | Autenticación de Airflow | Mecanismo por validar | Gestor de Flask AppBuilder; el administrador se crea con `airflow users create` | 18, 45.4 |
 | Leyenda del diagrama de linaje | «Carga batch PySpark» para todas las flechas grises | «Movimiento de datos» | 6 |

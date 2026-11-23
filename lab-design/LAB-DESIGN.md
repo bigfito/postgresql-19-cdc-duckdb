@@ -579,6 +579,7 @@ En el Compose, el servicio `java-simulator` declara `tty: true` y `stdin_open: t
 - **Tamaño.** La interfaz sigue los cambios de tamaño de la ventana. Por debajo del tamaño mínimo muestra un aviso en lugar de la pantalla.
 - **Arranque.** Sin nadie conectado, Lanterna tarda unos 5 segundos en inicializar la terminal, porque espera una respuesta de tamaño que no llega, y supone 80×24. Se ajusta sola cuando alguien se conecta.
 - **Logs.** Con la interfaz abierta, `docker compose logs` recibe también las secuencias de dibujo, cerca de 1 KB por segundo, y deja de ser legible. El servicio limita el tamaño de su log en el Compose (`logging`, con `max-size`) y las líneas de transacción del RF-11 se escriben además en un archivo.
+- **Memoria.** Con los 512 MB del contenedor, la JVM toma por defecto un heap máximo de la cuarta parte, unos 123 MB, y los 20 CSV cargados como texto ocupan 98 MB. La imagen fija el heap de forma explícita con `-XX:MaxRAMPercentage`, dejando sitio para la memoria nativa de DuckDB.
 
 El seguimiento aguas abajo hace que el simulador conozca el catálogo Iceberg y RustFS, cosa que antes no ocurría. Es una dependencia de solo lectura y desactivable; el camino del dato no cambia.
 
