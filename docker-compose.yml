@@ -202,6 +202,11 @@ services:
   volumes-init:
     image: rustfs/rustfs:1.0.6
     user: "0:0"
+    # La imagen de RustFS declara /data como volumen. Sin esta línea, cada
+    # arranque de este job dejaría un volumen anónimo vacío que `docker compose
+    # down` no borra.
+    tmpfs:
+      - /data
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -344,6 +349,10 @@ services:
   # de cliente S3. Es idempotente: si el bucket ya existe, no hace nada.
   rustfs-init:
     image: rustfs/rustfs:1.0.6
+    # Igual que en volumes-init: evita el volumen anónimo que la imagen crearía
+    # en /data en cada arranque.
+    tmpfs:
+      - /data
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -417,6 +426,10 @@ services:
   # como éxito. El catálogo no pide credenciales.
   iceberg-init:
     image: rustfs/rustfs:1.0.6
+    # Igual que en volumes-init: evita el volumen anónimo que la imagen crearía
+    # en /data en cada arranque.
+    tmpfs:
+      - /data
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -765,7 +778,9 @@ services:
       timeout: 30s
       retries: 5
       start_period: 60s
-    mem_limit: 2g
+    # Con el dataset completo, el driver de Spark lleva este contenedor a un
+    # pico de unos 2.5 GiB (diseño, sección 39).
+    mem_limit: 3g
 
   # ---------------------------------------------------------------------------
   # airflow-dag-processor (diseño, secciones 18, 39 y 40)

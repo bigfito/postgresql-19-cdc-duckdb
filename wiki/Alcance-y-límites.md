@@ -14,7 +14,7 @@ El laboratorio es una demostración, no un producto listo para usar en una empre
 | **El dato llega fresco.** | La copia tarda entre 11 y 50 segundos, y el tablero se pone al día en 15 minutos como mucho. |
 | **La historia se conserva.** | Tras un cambio de título, el almacén guardó la versión anterior con la hora exacta en que dejó de valer. |
 | **Se repite igual.** | Se borró todo y se volvió a levantar desde cero con una sola orden, también desde una copia nueva del proyecto. |
-| **Aguanta una parada.** | Se detuvo y se volvió a encender en plena actividad, y la copia coincidió con la operación en todas las tablas. |
+| **Aguanta una parada.** | Se detuvo y se volvió a encender en plena actividad, también en mitad de una actualización, y no quedó nada a medias ni duplicado. |
 
 ## Lo que no demuestra
 
@@ -27,7 +27,7 @@ El laboratorio es una demostración, no un producto listo para usar en una empre
 | **La seguridad es de laboratorio.** | Usa claves de ejemplo y solo es accesible desde el propio equipo. No hay usuarios con permisos distintos. |
 | **No avisa de los fallos.** | Un fallo queda registrado, pero no se envía ningún aviso. |
 | **No trae tableros hechos.** | Entrega las tablas de resultados; los gráficos los arma quien lo usa. |
-| **Solo se probó en un tipo de equipo.** | Se construyó y se comprobó en un equipo con Windows. En otros sistemas debería funcionar, pero no se verificó. |
+| **Solo se probó en dos tipos de equipo.** | Se construyó en un equipo con Windows y se comprobó también en otro con Linux. En equipos Mac y en procesadores ARM debería funcionar, pero no se verificó. |
 
 ## Qué haría falta para un uso real
 

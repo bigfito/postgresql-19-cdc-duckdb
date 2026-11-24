@@ -37,7 +37,7 @@ Todo el entorno deberá levantarse desde un único `docker-compose.yml`.
 ### 2.2 Requisitos técnicos
 
 - 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2; el repositorio puede vivir en una unidad NTFS (los bind mounts sobre NTFS se comprobaron en la validación 4; el cambio de propietario de los directorios `data/` lo hace `volumes-init`, sección 45.2).
-- CPU x86_64/amd64. El laboratorio se construye y se valida en un solo equipo, con Windows 11 y Docker Desktop sobre WSL 2.
+- CPU x86_64/amd64. El laboratorio se construyó y se validó en un equipo con Windows 11 y Docker Desktop sobre WSL 2. Después de la versión `v1.0.1` se comprobó completo en un segundo equipo, con Ubuntu 24.04, Docker Engine 29 y sus datos en `ext4` (sección 44).
 - **Mac con Apple Silicon y otros equipos ARM64: sin probar.** Todas las imágenes base existen también para `linux/arm64` (sección 3.2), así que debería construirse sin cambios, pero ninguna validación se ha ejecutado en esa arquitectura. Lo que conviene revisar primero: que las extensiones de DuckDB se instalan para `linux_arm64` en las imágenes de Superset y del simulador, que el JAR de DuckDB JDBC carga su librería nativa, y que Docker Desktop tiene asignados al menos 12 GB de memoria. Tampoco se ha probado en Linux nativo, donde el job `volumes-init` (sección 45.2) es el que ajusta los permisos de los directorios de datos.
 - Recomendación para una ejecución cómoda del laboratorio: **8 CPU, 16 GB RAM y al menos 30 GB libres**. Con 16 GB el margen es estrecho (Flink, Spark, Airflow 3, Superset y dos PostgreSQL a la vez), por lo que cada servicio declarará límites de memoria en el Compose; ver [sección 39](#39--docker-compose).
 - Puertos locales disponibles para las interfaces que decidamos publicar, por ejemplo PostgreSQL, Flink UI, Airflow UI, RustFS, Iceberg REST y Superset. Se publicarán ligados a `127.0.0.1`, no a todas las interfaces.
@@ -1336,8 +1336,9 @@ Comprobado en la fase F9.
 - **Duración de una corrida completa.** Entre 4 y 5 minutos con el dataset completo y el simulador en marcha: `validate_bronze` 15–18 s, `bronze_to_silver` 59–70 s, `validate_silver` 34–35 s, `silver_to_gold` 41–42 s, `validate_gold` 28–29 s e `iceberg_maintenance` 63–98 s. Cabe en el intervalo de 10 minutos. Medido con RustFS sobre el volumen de Docker (sección 15) y con Bronze compactado en cada corrida.
 - **Validaciones.** `validate_bronze.py` falla con `VBRONZE-001` si falta alguna de las 20 tablas y con `VBRONZE-002` si el pipeline de Flink no está en `RUNNING`. `validate_silver.py` hace 24 comprobaciones y falla con `VSILVER-001`; las referencias en 0 las anota sin fallar. `validate_gold.py` exige que cada producto exista, tenga filas y no traiga claves nulas ni repetidas, y falla con `VGOLD-001`.
 - **Cuando una validación falla.** Comprobado con `validate_bronze`, deteniendo el TaskManager de Flink: las cuatro tareas siguientes quedan en `upstream_failed` sin ejecutarse, `iceberg_maintenance` corre, `mark_run_failed` deja la corrida en `failed`, y Silver y Gold no cambian.
-- **Memoria.** Con el driver de Spark dentro, `airflow-scheduler` llegó a 1.88 GiB de su límite de 2 GiB en una corrida completa. No falló, pero el margen es muy justo: riesgo R12 del plan.
+- **Memoria.** Con el driver de Spark dentro, `airflow-scheduler` es el servicio de Airflow que más pide: 1.88 GiB en una corrida con el dataset parcial y un pico de unos 2.5 GiB con el completo. Por eso su límite es de 3 GiB (decisión 74; sección 39).
 - **Lo que no se probó.** El fallo de `validate_silver` y de `validate_gold`; un reintento real de una transformación; el inicio de sesión en la interfaz web desde un navegador, que se comprobó por la API; y la imagen para `arm64`.
+- **Parada en mitad de una corrida.** Comprobado en Linux, dos veces, con `docker compose down` y `docker compose up -d`. Durante `bronze_to_silver`: al volver, Airflow reintentó la tarea y la corrida terminó en `success`. Durante `silver_to_gold`: Gold siguió legible con la carga anterior, Superset respondió nada más arrancar, y la tarea se reintentó y terminó bien. En ninguno de los dos casos quedaron fotos ni versiones duplicadas. El fallo de `validate_gold` sí se vio, en la prueba del riesgo R8 (sección 38): con Gold vacío falla, y `mark_run_failed` deja la corrida en error.
 
 ## 19. ⚡ Job PySpark #1: Bronze → Silver
 
@@ -2514,6 +2515,8 @@ Qué implica:
 - **Los borrados ocurridos durante la parada llegan a Silver por ausencia.** En la corrida siguiente, `bronze_to_silver` cierra toda versión vigente cuya clave ya no está en Bronze, igual que con un tombstone. Como la fecha real del borrado ya no se conoce, `effective_to` y el `snapshot_at` del snapshot de borrado son el timestamp lógico de esa corrida (secciones 21 y 31).
 - **No aparecen versiones nuevas por la recarga.** Todas las filas vuelven con `cdc_op_type = '+I'` y un `cdc_op_ts` nuevo, pero su contenido y su `updated_at` no cambian, así que el hash de atributos coincide con el de la versión vigente.
 - **El paso 1 no es opcional.** Con el DAG activo, una corrida que encuentre Bronze vacío o incompleto cerraría versiones de filas que siguen existiendo.
+- **Qué pasa si se salta el paso 1, comprobado.** Se reconstruyó Bronze con el DAG activo, a propósito, en un laboratorio desechable con el dataset completo. Mientras faltaban tablas, la corrida quedó protegida: `validate_bronze` falló y Silver no se tocó. Pero la corrida lanzada cuando las 20 tablas ya existían y la de películas seguía vacía pasó esa validación, y `bronze_to_silver` dio por borradas las 6,899 películas: cerró todas sus versiones vigentes, escribió 6,899 fotos de borrado y Gold quedó con 0 filas. `validate_silver` no lo detecta, porque el resultado es coherente; lo delata `validate_gold`, al encontrar Gold vacío. La validación de Bronze comprueba que las tablas existen, no que estén completas.
+- **Cómo se repara, comprobado.** Con el DAG en pausa y Bronze ya completo, cada tabla de Silver se devuelve a su último snapshot anterior a la corrida dañina: `CALL lake.system.rollback_to_timestamp(table => 'lake.silver.<tabla>', timestamp => TIMESTAMP '<instante>')`. Sobre las 22 tablas tardó 7 s; retrocedieron las 6 que la corrida había tocado y Silver quedó exactamente como antes: 6,899 versiones vigentes y ninguna foto de borrado. Al reanudar el DAG, la corrida siguiente devolvió a Gold sus 6,899 películas. Funciona mientras ese snapshot siga existiendo: el mantenimiento conserva los cinco últimos de cada tabla.
 
 Comprobado con las 20 tablas y el dataset completo, en el [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md): los pasos 2 a 4 tardan cerca de un minuto. Repetido en la fase F5 con el laboratorio ya construido: 49 s el borrado y 110 s desde el envío hasta que Bronze volvió a coincidir con PostgreSQL en las 20 tablas. Repetido en la fase F9 con el DAG, pausándolo antes y reanudándolo después: 19 s el borrado y 187 s hasta que Bronze coincidió (439,937 filas); la corrida siguiente del DAG no escribió nada en Silver, cuyas 22 tablas conservaron su snapshot y sus filas.
 
@@ -2592,7 +2595,7 @@ Quien revise el laboratorio puede tener otros entornos Docker en la misma máqui
 
 ### Presupuesto de memoria
 
-Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha es el máximo medido para cada servicio, y no todas las cifras salen de la misma prueba. La mayoría son de la medición con todo el stack en marcha y bajo carga del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md). Las de Spark se midieron con el job real en la fase F7; las de `airflow-scheduler` y RustFS, en la F9; y la de `airflow-dag-processor`, en la F11:
+Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha es el máximo medido para cada servicio, y no todas las cifras salen de la misma prueba. La mayoría son de la medición con todo el stack en marcha y bajo carga del [documento de decisiones y validaciones](DECISIONS-AND-VALIDATIONS.md). Las de Spark se midieron con el job real en la fase F7; la de RustFS, en la F9; la de `airflow-dag-processor`, en la F11; y la de `airflow-scheduler`, con el dataset completo, en las pruebas en Linux:
 
 | Servicio | Límite | Máximo medido |
 |---|---:|---:|
@@ -2603,19 +2606,21 @@ Con 16 GB en el host, cada servicio declara un límite. La columna de la derecha
 | Spark master | 0.5 GB | 0.29 GB |
 | Spark worker | 3 GB | 2.18 GB |
 | `airflow-apiserver` | 0.5 GB | 0.33 GB |
-| `airflow-scheduler` | 2 GB | 1.88 GB |
+| `airflow-scheduler` | 3 GB | 2.47 GB |
 | `airflow-dag-processor` | 0.5 GB | 0.46 GB |
 | Superset | 2 GB | 1.15 GB |
 | RustFS | 1 GB | 0.73 GB |
 | Iceberg REST | 0.5 GB | 0.24 GB |
 | Event Simulator | 0.5 GB | 0.12 GB, medido con una sonda que no carga el dataset; el simulador real suma unos 100 MB |
 
-Los límites suman 15 GB, pero son topes, no reservas: el uso real fue de 3.4 GB en reposo y de 7.9 GB en el momento de mayor carga.
+Los límites suman 16 GB, tanto como la memoria recomendada para el equipo, pero son topes, no reservas: el uso real fue de 3.4 GB en reposo y de 7.9 GB en el momento de mayor carga.
 
-- **Medido con el laboratorio construido (fase F11).** Durante una corrida completa del DAG, con Flink y el simulador escribiendo y unas 2,600 películas cargadas, el laboratorio usó entre 4.7 y 7.4 GiB. Ningún contenedor se detuvo por memoria. Dos quedan a menos de un 10 % de su límite: `airflow-scheduler`, con 1.87 GiB de 2, y `airflow-dag-processor`, con 0.46 de 0.5. Es el riesgo R12 del plan. No se midió con el dataset completo cargado y todos los servicios a la vez.
-- **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 3 GB de Airflow se reparten 0.5, 2 y 0.5.
+- **Medido con el laboratorio construido (fase F11).** Durante una corrida completa del DAG, con Flink y el simulador escribiendo y unas 2,600 películas cargadas, el laboratorio usó entre 4.7 y 7.4 GiB. Ningún contenedor se detuvo por memoria. Dos quedaron a menos de un 10 % de su límite: `airflow-scheduler`, con 1.87 GiB de los 2 que tenía entonces, y `airflow-dag-processor`, con 0.46 de 0.5. Era el riesgo R12 del plan.
+- **Medido con el dataset completo cargado, en Linux.** Con las 6,899 películas y todos los servicios, la primera corrida del DAG llevó el laboratorio a 7.42 GiB, lo mismo que con el dataset parcial. La diferencia estuvo en `airflow-scheduler`: llegó al 100 % de los 2 GiB que tenía entonces. No fue detenido, porque el equipo tenía memoria de intercambio. Repetida la corrida con un límite de 4 GiB, para ver cuánto pide de verdad: 2.06 GiB de memoria propia y un pico de 2.47 GiB. Es decir, el límite de 2 GiB quedaba por debajo de lo que necesita con el dataset completo. `airflow-dag-processor` usó 0.40 GiB de memoria propia, con un pico de 0.51 cuando se le dio 1 GiB; con sus 0.5 GiB llegó a 0.41 y no se detuvo, así que su límite no cambia.
+- **El límite de `airflow-scheduler` sube de 2 a 3 GiB (decisión 74).** Lo decidió la persona responsable a la vista de esa medición. Comprobado en Linux con el límite nuevo y sin memoria de intercambio para el contenedor, desde cero y con el dataset completo: dos corridas seguidas del DAG terminaron bien, en 2 min 37 s y 2 min 26 s, con 2.09 GiB de memoria propia como máximo, un pico de 2.31 GiB y ningún proceso detenido por memoria. Con ello se cierra el riesgo R12 del plan.
+- **El scheduler de Airflow es el que más necesita de los tres.** En modo cliente el driver de Spark corre dentro de él: con un driver de 1 GB llegó a 1.41 GB. Por eso los 4 GB de Airflow se reparten 0.5, 3 y 0.5.
 - **El worker de Spark** aloja un ejecutor de 1.5 GB además de su propio proceso. Ofrece al clúster 1500 MB y 4 núcleos (`SPARK_WORKER_MEMORY`, `SPARK_WORKER_CORES`), lo justo para un ejecutor, así que corre una aplicación a la vez. El master y el worker limitan su propio proceso con `SPARK_DAEMON_MEMORY=256m`; sin ese valor cada uno pediría 1 GB.
-- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite es de 2 GB. En la fase F9, con el driver del job real dentro del scheduler, llegó a 1.88 GiB en una corrida completa del DAG, a un 6 % del límite. Es el riesgo R12 del plan.
+- **El driver del job real pide más que el del prototipo.** Con `bronze_to_silver.py` y el dataset completo, el contenedor que hizo de driver llegó a 1.76 GiB con 1 GB de heap (fase F7). El prototipo de la validación midió 1.41 GB en `airflow-scheduler`, cuyo límite era entonces de 2 GB. En la fase F9, con el driver del job real dentro del scheduler, llegó a 1.88 GiB en una corrida completa del DAG, a un 6 % de ese límite. Era el riesgo R12 del plan.
 - Si el host tiene menos de 16 GB, se puede detener el simulador o Superset mientras corre el DAG.
 
 ### Datos de desarrollo
@@ -2653,6 +2658,16 @@ Para dejar el laboratorio como recién clonado, sin perder las imágenes constru
 3. `docker compose up -d`.
 
 Los directorios se vacían todos a la vez. Vaciar solo algunos deja el laboratorio incoherente: un catálogo que apunta a archivos que ya no están en RustFS, o checkpoints de Flink que remiten a un slot de replicación que ya no existe. Se usa antes de la prueba de extremo a extremo (fase F11) y cada vez que haga falta repetir la demostración desde el principio. Comprobado en la fase F11: `docker compose down` tarda 8 s, vaciar los seis directorios 1 s, y el laboratorio vuelve a arrancar desde vacío, con 0 películas, el catálogo sin tablas y Superset sin bases conectadas.
+
+**En Linux el paso 2 no se puede hacer borrando desde el equipo.** Los archivos pertenecen a los usuarios de los contenedores (999, 9999 y 50000), y `rm` falla con «Permission denied» en `postgresql/data`, `metadata-db/data`, `flink/data` y `airflow/logs`. Comprobado en Ubuntu 24.04. El mismo borrado se hace dentro de un contenedor, que corre como `root`, sin `sudo`:
+
+```bash
+docker run --rm -v "$PWD":/lab -w /lab postgres:19.0 bash -c 'for d in postgresql/data metadata-db/data flink/data iceberg/data superset/data airflow/logs; do find "$d" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +; done'
+```
+
+Tarda menos de un segundo, conserva los `.gitkeep` y deja el clon sin cambios para Git.
+
+**Volúmenes anónimos.** `volumes-init`, `rustfs-init` e `iceberg-init` reutilizan la imagen de RustFS, que declara `/data` como volumen. Hasta la versión `v1.0.1`, cada arranque dejaba tres volúmenes anónimos vacíos que `docker compose down` no borra. Desde entonces los tres jobs montan `/data` en memoria (`tmpfs`) y no dejan ninguno; comprobado en Linux con dos ciclos completos de arranque y parada. Los que ya existan de arranques anteriores no estorban; se pueden retirar con `docker volume prune`, que borra todos los volúmenes sin uso del equipo, no solo los del laboratorio.
 
 ## 40. Orden de dependencias esperado
 
@@ -2828,7 +2843,25 @@ El laboratorio se considerará exitoso cuando un revisor externo pueda clonar/co
 
 > Versión interactiva: [`diagrams/end-to-end-change-path.html`](diagrams/end-to-end-change-path.html) · Fuente editable: [`diagrams/end-to-end-change-path.json`](diagrams/end-to-end-change-path.json).
 
-Comprobado dos veces. En la fase F11, sobre un laboratorio vuelto a cero en el equipo de desarrollo (sección 42). Y en la actividad F12-06 del plan, desde un clon limpio del repositorio en otra carpeta y otra unidad, siguiendo solo el README: copiar `.env.example`, construir las cinco imágenes sin caché (2 min 37 s) y `docker compose up -d --build` (102 s, código 0). La primera corrida del DAG terminó bien a los 6 minutos, y un INSERT, un UPDATE y un DELETE del simulador llegaron a Superset tras la segunda. El clon se extrajo con finales de línea LF aunque el equipo tiene `core.autocrlf=true`, y el laboratorio no dejó en él ningún archivo sin ignorar. Límites de esa prueba: se hizo en el mismo equipo, con las imágenes base ya descargadas, y la base y el dataset de Superset se registraron por su API, no por la interfaz.
+Comprobado tres veces. En la fase F11, sobre un laboratorio vuelto a cero en el equipo de desarrollo (sección 42). Y en la actividad F12-06 del plan, desde un clon limpio del repositorio en otra carpeta y otra unidad, siguiendo solo el README: copiar `.env.example`, construir las cinco imágenes sin caché (2 min 37 s) y `docker compose up -d --build` (102 s, código 0). La primera corrida del DAG terminó bien a los 6 minutos, y un INSERT, un UPDATE y un DELETE del simulador llegaron a Superset tras la segunda. El clon se extrajo con finales de línea LF aunque el equipo tiene `core.autocrlf=true`, y el laboratorio no dejó en él ningún archivo sin ignorar. Límites de esa prueba: se hizo en el mismo equipo, con las imágenes base ya descargadas, y la base y el dataset de Superset se registraron por su API, no por la interfaz.
+
+**En un segundo equipo, con Linux.** Después de la versión `v1.0.1`, el repositorio se clonó desde GitHub en un equipo con Ubuntu 24.04, Docker Engine 29.10 y Compose v5.8, sin ninguna imagen del laboratorio, y se siguió el README:
+
+| Qué se probó | Resultado |
+|---|---|
+| Clon y finales de línea | 5 s; los 236 archivos en LF |
+| Primer arranque, con todas las descargas | 3 min 54 s para descargar y construir. Falló solo al publicar el puerto 8080, que ese equipo ya usaba |
+| Puerto ocupado | Cambiar `AIRFLOW_HOST_PORT` en `.env` y repetir el comando: 21 s, código 0, 13 servicios en marcha |
+| Permisos | `volumes-init` dejó `airflow/logs` en 50000:0 y `flink/data` en 9999:9999; nada falló al escribir. Los scripts `.sh` llegan sin permiso de ejecución y no hace falta: se lanzan con `bash` |
+| Primera corrida del DAG | 2 min 27 s, frente a los 4 min 37 s del equipo con Windows |
+| Un alta, un cambio y una baja | Seguidos hasta Superset, igual que en la fase F11 |
+| Repetir el comando | 19 s, ningún contenedor recreado |
+| Detener y levantar | `down` 10 s y `up` 29 s; el pipeline retomó desde su checkpoint, y PostgreSQL y Bronze coincidieron en las 20 tablas |
+| Vuelta a cero | El bloque de Bash falla por permisos; la variante en contenedor funciona (sección 39) |
+| Carga de desarrollo, de principio a fin | 438,925 filas en 2 s; Bronze igual que PostgreSQL en un minuto; el simulador entra en modo continuo; la primera corrida deja 6,899 películas en Gold en 2 min 38 s |
+| Directorios de datos sobre disco local | Ningún error 503 del almacén, ningún fallo del TaskManager y ningún checkpoint fallido: lo que describe el riesgo R10 no apareció |
+
+Lo que esa prueba no cubre: la arquitectura `arm64`, macOS, y la guía de Superset en el navegador, que allí se sustituyó por su API.
 
 ### Qué se puede volver a comprobar
 
@@ -2875,7 +2908,7 @@ Ningún servicio de larga duración corre como `root`. Comprobado sobre las imá
 | `duckdb` (perfil `tools`) | `duckdb` | 10003:10003 | Ninguno; lee `duckdb/init/` en solo lectura |
 
 - La imagen de PostgreSQL arranca como `root`, ajusta ella misma la propiedad de su directorio de datos y baja a `postgres`. No necesita preparación.
-- El resto no puede cambiar la propiedad de su directorio. En Linux, un directorio recién clonado pertenece al usuario del host y el servicio falla al escribir. En Docker Desktop sobre Windows los directorios montados aparecen escribibles para todos y el problema no se manifiesta.
+- El resto no puede cambiar la propiedad de su directorio. En Linux, un directorio recién clonado pertenece al usuario del host y el servicio fallaría al escribir; comprobado en Ubuntu 24.04 que `volumes-init` lo resuelve. En Docker Desktop sobre Windows los directorios montados aparecen escribibles para todos y el problema no se manifiesta.
 - **Job `volumes-init`.** Un job one-shot que corre como `root`, antes que los servicios con estado, y asigna a cada directorio de la tabla el UID:GID de su servicio. Reutiliza la imagen de RustFS, ya presente en el laboratorio, que trae `sh` y `chown`. Cambia el dueño del directorio, no el de su contenido, y tiene un límite de 64 MB. `iceberg-rest` no depende directamente de él, pero arranca después a través de `rustfs` y `rustfs-init` (sección 40), así que `iceberg/data` ya está preparado.
 - `java-simulator` y `duckdb` son las dos imágenes propias sin usuario heredado: sus Dockerfile crean los usuarios `simulator` y `duckdb`.
 

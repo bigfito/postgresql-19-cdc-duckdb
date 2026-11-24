@@ -118,7 +118,7 @@ Lo que el laboratorio genera al funcionar va en los subdirectorios `data/` y `lo
 ## 7. ✅ Requisitos
 
 - 🐳 Docker Engine con Docker Compose v2 o posterior. En Windows, Docker Desktop con el backend WSL 2.
-- CPU x86_64/amd64. El laboratorio se construye y se valida en un solo equipo con Windows 11.
+- CPU x86_64/amd64. El laboratorio se construyó en un equipo con Windows 11 y Docker Desktop, y se comprobó completo en otro con Ubuntu 24.04 y Docker Engine.
 - En un Mac con Apple Silicon no está probado: las imágenes base existen para `arm64`, pero ninguna validación se ha ejecutado ahí. Los puntos a revisar están en la sección 2.2 del [diseño](lab-design/LAB-DESIGN.md).
 - Recomendado: **8 CPU, 16 GB RAM y al menos 30 GB libres**.
 - Acceso a Internet durante el primer build. El runtime no depende de servicios cloud externos.
@@ -147,7 +147,7 @@ Qué esperar después de lanzarlo:
 
 | Cuándo | Qué ocurre |
 |---|---|
-| La primera vez | Se descargan las imágenes base y se construyen las cinco propias. Construirlas sin caché tardó 2 min 37 s, con las imágenes base ya descargadas; descargarlas depende de la conexión. Las siguientes veces ya están construidas |
+| La primera vez | Se descargan las imágenes base y se construyen las cinco propias. En un equipo sin ninguna imagen, descargar y construir todo tardó 3 min 54 s con una conexión rápida; depende sobre todo de la conexión. Las siguientes veces ya están construidas |
 | Al terminar el comando, 1 o 2 minutos con las imágenes construidas | Los 13 servicios están en marcha y el pipeline de Flink CDC, corriendo |
 | Un minuto después de lanzarlo | El simulador empieza a insertar películas en PostgreSQL, y Flink las lleva a Bronze en segundos |
 | Unos 6 minutos después | Termina la primera corrida del DAG, que arranca sola: Silver y Gold ya tienen datos |
@@ -281,7 +281,13 @@ docker volume rm elastiflix-cdc-lakehouse_rustfs-data
 docker compose up -d
 ```
 
-Los seis directorios y el volumen se vacían siempre juntos: vaciar solo algunos deja el catálogo apuntando a archivos que ya no existen. Con ello se pierde también lo creado en Superset y el historial de Airflow. El bucle es de Bash; en Windows se ejecuta desde Git Bash o WSL. En Linux esos archivos pertenecen a los usuarios de los contenedores y borrarlos puede pedir `sudo`; no está probado.
+Los seis directorios y el volumen se vacían siempre juntos: vaciar solo algunos deja el catálogo apuntando a archivos que ya no existen. Con ello se pierde también lo creado en Superset y el historial de Airflow.
+
+El bucle es de Bash; en Windows se ejecuta desde Git Bash o WSL. **En Linux ese bucle falla** con «Permission denied», porque los archivos pertenecen a los usuarios de los contenedores. Allí el mismo borrado se hace dentro de un contenedor, sin `sudo`. Sustituye las tres líneas del bucle por esta:
+
+```bash
+docker run --rm -v "$PWD":/lab -w /lab postgres:19.0 bash -c 'for d in postgresql/data metadata-db/data flink/data iceberg/data superset/data airflow/logs; do find "$d" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +; done'
+```
 
 ### Si algo no arranca
 
