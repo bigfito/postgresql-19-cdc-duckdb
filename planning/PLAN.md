@@ -9,7 +9,7 @@ El plan no lleva fechas ni estimaciones de duración: no hay una fecha compromet
 
 ## 1. Tablero de avance
 
-**Estado global: ✅ Terminado.** Las 222 actividades están hechas. La etiqueta `v1.0.0` cerró el plan y la `v1.0.1`, la vigente, añade la licencia. No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
+**Estado global: ✅ Terminado.** Las 222 actividades están hechas. La etiqueta `v1.0.0` cerró el plan, la `v1.0.1` añade la licencia y la `v1.0.2`, la vigente, recoge las pruebas en Linux y lo que corrigieron. No hay bloqueos, defectos ni dudas abiertas: la sección 6 está vacía.
 
 <!-- tablero:inicio -->
 | Fase | Nombre | Actividades | Hechas | Avance | Estado |
@@ -446,6 +446,7 @@ Una línea por cada actividad o grupo de actividades terminado. La más reciente
 
 | Fecha | Actividades | Quién | Avance | Nota |
 |---|---|---|---|---|
+| 2026-11-23 | Publicación | Responsable y agente | — | Etiqueta `v1.0.2`, pedida por la persona responsable: es la `v1.0.1` más las pruebas en Linux. Cambia el Compose (`airflow-scheduler` a 3 GiB y tres jobs sin volúmenes anónimos) y la documentación; no cambia el código de los servicios. Las etiquetas anteriores no se mueven |
 | 2026-11-23 | Pruebas en Linux | Responsable y agente | — | Después de la `v1.0.1`, el laboratorio se probó en un segundo equipo, con Ubuntu 24.04 y 30 GB de memoria, clonando desde GitHub y siguiendo el README. La persona responsable abrió la sesión SSH y el agente trabajó dentro de ella, sin tocar credenciales. Funciona: primer arranque con todas las descargas en 3 min 54 s, primera corrida del DAG en 2 min 27 s, y un alta, un cambio y una baja seguidos hasta Superset. Además se probó lo que quedaba sin probar: la memoria con el dataset completo, parar en mitad de una corrida (dos veces, sin daño) y el riesgo R8, provocado a propósito, con su reparación. Dos defectos corregidos: la vuelta a cero del README fallaba en Linux por permisos, y tres jobs dejaban un volumen anónimo cada uno en cada arranque. Un cambio decidido por la persona responsable: `airflow-scheduler` necesitaba más de sus 2 GiB con el dataset completo, así que su límite sube a 3 GiB (decisión 74), y con eso se cierra el riesgo R12; comprobado después con el límite nuevo y sin memoria de intercambio. El equipo de pruebas quedó como estaba; sigue sin probarse `arm64` y macOS |
 | 2026-11-23 | Publicación | Responsable y agente | — | Etiqueta `v1.0.1`, pedida por la persona responsable: es la `v1.0.0` más la licencia Apache 2.0 y las notas de publicación. No cambia el código ni cómo se ejecuta el laboratorio. La `v1.0.0` no se mueve |
 | 2026-11-23 | Publicación | Responsable y agente | — | El repositorio y su wiki pasan a ser públicos, por decisión de la persona responsable, después de la etiqueta `v1.0.0`. Antes del cambio se revisó el historial: ningún correo personal, ningún `.env` versionado, ninguna clave escrita en el código y ninguna ruta personal. Se añade la licencia Apache 2.0, elegida por la persona responsable; su texto coincide con el oficial. La etiqueta `v1.0.0` es anterior y no incluye el archivo `LICENSE` |
