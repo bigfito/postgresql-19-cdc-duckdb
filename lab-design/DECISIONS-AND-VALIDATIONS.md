@@ -94,6 +94,7 @@ Cada fila es una decisión que el diseño ya refleja. «Origen» indica la revis
 | 72 | La regla de reanudación del simulador (RF-13) queda como está diseñada | Da por borradas las películas anteriores a la última presente. Solo se nota si alguien inserta a mano la última película del CSV, y está documentado | 9.5 | Responsable; F12-05 |
 | 73 | Los jobs de `pyspark/` no llevan una suite de pruebas versionada | Sus comprobaciones son las tareas `validate_*` de cada corrida del DAG; las pruebas de cada fase se hicieron con scripts que no forman parte del repositorio. Lo mismo vale para las mediciones de tiempo y de memoria y para el seguimiento de cambios de las fases F5 a F12; la sección 44 del diseño separa lo que se puede repetir con el repositorio de lo que no | 7, 18, 44 | Responsable; F12-05 |
 | 74 | El límite de `airflow-scheduler` sube de 2 a 3 GB. Airflow pasa a 4 GB (0.5, 3 y 0.5) y los límites de todos los servicios suman 16 GB | Con el dataset completo el contenedor pide 2.06 GiB de memoria propia y un pico de 2.47. Con 2 GB solo aguantó porque el equipo de pruebas tenía memoria de intercambio. Con 3 GB y sin intercambio, dos corridas completas terminaron bien | 18, 39 | Responsable; pruebas en Linux |
+| 75 | Todo el laboratorio trabaja en UTC. Ningún servicio declara otra zona horaria y las pantallas muestran la hora en UTC | Una sola zona en todas las piezas. Los datos guardan instantes, así que la zona solo afecta a cómo se muestran. Se valoró mostrar la hora de Ciudad de México en las pantallas y se descartó | 5, 39 | Responsable; después de la `v1.0.2` |
 
 ### 1.2 Decisiones de versiones
 
@@ -688,10 +689,11 @@ Los dos funcionan. Se elige el de Flask AppBuilder (decisión 30) porque no deja
 
 ### Revisión 7, 2026-11-23: implementación
 
-Recoge lo que concretó o corrigió la implementación, de la fase F5 a la F12, y las decisiones 66 a 74.
+Recoge lo que concretó o corrigió la implementación, de la fase F5 a la F12, y las decisiones 66 a 75.
 
 | Tema | Antes | Ahora | Sección del diseño |
 |---|---|---|---|
+| Zona horaria | El diseño no decía en qué zona trabaja el laboratorio. Flink y Spark fijaban UTC y el resto lo tomaba por omisión | Queda escrito que todo trabaja en UTC y qué ve quien lo usa (decisión 75). No cambia el Compose ni el código | 5, 39 |
 | Pruebas en un segundo equipo, con Linux | Solo probado en Windows; sin medir la memoria con el dataset completo, sin detener en mitad de una corrida y sin provocar el riesgo R8 | Todo comprobado en Ubuntu 24.04. Funciona siguiendo el README, con dos correcciones: la vuelta a cero necesita en Linux una variante en contenedor, y tres jobs dejaban volúmenes anónimos, lo que se evita con `tmpfs`. Tres datos nuevos: `airflow-scheduler` pedía más de sus 2 GiB con el dataset completo, y su límite sube a 3 (decisión 74); reconstruir Bronze con el DAG activo vacía Silver y Gold, y se repara con `rollback_to_timestamp`; y parar en mitad de una corrida no deja nada a medias | 2.2, 18, 38, 39, 44, 45.2 |
 | Revisión de coherencia tras la implementación | Sin revisar el conjunto desde la segunda revisión | Un revisor independiente contrastó toda la documentación y los diez diagramas con el código: 35 hallazgos, uno grave, todos corregidos. El grave: si falla `validate_gold`, Superset no muestra la carga anterior, sino la nueva, que no es fiable. Además se documentan las 71 pruebas unitarias del simulador, se corrige una flecha del diagrama de linaje y se separa lo que se puede repetir con el repositorio de lo que no | 7, 9.8, 15, 18, 19, 32, 34, 35, 39, 42, 44 |
 | Prueba desde un clon limpio, fase F12 | El criterio de éxito solo se había comprobado sobre el directorio de desarrollo | Comprobado desde un clon en otra carpeta, siguiendo solo el README: construcción sin caché en 2 min 37 s, arranque en 102 s y tres cambios seguidos hasta Superset. Una corrección: `docker compose up -d --build` construye cinco imágenes, no seis; la de la línea de comandos de DuckDB se construye al usarla | 39, 44 |

@@ -180,6 +180,8 @@ Todo se publica solo en `127.0.0.1`. Los usuarios y las contraseñas están en `
 | PostgreSQL operacional | `127.0.0.1:5432`, base `elastiflix` | `postgres` con `POSTGRES_PASSWORD`, o `elastiflix_app` con `ELASTIFLIX_APP_PASSWORD` |
 | Event Simulator | `docker compose attach java-simulator` | No pide cuenta |
 
+**Las horas van en UTC.** Las que muestran estas pantallas, la consola del simulador y su bitácora están en UTC: en Ciudad de México, seis horas más que el reloj local. Es deliberado: todo el laboratorio trabaja en una sola zona (diseño, sección 39).
+
 ### El simulador
 
 El simulador arranca solo y escribe una línea por transacción. Para verlo y manejarlo:

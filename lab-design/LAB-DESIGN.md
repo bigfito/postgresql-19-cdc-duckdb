@@ -171,6 +171,7 @@ El recorrido de un cambio, paso a paso, del CSV hasta Superset, está en el diag
 20. Cada volumen persistente de Docker deberá vivir dentro del directorio del servicio al que pertenece, para facilitar la revisión externa. La única excepción son los datos de RustFS, que van en el volumen con nombre `rustfs-data` (decisión 67).
 21. Todo paso de preparación (bucket, namespaces, envío del pipeline CDC, migraciones de metadatos) será un job one-shot del mismo Docker Compose. No habrá pasos manuales entre `docker compose up` y el primer dato en Bronze.
 22. Los metadatos de Airflow y Superset vivirán en una base PostgreSQL separada (`metadata-db`), no en la base operacional que se captura por CDC.
+23. Todo el laboratorio trabajará en UTC. Ningún servicio declara otra zona horaria: las marcas de tiempo se guardan como instantes y se muestran en UTC (decisión 75; sección 39).
 
 ## 6. 🏗️ Arquitectura end-to-end
 
@@ -2592,6 +2593,16 @@ Quien revise el laboratorio puede tener otros entornos Docker en la misma máqui
 | `ICEBERG_REST_HOST_PORT` | 8181 | Iceberg REST Catalog |
 
 `metadata-db` no publica puerto: solo lo usan Airflow y Superset dentro de la red del proyecto. La UI del master de Spark escucha en el 8080 dentro de su contenedor, igual que Airflow; por eso se publica en el 8082 del host.
+
+### Zona horaria
+
+Todo el laboratorio trabaja en UTC (decisión 75). El Compose no define `TZ` en ningún servicio y las imágenes traen UTC como zona.
+
+- **Fijado de forma explícita.** El pipeline de Flink (`local-time-zone: UTC`), la sesión de Spark (`spark.sql.session.timeZone`), la fecha de inicio del DAG y la bitácora del simulador, que escribe cada marca con la `Z` al final.
+- **Por omisión.** PostgreSQL, `metadata-db`, Airflow, Superset, DuckDB y el reloj de la consola del simulador toman la zona de su contenedor. Comprobado en las siete imágenes del laboratorio: todas responden UTC.
+- **Los datos no dependen de la zona.** Las columnas `created_at` y `updated_at` son `timestamp with time zone` y las asigna PostgreSQL con `now()`: guardan el instante. La zona solo decide cómo se muestra.
+- **Qué ve quien lo usa.** Las horas de la consola del simulador, de su bitácora, de Airflow, de Superset y de DuckDB van en UTC. En Ciudad de México son seis horas más que el reloj local, todo el año.
+- **Por qué no se cambia.** Una sola zona en todas las piezas permite comparar las marcas de tiempo de una capa con las de otra sin convertir nada. Se valoró mostrar la hora de Ciudad de México solo en las pantallas, sin tocar Flink ni Spark, y la persona responsable prefirió dejar todo en UTC.
 
 ### Presupuesto de memoria
 
